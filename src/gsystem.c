@@ -349,7 +349,7 @@ void system_error_handler(SOUL_STATUS error)
 	}
 #endif
 
-#ifndef GSYSTEM_NO_RTC_W
+#if !defined(GSYSTEM_NO_RTC_W) && defined(GSYSTEM_DS1307_CLOCK)
 	if (!is_clock_started()) {
 		SYSTEM_CLOCK_I2C.Instance = I2C1;
 		SYSTEM_CLOCK_I2C.Init.ClockSpeed = 100000;
@@ -550,9 +550,9 @@ __attribute__((weak)) void system_ready_check(void) {}
 
 __attribute__((weak)) void system_error_loop(void) {}
 
-#if defined(GSYSTEM_EEPROM_MODE) || defined(SYSTEM_I2C) || (defined(GSYSTEM_DS1307_CLOCK) && defined(GSYSTEM_NO_RTC_W))
 void system_reset_i2c_errata(void)
 {
+#if defined(GSYSTEM_EEPROM_MODE) || defined(SYSTEM_I2C) || (defined(GSYSTEM_DS1307_CLOCK) && defined(GSYSTEM_NO_RTC_W))
 #if SYSTEM_BEDUG
 	printTagLog(SYSTEM_TAG, "RESET I2C (ERRATA)");
 #endif
@@ -651,10 +651,10 @@ void system_reset_i2c_errata(void)
 	SYSTEM_I2C.Instance->CR1 |= 0x0001;
 
 	HAL_I2C_Init(&SYSTEM_I2C);
-}
-#else
+#elif !defined(GSYSTEM_NO_I2C)
 #   warning "GSystem i2c has not selected"
 #endif
+}
 
 char* get_system_serial_str(void)
 {

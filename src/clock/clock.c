@@ -248,7 +248,7 @@ bool save_clock_date(const clock_date_t* save_date)
 	RTC_DateTypeDef saveDate = {0};
 	clock_time_t tmpTime = {0};
 	clock_date_t tmpDate = {0};
-    uint32_t seconds = 0;
+    uint64_t seconds = 0;
     HAL_StatusTypeDef status = HAL_ERROR;
 
 	/* calculating weekday begin */

@@ -9,8 +9,10 @@
 #include "gsystem.h"
 #include "hal_defs.h"
 
-#include "StorageAT.h"
-#include "StorageDriver.h"
+#ifndef GSYSTEM_NO_MEMORY_W
+#   include "StorageAT.h"
+#   include "StorageDriver.h"
+#endif
 
 
 #ifndef GSYSTEM_ADC_W
