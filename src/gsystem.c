@@ -891,7 +891,7 @@ int _write(int line, uint8_t *ptr, int len) {
 #   if defined(DEBUG) || defined(GBEDUG_FORCE)
 #       ifdef GSYSTEM_BEDUG_UART
 
-    HAL_UART_Transmit(&GSYSTEM_BEDUG_UART, (uint8_t*)ptr, static_cast<uint16_t>(len), GENERAL_TIMEOUT_MS);
+    HAL_UART_Transmit(&GSYSTEM_BEDUG_UART, (uint8_t*)ptr, (uint16_t)(len), 100);
 #       endif 
 
     for (int DataIdx = 0; DataIdx < len; DataIdx++) {
