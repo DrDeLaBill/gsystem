@@ -26,16 +26,12 @@
 #   define GSYSTEM_POCESSES_COUNT (32)
 #endif
 
-#ifndef GSYSTEM_NO_RAM_W
-static void _system_start_ram_fill(void);
-#endif
-static void _system_error_timer_start(uint32_t delay_ms);
-static bool _system_error_timer_wait(void);
-static void _system_error_timer_disable(void);
 static void _system_watchdog_check(void);
 
 
-static const char SYSTEM_TAG[] = "GSys";
+#if GSYSTEM_BEDUG || defined(DEBUG) || defined(GBEDUG_FORCE)
+static const char SYSTEM_TAG[] = "GSYS";
+#endif
 static const uint32_t err_delay_ms = 30 * MINUTE_MS;
 
 static bool sys_timeout_enabled = false;
@@ -52,6 +48,10 @@ static unsigned kCPScounter = 0;
 
 #ifndef GSYSTEM_NO_ADC_W
 uint16_t SYSTEM_ADC_VOLTAGE[GSYSTEM_ADC_VOLTAGE_COUNT] = {0};
+#endif
+
+#ifndef GSYSTEM_TIMER
+#   define GSYSTEM_TIMER (TIM1)
 #endif
 
 
@@ -128,10 +128,6 @@ static process_t processes[GSYSTEM_POCESSES_COUNT] = { 0 };
 
 void system_pre_load(void)
 {
-#ifndef GSYSTEM_NO_RAM_W
-	_system_start_ram_fill();
-#endif
-
 	if (!MCUcheck()) {
 		set_error(MCU_ERROR);
 		system_error_handler(get_first_error());
@@ -141,8 +137,9 @@ void system_pre_load(void)
 #ifndef GSYSTEM_NO_SYS_TICK_W
 	RCC->CR |= RCC_CR_HSEON;
 
-	_system_error_timer_start(SECOND_MS);
-	while (_system_error_timer_wait()) {
+	system_timer_t timer = {0};
+	system_timer_start(&timer, GSYSTEM_TIMER, SECOND_MS);
+	while (system_timer_wait(&timer)) {
 		if (RCC->CR & RCC_CR_HSERDY) {
 			break;
 		}
@@ -151,7 +148,7 @@ void system_pre_load(void)
 		set_status(SYS_TICK_ERROR);
 		set_error(SYS_TICK_FAULT);
 	}
-	_system_error_timer_disable();
+	system_timer_stop(&timer);
 #endif
 
 	memset((uint8_t*)&processes, 0, sizeof(GSYSTEM_POCESSES_COUNT));
@@ -163,7 +160,7 @@ void system_pre_load(void)
 
 void system_post_load(void)
 {
-#if SYSTEM_BEDUG
+#if GSYSTEM_BEDUG
 	printTagLog(SYSTEM_TAG, "System postload");
 #endif
 
@@ -174,9 +171,10 @@ void system_post_load(void)
 #ifndef GSYSTEM_NO_ADC_W
 	const uint32_t delay_ms = 10000;
 	gtimer_t timer = {0};
+	system_timer_t s_timer = {0};
 	bool need_error_timer = is_status(SYS_TICK_FAULT);
 	if (need_error_timer) {
-		_system_error_timer_start(delay_ms);
+		system_timer_start(&s_timer, GSYSTEM_TIMER, delay_ms);
 	} else {
 		gtimer_start(&timer, delay_ms);
 	}
@@ -188,11 +186,13 @@ void system_post_load(void)
 			break;
 		}
 
-		if (is_status(SYS_TICK_FAULT) && !_system_error_timer_wait()) {
+		if (is_status(SYS_TICK_FAULT)) {
+			if (!system_timer_wait(&s_timer)) {
 #ifndef GSYSTEM_NO_SYS_TICK_W
-			set_error(SYS_TICK_ERROR);
+				set_error(SYS_TICK_ERROR);
 #endif
-			break;
+				break;
+			}
 		} else if (!gtimer_wait(&timer)) {
 #ifndef GSYSTEM_NO_SYS_TICK_W
 			set_error(SYS_TICK_ERROR);
@@ -201,7 +201,7 @@ void system_post_load(void)
 		}
 	}
 	if (need_error_timer) {
-		_system_error_timer_disable();
+		system_timer_stop(&s_timer);
 	}
 #endif
 
@@ -213,7 +213,7 @@ void system_post_load(void)
 		);
 	}
 
-#if SYSTEM_BEDUG
+#if GSYSTEM_BEDUG
 	printTagLog(SYSTEM_TAG, "System loaded");
 #endif
 }
@@ -252,7 +252,7 @@ void system_start()
 	while (1) {
 		system_tick();
 
-		if (!gtimer_wait(&err_timer)) {
+		if (!gtimer_wait(&err_timer) && sys_timeout_enabled) {
 			system_error_handler(get_first_error());
 		}
 
@@ -307,7 +307,13 @@ void system_tick()
 		}
 
 		if (!gtimer_wait(&processes[index_p].timer) &&
-			(!has_errors() || (has_errors() && processes[index_p].work_with_error)) &&
+			(
+				!is_status(SYSTEM_ERROR_HANDLER_CALLED) ||
+				(
+					is_status(SYSTEM_ERROR_HANDLER_CALLED) &&
+					processes[index_p].work_with_error
+				)
+			) &&
 			processes[index_p].action
 		) {
 			gtimer_start(&processes[index_p].timer, processes[index_p].delay_ms);
@@ -327,11 +333,10 @@ bool is_system_ready()
 
 void system_error_handler(SOUL_STATUS error)
 {
-	static bool called = false;
-	if (called) {
+	if (is_status(SYSTEM_ERROR_HANDLER_CALLED)) {
 		return;
 	}
-	called = true;
+	set_status(SYSTEM_ERROR_HANDLER_CALLED);
 
 	set_error(error);
 
@@ -339,7 +344,7 @@ void system_error_handler(SOUL_STATUS error)
 		error = INTERNAL_ERROR;
 	}
 
-#if SYSTEM_BEDUG
+#if GSYSTEM_BEDUG
 	printTagLog(SYSTEM_TAG, "GSystem_error_handler called error=%s", get_status_name(error));
 #endif
 
@@ -376,9 +381,10 @@ void system_error_handler(SOUL_STATUS error)
 
 	const uint32_t delay_ms = 30 * SECOND_MS;
 	gtimer_t timer = {0};
-	bool need_error_timer = is_status(SYS_TICK_FAULT);
+	system_timer_t s_timer = {0};
+	bool need_error_timer = is_status(SYS_TICK_FAULT) || is_error(HARD_FAULT);
 	if (need_error_timer) {
-		_system_error_timer_start(delay_ms);
+		system_timer_start(&s_timer, GSYSTEM_TIMER, delay_ms);
 	} else {
 		gtimer_start(&timer, delay_ms);
 	}
@@ -387,24 +393,126 @@ void system_error_handler(SOUL_STATUS error)
 
 		system_tick();
 
-		if (is_status(SYS_TICK_FAULT) && !_system_error_timer_wait()) {
-			break;
+		if (need_error_timer) {
+			if (!system_timer_wait(&s_timer)) break;
 		} else if (!gtimer_wait(&timer)) {
 			break;
 		}
 	}
 	if (need_error_timer) {
-		_system_error_timer_disable();
+		system_timer_stop(&s_timer);
 	}
 
-#if SYSTEM_BEDUG
-	_system_error_timer_start(100);
+#if GSYSTEM_BEDUG
+	system_timer_start(&s_timer, GSYSTEM_TIMER, 100);
 	printTagLog(SYSTEM_TAG, "GSystem reset");
-	while(_system_error_timer_wait());
-	_system_error_timer_disable();
+	while(system_timer_wait(&s_timer));
+	system_timer_stop(&s_timer);
 #endif
 
 	NVIC_SystemReset();
+}
+
+void system_timer_start(system_timer_t* timer, TIM_TypeDef* fw_tim, uint32_t delay_ms)
+{
+	memset(timer, 0, sizeof(system_timer_t));
+	switch ((uint32_t)fw_tim) {
+	case TIM1_BASE:
+		timer->enabled = READ_BIT(RCC->APB2ENR, RCC_APB2ENR_TIM1EN);
+		break;
+	case TIM2_BASE:
+		timer->enabled = READ_BIT(RCC->APB1ENR, RCC_APB1ENR_TIM2EN);
+		break;
+	case TIM3_BASE:
+		timer->enabled = READ_BIT(RCC->APB1ENR, RCC_APB1ENR_TIM3EN);
+		break;
+	case TIM4_BASE:
+		timer->enabled = READ_BIT(RCC->APB1ENR, RCC_APB1ENR_TIM4EN);
+		break;
+	default:
+		return;
+	}
+	if (timer->enabled) {
+		memcpy((void*)&timer->bkup_tim, (void*)fw_tim, sizeof(TIM_TypeDef));
+	}
+	timer->tim = fw_tim;
+	timer->end = delay_ms / SECOND_MS;
+	memset((void*)fw_tim, 0, sizeof(TIM_TypeDef));
+
+	switch ((uint32_t)fw_tim) {
+	case TIM1_BASE:
+		__TIM1_CLK_ENABLE();
+		break;
+	case TIM2_BASE:
+		__TIM2_CLK_ENABLE();
+		break;
+	case TIM3_BASE:
+		__TIM3_CLK_ENABLE();
+		break;
+	case TIM4_BASE:
+		__TIM4_CLK_ENABLE();
+		break;
+	default:
+		return;
+	}
+	uint32_t count_cnt = SECOND_MS;
+	if (delay_ms < SECOND_MS) {
+		timer->end = 1;
+		count_cnt  = delay_ms;
+	}
+	uint32_t presc = HAL_RCC_GetSysClockFreq() / SECOND_MS;
+	while (presc > 0xFFFF) {
+		count_cnt *= 2;
+		presc     /= 2;
+	}
+	// TODO: add interrupt with new VTOR
+	if (count_cnt > 0xFFFF) {
+		count_cnt = 0xFFFF;
+	}
+	timer->tim->SR   = 0;
+	timer->tim->PSC  = presc - 1;
+	timer->tim->ARR  = count_cnt - 1;
+	timer->tim->CNT  = 0;
+	timer->tim->CR1 &= ~(TIM_CR1_DIR); // count up
+	timer->tim->CR1 |= TIM_CR1_CEN;
+}
+
+bool system_timer_wait(system_timer_t* timer)
+{
+	if (timer->tim->SR & TIM_SR_CC1IF) {
+		timer->count++;
+		timer->tim->SR   = 0;
+		timer->tim->CNT  = 0;
+	}
+	return timer->count < timer->end;
+}
+
+void system_timer_stop(system_timer_t* timer)
+{
+	timer->tim->SR &= ~(TIM_SR_UIF | TIM_SR_CC1IF);
+	timer->tim->CNT = 0;
+
+	if (timer->enabled) {
+		memcpy(timer->tim, &timer->bkup_tim, sizeof(TIM_TypeDef));
+	} else {
+		timer->tim->CR1 &= ~(TIM_CR1_CEN);
+		switch ((uint32_t)timer->tim) {
+		case TIM1_BASE:
+			__TIM1_CLK_DISABLE();
+			break;
+		case TIM2_BASE:
+			__TIM2_CLK_DISABLE();
+			break;
+		case TIM3_BASE:
+			__TIM3_CLK_DISABLE();
+			break;
+		case TIM4_BASE:
+			__TIM4_CLK_DISABLE();
+			break;
+		default:
+			return;
+		}
+	}
 }
 
 #ifndef GSYSTEM_NO_ADC_W
@@ -552,25 +660,25 @@ __attribute__((weak)) void system_error_loop(void) {}
 
 void system_reset_i2c_errata(void)
 {
-#if defined(GSYSTEM_EEPROM_MODE) || defined(SYSTEM_I2C) || (defined(GSYSTEM_DS1307_CLOCK) && defined(GSYSTEM_NO_RTC_W))
-#if SYSTEM_BEDUG
+#if defined(GSYSTEM_EEPROM_MODE) || defined(GSYSTEM_I2C) || (defined(GSYSTEM_DS1307_CLOCK) && defined(GSYSTEM_NO_RTC_W))
+#if GSYSTEM_BEDUG
 	printTagLog(SYSTEM_TAG, "RESET I2C (ERRATA)");
 #endif
 
-	if (!SYSTEM_I2C.Instance) {
+	if (!GSYSTEM_I2C.Instance) {
 		return;
 	}
 
-	HAL_I2C_DeInit(&SYSTEM_I2C);
+	HAL_I2C_DeInit(&GSYSTEM_I2C);
 
 	GPIO_TypeDef* I2C_PORT = NULL;
 	uint16_t I2C_SDA_Pin   = 0;
 	uint16_t I2C_SCL_Pin   = 0;
-    if (SYSTEM_I2C.Instance == I2C1) {
+    if (GSYSTEM_I2C.Instance == I2C1) {
     	I2C_PORT    = GPIOB;
     	I2C_SDA_Pin = GPIO_PIN_7;
     	I2C_SCL_Pin = GPIO_PIN_6;
-    } else if (SYSTEM_I2C.Instance == I2C2) {
+    } else if (GSYSTEM_I2C.Instance == I2C2) {
     	I2C_PORT    = GPIOB;
     	I2C_SDA_Pin = GPIO_PIN_11;
     	I2C_SCL_Pin = GPIO_PIN_10;
@@ -590,7 +698,7 @@ void system_reset_i2c_errata(void)
 	GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
 	HAL_GPIO_Init(I2C_PORT, &GPIO_InitStruct);
 
-	SYSTEM_I2C.Instance->CR1 &= (unsigned)~(0x0001);
+	GSYSTEM_I2C.Instance->CR1 &= (unsigned)~(0x0001);
 
 	GPIO_InitTypeDef GPIO_InitStructure = {0};
 	GPIO_InitStructure.Mode = GPIO_MODE_OUTPUT_OD;
@@ -643,14 +751,14 @@ void system_reset_i2c_errata(void)
 	GPIO_InitStructure.Pin = I2C_SDA_Pin;
 	HAL_GPIO_Init(I2C_PORT, &GPIO_InitStructure);
 
-	SYSTEM_I2C.Instance->CR1 |= 0x8000;
+	GSYSTEM_I2C.Instance->CR1 |= 0x8000;
 	asm("nop");
-	SYSTEM_I2C.Instance->CR1 &= (unsigned)~0x8000;
+	GSYSTEM_I2C.Instance->CR1 &= (unsigned)~0x8000;
 	asm("nop");
 
-	SYSTEM_I2C.Instance->CR1 |= 0x0001;
+	GSYSTEM_I2C.Instance->CR1 |= 0x0001;
 
-	HAL_I2C_Init(&SYSTEM_I2C);
+	HAL_I2C_Init(&GSYSTEM_I2C);
 #elif !defined(GSYSTEM_NO_I2C)
 #   warning "GSystem i2c has not selected"
 #endif
@@ -684,20 +792,21 @@ void system_sys_tick_reanimation(void)
 
 	RCC->CIR |= RCC_CIR_CSSC;
 
-	_system_error_timer_start(SECOND_MS);
-	while (_system_error_timer_wait());
-	_system_error_timer_disable();
+	system_timer_t timer = {0};
+	system_timer_start(&timer, GSYSTEM_TIMER, 5 * SECOND_MS);
+	while (system_timer_wait(&timer));
+	system_timer_stop(&timer);
 
 	RCC->CR |= RCC_CR_HSEON;
-	_system_error_timer_start(SECOND_MS);
-	while (_system_error_timer_wait()) {
+	system_timer_start(&timer, GSYSTEM_TIMER, 5 * SECOND_MS);
+	while (system_timer_wait(&timer)) {
 		if (RCC->CR & RCC_CR_HSERDY) {
 			reset_error(SYS_TICK_FAULT);
 			reset_error(SYS_TICK_ERROR);
 			break;
 		}
 	}
-	_system_error_timer_disable();
+	system_timer_stop(&timer);
 
 
 	if (is_error(SYS_TICK_ERROR)) {
@@ -761,67 +870,6 @@ bool set_system_rtc_ram(const uint8_t idx, const uint8_t data)
 	return set_clock_ram(idx + sizeof(SYSTEM_BKUP_STATUS_TYPE), data);
 }
 #endif
-
-#ifndef GSYSTEM_NO_RAM_W
-void _system_start_ram_fill(void)
-{
-	extern unsigned _ebss;
-	volatile unsigned *top, *start;
-	__asm__ volatile ("mov %[top], sp" : [top] "=r" (top) : : );
-	start = &_ebss;
-	start++;
-	while (start < top) {
-		*(start++) = SYSTEM_CANARY_WORD;
-	}
-}
-#endif
-
-typedef struct _error_timer_t {
-	TIM_TypeDef tim;
-	bool        enabled;
-	uint32_t    delay_ms;
-} error_timer_t;
-
-static error_timer_t error_timer = {0};
-
-void _system_error_timer_start(uint32_t delay_ms)
-{
-	memset(&error_timer, 0, sizeof(error_timer));
-	error_timer.enabled = READ_BIT(RCC->APB1ENR, RCC_APB1ENR_TIM4EN);
-	if (error_timer.enabled) {
-		memcpy(&error_timer.tim, TIM1, sizeof(error_timer.tim));
-	}
-
-	__TIM1_CLK_ENABLE();
-	unsigned count_multiplier = 10;
-	unsigned count_cnt = 1 * count_multiplier * delay_ms;
-	unsigned presc = HAL_RCC_GetSysClockFreq() / (count_multiplier * delay_ms);
-	TIM1->SR = 0;
-	TIM1->PSC = presc - 1;
-	TIM1->ARR = count_cnt - 1;
-	TIM1->CNT = 0;
-	TIM1->CR1 &= ~(TIM_CR1_DIR);
-
-	TIM1->CR1 |= TIM_CR1_CEN;
-}
-
-bool _system_error_timer_wait(void)
-{
-	return !(TIM1->SR & TIM_SR_CC1IF);
-}
-
-void _system_error_timer_disable(void)
-{
-	TIM1->SR &= ~(TIM_SR_UIF | TIM_SR_CC1IF);
-	TIM1->CNT = 0;
-
-	if (error_timer.enabled) {
-		memcpy(TIM1, &error_timer.tim, sizeof(error_timer.tim));
-	} else {
-		TIM1->CR1 &= ~(TIM_CR1_CEN);
-		__TIM1_CLK_DISABLE();
-	}
-}
 
 void _system_watchdog_check(void)
 {

@@ -14,8 +14,10 @@ static const char TAG[] = "SOUL";
 #endif
 
 static soul_t soul = {
+#if defined(DEBUG) || defined(GBEDUG_FORCE)
 	.has_new_error_data  = false,
 	.has_new_status_data = false,
+#endif
 	.last_err            = 0,
 	.statuses            = { 0 }
 };
@@ -168,6 +170,7 @@ char* get_status_name(SOUL_STATUS status)
 	memset(name, 0, sizeof(name));
 
 	switch (status) {
+	CASE_STATUS(SYSTEM_ERROR_HANDLER_CALLED)
 	CASE_STATUS(SYSTEM_HARDWARE_STARTED)
 	CASE_STATUS(SYSTEM_HARDWARE_READY)
 	CASE_STATUS(SYSTEM_SOFTWARE_STARTED)
@@ -186,7 +189,7 @@ char* get_status_name(SOUL_STATUS status)
 	CASE_STATUS(PUMP_FAULT)
 	CASE_STATUS(RTC_FAULT)
 	CASE_STATUS(CAN_FAULT)
-	CASE_STATUS(CLOCK_READY)
+	CASE_STATUS(RTC_READY)
 	CASE_STATUS(MCU_ERROR)
 	CASE_STATUS(SYS_TICK_ERROR)
 	CASE_STATUS(RTC_ERROR)

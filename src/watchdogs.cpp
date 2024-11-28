@@ -30,22 +30,24 @@ static bool adc_started = false;
 #ifndef GSYSTEM_NO_MEMORY_W
 StorageDriver storageDriver;
 StorageAT storage(
-#if defined(GSYSTEM_EEPROM_MDE)
-	EEPROM_PAGES_COUNT
-#elif defined(GSYSTEM_FLASH_MODE)
+#   if defined(GSYSTEM_EEPROM_MODE)
+	EEPROM_PAGES_COUNT,
+#   elif defined(GSYSTEM_FLASH_MODE)
 	0,
-#else
-#   error "Memory mode is not selected"
+#   else
+#       error "Memory mode is not selected"
 	0,
-#endif
+#   endif
+
 	&storageDriver,
-#if defined(GSYSTEM_EEPROM_MDE)
+
+#   if defined(GSYSTEM_EEPROM_MODE)
 	EEPROM_PAGE_SIZE
-#elif defined(GSYSTEM_FLASH_MODE)
+#   elif defined(GSYSTEM_FLASH_MODE)
 	FLASH_W25_SECTOR_SIZE
-#else
+#   else
 	0
-#endif
+#   endif
 );
 #endif
 
@@ -62,10 +64,30 @@ extern "C" void sys_clock_watchdog_check()
 #endif
 
 #ifndef GSYSTEM_NO_RAM_W
+struct RAMFillService {
+	RAMFillService()
+	{
+		volatile unsigned *top, *start;
+		__asm__ volatile ("mov %[top], sp" : [top] "=r" (top) : : );
+		start = (unsigned*)this;
+		start++;
+		while (start < top) {
+			*(start++) = SYSTEM_CANARY_WORD;
+		}
+	}
+};
+static RAMFillService* ramFillService = new RAMFillService();
+
 extern "C" void ram_watchdog_check()
 {
 	static const unsigned STACK_PERCENT_MIN = 5;
 	static unsigned lastFree = 0;
+	static bool initialized = false;
+
+	if (!initialized) {
+		delete ramFillService;
+		initialized = true;
+	}
 
 	extern unsigned _ebss;
 	unsigned *start, *end;
@@ -98,7 +120,7 @@ extern "C" void ram_watchdog_check()
 		(uint32_t)last_counter,
 		(uint32_t)__abs_dif(&_sdata, &_estack)
 	);
-#ifdef SYSTEM_BEDUG
+#ifdef GSYSTEM_BEDUG
 	if (freeRamBytes && __abs_dif(lastFree, freeRamBytes)) {
 		printTagLog(TAG, "-----ATTENTION! INDIRECT DATA BEGIN:-----");
 		printTagLog(TAG, "RAM:              [0x%08X->0x%08X]", (unsigned)&_sdata, (unsigned)&_estack);
@@ -115,7 +137,7 @@ extern "C" void ram_watchdog_check()
 	if (freeRamBytes && lastFree && heap_end < stack_end && freePercent > STACK_PERCENT_MIN) {
 		reset_error(STACK_ERROR);
 	} else {
-#ifdef SYSTEM_BEDUG
+#ifdef GSYSTEM_BEDUG
 		BEDUG_ASSERT(
 			is_error(STACK_ERROR),
 			"STACK OVERFLOW IS POSSIBLE or the function STACK_WATCHDOG_FILL_RAM was not used on startup"
@@ -130,9 +152,11 @@ extern "C" void ram_watchdog_check()
 extern "C" void rtc_watchdog_check()
 {
 	static bool system_error_loaded = false;
-	static bool tested = false;
 	static bool start_timer_flag = false;
 	static gtimer_t timer = {};
+#ifndef GSYSTEM_NO_RTC_CALENDAR_W
+	static bool tested = false;
+#endif
 
 	if (!start_timer_flag) {
 		gtimer_start(&timer, 15 * SECOND_MS);
@@ -156,7 +180,7 @@ extern "C" void rtc_watchdog_check()
 		set_clock_ram(0, 0);
 		system_error_loaded = true;
 
-#if SYSTEM_BEDUG
+#if GSYSTEM_BEDUG
 		if (get_last_error()) {
 			printTagLog(TAG, "Last reload error: %s", get_status_name(get_last_error()));
 		}
@@ -170,15 +194,18 @@ extern "C" void rtc_watchdog_check()
 		return;
 	}
 
-	if (!is_status(CLOCK_READY)) {
+	if (!is_status(RTC_READY)) {
 		if (is_clock_ready()) {
+#ifndef GSYSTEM_NO_RTC_CALENDAR_W
 			tested = false;
-			set_status(CLOCK_READY);
+#endif
+			set_status(RTC_READY);
 		} else {
-			reset_status(CLOCK_READY);
+			reset_status(RTC_READY);
 		}
 	}
 
+#ifndef GSYSTEM_NO_RTC_CALENDAR_W
 	if (is_error(RTC_ERROR)) {
 		tested = false;
 	}
@@ -187,7 +214,7 @@ extern "C" void rtc_watchdog_check()
 		return;
 	}
 
-#if SYSTEM_BEDUG
+#if GSYSTEM_BEDUG
 	printTagLog(TAG, "RTC testing in progress...");
 #endif
 
@@ -195,30 +222,30 @@ extern "C" void rtc_watchdog_check()
 	clock_time_t dumpTime = {0,0,0};
 	uint64_t dumpMs       = getMillis();
 
-#ifdef SYSTEM_BEDUG
+#ifdef GSYSTEM_BEDUG
 	printPretty("Dump date test: ");
 #endif
 	if (!get_clock_rtc_date(&dumpDate)) {
-#ifdef SYSTEM_BEDUG
+#ifdef GSYSTEM_BEDUG
 		gprint("  error\n");
 #endif
 		system_reset_i2c_errata();
 		set_error(RTC_ERROR);
 		return;
 	}
-#ifdef SYSTEM_BEDUG
+#ifdef GSYSTEM_BEDUG
 	gprint("  OK\n");
 	printPretty("Dump time test: ");
 #endif
 	if (!get_clock_rtc_time(&dumpTime)) {
-#ifdef SYSTEM_BEDUG
+#ifdef GSYSTEM_BEDUG
 		gprint("   error\n");
 #endif
 		system_reset_i2c_errata();
 		set_error(RTC_ERROR);
 		return;
 	}
-#ifdef SYSTEM_BEDUG
+#ifdef GSYSTEM_BEDUG
 	gprint("  OK\n");
 #endif
 
@@ -230,41 +257,41 @@ extern "C" void rtc_watchdog_check()
 #endif
 	clock_time_t saveTime = {13,37,00};
 
-#ifdef SYSTEM_BEDUG
+#ifdef GSYSTEM_BEDUG
 	printPretty("Save date test: ");
 #endif
 	if (!save_clock_date(&saveDate)) {
-#ifdef SYSTEM_BEDUG
+#ifdef GSYSTEM_BEDUG
 		gprint("  error\n");
 #endif
 		system_reset_i2c_errata();
 		set_error(RTC_ERROR);
 		return;
 	}
-#ifdef SYSTEM_BEDUG
+#ifdef GSYSTEM_BEDUG
 	gprint("  OK\n");
 	printPretty("Save time test: ");
 #endif
 	if (!save_clock_time(&saveTime)) {
-#ifdef SYSTEM_BEDUG
+#ifdef GSYSTEM_BEDUG
 		gprint("  error\n");
 #endif
 		system_reset_i2c_errata();
 		set_error(RTC_ERROR);
 		return;
 	}
-#ifdef SYSTEM_BEDUG
+#ifdef GSYSTEM_BEDUG
 	gprint("  OK\n");
 #endif
 
 
 	clock_date_t checkDate = {0,0,0,0};
 	clock_time_t checkTime = {0,0,0};
-#ifdef SYSTEM_BEDUG
+#ifdef GSYSTEM_BEDUG
 	printPretty("Check date test: ");
 #endif
 	if (!get_clock_rtc_date(&checkDate)) {
-#ifdef SYSTEM_BEDUG
+#ifdef GSYSTEM_BEDUG
 		gprint(" error\n");
 #endif
 		system_reset_i2c_errata();
@@ -272,19 +299,19 @@ extern "C" void rtc_watchdog_check()
 		return;
 	}
 	if (!is_same_date(&saveDate, &checkDate)) {
-#ifdef SYSTEM_BEDUG
+#ifdef GSYSTEM_BEDUG
 		gprint(" error\n");
 #endif
 		system_reset_i2c_errata();
 		set_error(RTC_ERROR);
 		return;
 	}
-#ifdef SYSTEM_BEDUG
+#ifdef GSYSTEM_BEDUG
 	gprint(" OK\n");
 	printPretty("Check time test: ");
 #endif
 	if (!get_clock_rtc_time(&checkTime)) {
-#ifdef SYSTEM_BEDUG
+#ifdef GSYSTEM_BEDUG
 		gprint(" error\n");
 #endif
 		system_reset_i2c_errata();
@@ -292,52 +319,52 @@ extern "C" void rtc_watchdog_check()
 		return;
 	}
 	if (!is_same_time(&saveTime, &checkTime)) {
-#ifdef SYSTEM_BEDUG
+#ifdef GSYSTEM_BEDUG
 		gprint(" error\n");
 #endif
 		system_reset_i2c_errata();
 		set_error(RTC_ERROR);
 		return;
 	}
-#ifdef SYSTEM_BEDUG
+#ifdef GSYSTEM_BEDUG
 	gprint(" OK\n");
 #endif
 
 	uint64_t res_seconds = get_clock_datetime_to_seconds(&dumpDate, &dumpTime);
 	res_seconds += ((getMillis() - dumpMs) / SECOND_MS);
 	get_clock_seconds_to_datetime(res_seconds, &dumpDate, &dumpTime);
-#ifdef SYSTEM_BEDUG
+#ifdef GSYSTEM_BEDUG
 	printPretty("Dump date save: ");
 #endif
 	if (!save_clock_date(&dumpDate)) {
-#ifdef SYSTEM_BEDUG
+#ifdef GSYSTEM_BEDUG
 		gprint("  error\n");
 #endif
 		system_reset_i2c_errata();
 		set_error(RTC_ERROR);
 		return;
 	}
-#ifdef SYSTEM_BEDUG
+#ifdef GSYSTEM_BEDUG
 	gprint("  OK\n");
 	printPretty("Dump time save: ");
 #endif
 	if (!save_clock_time(&dumpTime)) {
-#ifdef SYSTEM_BEDUG
+#ifdef GSYSTEM_BEDUG
 		gprint("  error\n");
 #endif
 		system_reset_i2c_errata();
 		set_error(RTC_ERROR);
 		return;
 	}
-#ifdef SYSTEM_BEDUG
+#ifdef GSYSTEM_BEDUG
 	gprint("  OK\n");
 #endif
 
-#ifdef SYSTEM_BEDUG
+#ifdef GSYSTEM_BEDUG
 	printPretty("Check dump date: ");
 #endif
 	if (!get_clock_rtc_date(&checkDate)) {
-#ifdef SYSTEM_BEDUG
+#ifdef GSYSTEM_BEDUG
 		gprint(" error\n");
 #endif
 		system_reset_i2c_errata();
@@ -345,19 +372,19 @@ extern "C" void rtc_watchdog_check()
 		return;
 	}
 	if (!is_same_date(&dumpDate, &checkDate)) {
-#ifdef SYSTEM_BEDUG
+#ifdef GSYSTEM_BEDUG
 		gprint(" error\n");
 #endif
 		system_reset_i2c_errata();
 		set_error(RTC_ERROR);
 		return;
 	}
-#ifdef SYSTEM_BEDUG
+#ifdef GSYSTEM_BEDUG
 	gprint(" OK\n");
 	printPretty("Check dump time: ");
 #endif
 	if (!get_clock_rtc_time(&checkTime)) {
-#ifdef SYSTEM_BEDUG
+#ifdef GSYSTEM_BEDUG
 		gprint(" error\n");
 #endif
 		system_reset_i2c_errata();
@@ -365,19 +392,19 @@ extern "C" void rtc_watchdog_check()
 		return;
 	}
 	if (!is_same_time(&dumpTime, &checkTime)) {
-#ifdef SYSTEM_BEDUG
+#ifdef GSYSTEM_BEDUG
 		gprint(" error\n");
 #endif
 		system_reset_i2c_errata();
 		set_error(RTC_ERROR);
 		return;
 	}
-#ifdef SYSTEM_BEDUG
+#ifdef GSYSTEM_BEDUG
 	gprint(" OK\n");
 #endif
 
 
-#ifdef SYSTEM_BEDUG
+#ifdef GSYSTEM_BEDUG
 	printPretty("Weekday test\n");
 #endif
 	const clock_date_t dates[] = {
@@ -441,7 +468,7 @@ extern "C" void rtc_watchdog_check()
 	};
 
 	for (unsigned i = 0; i < __arr_len(seconds); i++) {
-#ifdef SYSTEM_BEDUG
+#ifdef GSYSTEM_BEDUG
 		printPretty("[%02u]: ", i);
 #endif
 
@@ -453,7 +480,7 @@ extern "C" void rtc_watchdog_check()
 			&& tmpDate.WeekDay == dates[i].WeekDay
 #endif
 		) {
-#ifdef SYSTEM_BEDUG
+#ifdef GSYSTEM_BEDUG
 			gprint("            error\n");
 #endif
 			system_reset_i2c_errata();
@@ -461,7 +488,7 @@ extern "C" void rtc_watchdog_check()
 			return;
 		}
 		if (!is_same_time(&tmpTime, &times[i])) {
-#ifdef SYSTEM_BEDUG
+#ifdef GSYSTEM_BEDUG
 			gprint("            error\n");
 #endif
 			system_reset_i2c_errata();
@@ -471,7 +498,7 @@ extern "C" void rtc_watchdog_check()
 
 		uint64_t tmpSeconds = get_clock_datetime_to_seconds(&dates[i], &times[i]);
 		if (tmpSeconds != seconds[i]) {
-#ifdef SYSTEM_BEDUG
+#ifdef GSYSTEM_BEDUG
 			gprint("            error\n");
 #endif
 			system_reset_i2c_errata();
@@ -479,7 +506,7 @@ extern "C" void rtc_watchdog_check()
 			return;
 		}
 
-#ifdef SYSTEM_BEDUG
+#ifdef GSYSTEM_BEDUG
 		gprint("            OK\n");
 #endif
 	}
@@ -488,8 +515,10 @@ extern "C" void rtc_watchdog_check()
 	tested = true;
 
 
-#ifdef SYSTEM_BEDUG
+#ifdef GSYSTEM_BEDUG
 	printTagLog(TAG, "RTC testing done");
+#endif
+
 #endif
 }
 #endif
@@ -550,16 +579,18 @@ extern "C" void memory_watchdog_check()
 		if (flash_w25qxx_init() == FLASH_OK) {
 			set_status(MEMORY_INITIALIZED);
 			storage.setPagesCount(flash_w25qxx_get_pages_count());
-#ifdef SYSTEM_BEDUG
+#   ifdef GSYSTEM_BEDUG
 			printTagLog(TAG, "flash init success (%lu pages)", flash_w25qxx_get_pages_count());
-#endif
+#   endif
 		} else {
-#ifdef SYSTEM_BEDUG
+#   ifdef GSYSTEM_BEDUG
 			printTagLog(TAG, "flash init error");
-#endif
+#   endif
 		}
 		return;
 	}
+#else
+	set_status(MEMORY_INITIALIZED);
 #endif
 
 	if (is_status(MEMORY_READ_FAULT) ||
@@ -649,7 +680,7 @@ extern "C" void restart_watchdog_check()
 	bool flag = false;
 	// IWDG check reboot
 	if (__HAL_RCC_GET_FLAG(RCC_FLAG_IWDGRST)) {
-#ifdef SYSTEM_BEDUG
+#ifdef GSYSTEM_BEDUG
 		printTagLog(TAG, "IWDG just went off");
 #endif
 		flag = true;
@@ -657,14 +688,14 @@ extern "C" void restart_watchdog_check()
 
 	// WWDG check reboot
 	if (__HAL_RCC_GET_FLAG(RCC_FLAG_WWDGRST)) {
-#ifdef SYSTEM_BEDUG
+#ifdef GSYSTEM_BEDUG
 		printTagLog(TAG, "WWDG just went off");
 #endif
 		flag = true;
 	}
 
 	if (__HAL_RCC_GET_FLAG(RCC_FLAG_SFTRST)) {
-#ifdef SYSTEM_BEDUG
+#ifdef GSYSTEM_BEDUG
 		printTagLog(TAG, "SOFT RESET");
 #endif
 		flag = true;
@@ -672,7 +703,7 @@ extern "C" void restart_watchdog_check()
 
 	if (flag) {
 		__HAL_RCC_CLEAR_RESET_FLAGS();
-#ifdef SYSTEM_BEDUG
+#ifdef GSYSTEM_BEDUG
 		printTagLog(TAG, "DEVICE HAS BEEN REBOOTED");
 #endif
 //		system_reset_i2c_errata(); // TODO

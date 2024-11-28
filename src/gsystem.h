@@ -9,22 +9,38 @@ extern "C" {
 #endif
 
 
+#include <stdio.h>
 #include <stdint.h>
 
 #include "soul.h"
 #include "gconfig.h"
 
 
-#ifdef DEBUG
-#   define SYSTEM_BEDUG (1)
-#endif
+#define SYSTEM_CASE_STATUS(TARGET, STATUS) case STATUS:                \
+										   snprintf(                    \
+											   TARGET,                    \
+											   sizeof(TARGET) - 1,        \
+											   "%s",                    \
+											   __STR_DEF__(STATUS) \
+											   );                           \
+											   break;
 
-#define SYSTEM_CANARY_WORD      ((uint32_t)0xBEDAC0DE)
-#define SYSTEM_BKUP_STATUS_TYPE uint32_t
+#define SYSTEM_CANARY_WORD                 ((uint32_t)0xBEDAC0DE)
+#define SYSTEM_BKUP_STATUS_TYPE            uint32_t
 
 #ifndef GSYSTEM_ADC_VOLTAGE_COUNT
 #   define GSYSTEM_ADC_VOLTAGE_COUNT (1)
 #endif
+
+
+typedef struct _system_timer_t {
+	TIM_TypeDef* tim;
+	TIM_TypeDef  bkup_tim;
+	bool         enabled;
+	uint32_t     end;
+	uint32_t     count;
+} system_timer_t;
+
 
 void system_pre_load(void);
 void system_registrate(void (*process) (void), uint32_t delay_ms, bool work_with_error);
@@ -38,6 +54,10 @@ void system_ready_check(void);
 bool is_system_ready(void);
 
 void system_error_handler(SOUL_STATUS error);
+
+void system_timer_start(system_timer_t* timer, TIM_TypeDef* fw_tim, uint32_t delay_ms);
+bool system_timer_wait(system_timer_t* timer);
+void system_timer_stop(system_timer_t* timer);
 
 #ifndef GSYSTEM_NO_ADC_W
 uint32_t get_system_power(void);

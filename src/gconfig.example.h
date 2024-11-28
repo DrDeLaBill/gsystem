@@ -16,6 +16,7 @@ extern "C" {
 
 //#define GSYSTEM_NO_RESTART_W
 //#define GSYSTEM_NO_RTC_W
+//#define GSYSTEM_NO_RTC_CALENDAR_W
 //#define GSYSTEM_NO_SYS_TICK_W
 //#define GSYSTEM_NO_RAM_W
 //#define GSYSTEM_NO_ADC_W
