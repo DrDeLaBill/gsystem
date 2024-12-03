@@ -57,16 +57,10 @@ uint16_t SYSTEM_ADC_VOLTAGE[GSYSTEM_ADC_VOLTAGE_COUNT] = {0};
 #endif
 
 
-typedef enum _watchdog_type_t {
-	HARDWARE_WATCHDOG,
-	SOFTWARE_WATCHDOG
-} watchdog_type_t;
-
 typedef struct _watchdogs_t {
-	void             (*action)(void);
-	uint32_t         delay_ms;
+	void     (*action)(void);
+	uint32_t delay_ms;
 	gtimer_t timer;
-	watchdog_type_t  type;
 } watchdogs_t;
 
 
@@ -82,6 +76,9 @@ extern void ram_watchdog_check();
 #ifndef GSYSTEM_NO_ADC_W
 extern void adc_watchdog_check();
 #endif
+#ifndef GSYSTEM_NO_I2C_W
+extern void i2c_watchdog_check();
+#endif
 #if !defined(GSYSTEM_NO_POWER_W) && !defined(GSYSTEM_NO_ADC_W)
 extern void power_watchdog_check();
 #endif
@@ -92,27 +89,30 @@ extern void rtc_watchdog_check();
 extern void memory_watchdog_check();
 #endif
 watchdogs_t watchdogs[] = {
-	{_system_watchdog_check,   SYSTEM_WATCHDOG_MIN_DELAY_MS, {0,0}, HARDWARE_WATCHDOG},
+	{_system_watchdog_check,   SYSTEM_WATCHDOG_MIN_DELAY_MS, {0,0}},
 #if !defined(GSYSTEM_NO_RESTART_W) || !defined(GSYSTEM_NO_RTC_W)
-	{restart_watchdog_check,   SECOND_MS / 10,               {0,0}, HARDWARE_WATCHDOG},
+	{restart_watchdog_check,   SECOND_MS / 10,               {0,0}},
 #endif
 #ifndef GSYSTEM_NO_SYS_TICK_W
-	{sys_clock_watchdog_check, SECOND_MS / 10,               {0,0}, HARDWARE_WATCHDOG},
+	{sys_clock_watchdog_check, SECOND_MS / 10,               {0,0}},
 #endif
 #ifndef GSYSTEM_NO_RAM_W
-	{ram_watchdog_check,       5 * SECOND_MS,                {0,0}, HARDWARE_WATCHDOG},
+	{ram_watchdog_check,       5 * SECOND_MS,                {0,0}},
 #endif
 #ifndef GSYSTEM_NO_ADC_W
-	{adc_watchdog_check,       SECOND_MS / 10,               {0,0}, HARDWARE_WATCHDOG},
+	{adc_watchdog_check,       SECOND_MS / 10,               {0,0}},
 #endif
-#if !defined(GSYSTEM_NO_POWER_W) && !defined(GSYSTEM_NO_ADC_W)
-	{power_watchdog_check,     SECOND_MS,                    {0,0}, SOFTWARE_WATCHDOG},
+#ifndef GSYSTEM_NO_I2C_W
+	{i2c_watchdog_check,       5 * SECOND_MS,                {0,0}},
 #endif
 #ifndef GSYSTEM_NO_RTC_W
-	{rtc_watchdog_check,       SECOND_MS,                    {0,0}, SOFTWARE_WATCHDOG},
+	{rtc_watchdog_check,       SECOND_MS,                    {0,0}},
+#endif
+#if !defined(GSYSTEM_NO_POWER_W) && !defined(GSYSTEM_NO_ADC_W)
+	{power_watchdog_check,     SECOND_MS,                    {0,0}},
 #endif
 #ifndef GSYSTEM_NO_MEMORY_W
-	{memory_watchdog_check,    SECOND_MS,                    {0,0}, SOFTWARE_WATCHDOG},
+	{memory_watchdog_check,    SECOND_MS,                    {0,0}},
 #endif
 };
 
@@ -155,6 +155,63 @@ void system_pre_load(void)
 		set_error(SYS_TICK_FAULT);
 	}
 	system_timer_stop(&timer);
+
+#   ifndef GSYSTEM_NO_PLL_CHECK_W
+
+	RCC_PLLInitTypeDef PLL = {0};
+	PLL.PLLState = RCC_PLL_ON;
+	PLL.PLLSource = RCC_PLLSOURCE_HSE;
+	PLL.PLLM = 4;
+	PLL.PLLN = 84;
+	PLL.PLLP = RCC_PLLP_DIV2;
+	PLL.PLLQ = 4;
+
+    __HAL_RCC_PLL_DISABLE();
+	system_timer_start(&timer, GSYSTEM_TIMER, SECOND_MS);
+	while (system_timer_wait(&timer)) {
+		if (__HAL_RCC_GET_FLAG(RCC_FLAG_PLLRDY) == RESET) {
+			break;
+		}
+	}
+	if (__HAL_RCC_GET_FLAG(RCC_FLAG_PLLRDY) != RESET) {
+		set_status(SYS_TICK_ERROR);
+		set_error(SYS_TICK_FAULT);
+	}
+	system_timer_stop(&timer);
+
+    WRITE_REG(RCC->PLLCFGR, (PLL.PLLSource                     | \
+			    PLL.PLLM                                       | \
+			 (  PLL.PLLN << RCC_PLLCFGR_PLLN_Pos)              | \
+			 (((PLL.PLLP >> 1U) - 1U) << RCC_PLLCFGR_PLLP_Pos) | \
+			 (  PLL.PLLQ << RCC_PLLCFGR_PLLQ_Pos)));
+    __HAL_RCC_PLL_ENABLE();
+
+	system_timer_start(&timer, GSYSTEM_TIMER, SECOND_MS);
+	while (system_timer_wait(&timer)) {
+		if (__HAL_RCC_GET_FLAG(RCC_FLAG_PLLRDY) != RESET) {
+			break;
+		}
+	}
+	if (__HAL_RCC_GET_FLAG(RCC_FLAG_PLLRDY) == RESET) {
+		set_status(SYS_TICK_ERROR);
+		set_error(SYS_TICK_FAULT);
+	}
+	system_timer_stop(&timer);
+
+	uint32_t pll_config = RCC->PLLCFGR;
+    if (((PLL.PLLState) == RCC_PLL_OFF)                                                                ||
+       (READ_BIT(pll_config, RCC_PLLCFGR_PLLSRC) != PLL.PLLSource)                                     ||
+       (READ_BIT(pll_config, RCC_PLLCFGR_PLLM)   != (PLL.PLLM) << RCC_PLLCFGR_PLLM_Pos)                ||
+       (READ_BIT(pll_config, RCC_PLLCFGR_PLLN)   != (PLL.PLLN) << RCC_PLLCFGR_PLLN_Pos)                ||
+       (READ_BIT(pll_config, RCC_PLLCFGR_PLLP)   != (((PLL.PLLP >> 1U) - 1U)) << RCC_PLLCFGR_PLLP_Pos) ||
+       (READ_BIT(pll_config, RCC_PLLCFGR_PLLQ)   != (PLL.PLLQ << RCC_PLLCFGR_PLLQ_Pos))
+	) {
+		set_status(SYS_TICK_ERROR);
+		set_error(SYS_TICK_FAULT);
+    }
+
+#   endif
+
 #endif
 
 	system_timer_start(&timer, GSYSTEM_TIMER, SECOND_MS);
@@ -263,7 +320,7 @@ void system_start()
 		system_tick();
 
 		if (!gtimer_wait(&err_timer) && sys_timeout_enabled) {
-			system_error_handler(get_first_error());
+			system_error_handler(has_errors() ? get_first_error() : LOAD_ERROR);
 		}
 
 		if (!is_system_ready() && sys_timeout_enabled) {
@@ -286,18 +343,14 @@ void system_tick()
 #endif
 
 	static bool work_w = true;
-	if (work_w) {
+	bool tmp_work_w = work_w;
+	work_w = !work_w;
+	if (tmp_work_w) {
 		if (!__arr_len(watchdogs)) {
 			return;
 		}
 
 		if (index_w >= __arr_len(watchdogs)) {
-			index_w = 0;
-		}
-
-		if (!is_status(SYSTEM_HARDWARE_READY) &&
-			watchdogs[index_w].type == SOFTWARE_WATCHDOG
-		) {
 			index_w = 0;
 		}
 
@@ -332,8 +385,6 @@ void system_tick()
 
 		index_p++;
 	}
-
-	work_w = !work_w;
 }
 
 bool is_system_ready()
@@ -414,7 +465,7 @@ void system_error_handler(SOUL_STATUS error)
 	}
 
 #if GSYSTEM_BEDUG
-	system_timer_start(&s_timer, GSYSTEM_TIMER, 100);
+	system_timer_start(&s_timer, GSYSTEM_TIMER, 300);
 	printTagLog(SYSTEM_TAG, "GSystem reset");
 	while(system_timer_wait(&s_timer));
 	system_timer_stop(&s_timer);
@@ -775,12 +826,14 @@ void system_reset_i2c_errata(void)
 		{I2C_SDA_Pin, GPIO_PIN_SET},
 	};
 
+	reset_error(I2C_ERROR);
 	for (unsigned i = 0; i < __arr_len(reseter); i++) {
 		HAL_GPIO_WritePin(I2C_PORT, reseter[i].pin, reseter[i].stat);
 		gtimer_start(&timer, TIMEOUT_MS);
 		while (reseter[i].stat != HAL_GPIO_ReadPin(I2C_PORT, reseter[i].pin)) {
 			if (!gtimer_wait(&timer)) {
-				system_error_handler(I2C_ERROR);
+				set_error(I2C_ERROR);
+				break;
 			}
 			asm("nop");
 		}

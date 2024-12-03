@@ -131,14 +131,28 @@ extern "C" void ram_watchdog_check()
 #endif
 
 #ifndef GSYSTEM_NO_RTC_W
+
+#ifdef GSYSTEM_DS1307_CLOCK
+#   define RTC_ERROR_END() system_reset_i2c_errata();     \
+	                       set_error(RTC_ERROR);          \
+                           return;
+#else
+#   define RTC_ERROR_END() set_error(RTC_ERROR);          \
+                           return;
+#endif
+
 extern "C" void rtc_watchdog_check()
 {
 	static bool system_error_loaded = false;
 	static bool start_timer_flag = false;
 	static gtimer_t timer = {};
-#ifndef GSYSTEM_NO_RTC_CALENDAR_W
+#   ifndef GSYSTEM_NO_RTC_CALENDAR_W
 	static bool tested = false;
-#endif
+#   endif
+
+	if (!is_system_ready() && !is_error(RTC_ERROR)) {
+		return;
+	}
 
 	if (!start_timer_flag) {
 		gtimer_start(&timer, 15 * SECOND_MS);
@@ -162,11 +176,11 @@ extern "C" void rtc_watchdog_check()
 		set_clock_ram(0, 0);
 		system_error_loaded = true;
 
-#if GSYSTEM_BEDUG
+#   if GSYSTEM_BEDUG
 		if (get_last_error()) {
 			printTagLog(TAG, "Last reload error: %s", get_status_name(get_last_error()));
 		}
-#endif
+#   endif
 	}
 
 	if (!is_clock_started()) {
@@ -178,16 +192,16 @@ extern "C" void rtc_watchdog_check()
 
 	if (!is_status(RTC_READY)) {
 		if (is_clock_ready()) {
-#ifndef GSYSTEM_NO_RTC_CALENDAR_W
+#   ifndef GSYSTEM_NO_RTC_CALENDAR_W
 			tested = false;
-#endif
+#   endif
 			set_status(RTC_READY);
 		} else {
 			reset_status(RTC_READY);
 		}
 	}
 
-#ifndef GSYSTEM_NO_RTC_CALENDAR_W
+#   ifndef GSYSTEM_NO_RTC_CALENDAR_W
 	if (is_error(RTC_ERROR)) {
 		tested = false;
 	}
@@ -196,201 +210,173 @@ extern "C" void rtc_watchdog_check()
 		return;
 	}
 
-#if GSYSTEM_BEDUG
+#   if GSYSTEM_BEDUG
 	printTagLog(TAG, "RTC testing in progress...");
-#endif
+#   endif
 
 	clock_date_t dumpDate = {0,0,0,0};
 	clock_time_t dumpTime = {0,0,0};
 	uint64_t dumpMs       = getMillis();
 
-#if GSYSTEM_BEDUG
+#   if GSYSTEM_BEDUG
 	printPretty("Dump date test: ");
-#endif
+#   endif
 	if (!get_clock_rtc_date(&dumpDate)) {
-#if GSYSTEM_BEDUG
+#   if GSYSTEM_BEDUG
 		gprint("  error\n");
-#endif
-		system_reset_i2c_errata();
-		set_error(RTC_ERROR);
-		return;
+#   endif
+		RTC_ERROR_END();
 	}
-#if GSYSTEM_BEDUG
+#   if GSYSTEM_BEDUG
 	gprint("  OK\n");
 	printPretty("Dump time test: ");
-#endif
+#   endif
 	if (!get_clock_rtc_time(&dumpTime)) {
-#if GSYSTEM_BEDUG
+#   if GSYSTEM_BEDUG
 		gprint("   error\n");
-#endif
-		system_reset_i2c_errata();
-		set_error(RTC_ERROR);
-		return;
+#   endif
+		RTC_ERROR_END();
 	}
-#if GSYSTEM_BEDUG
+#   if GSYSTEM_BEDUG
 	gprint("  OK\n");
-#endif
+#   endif
 
 
-#if defined(GSYSTEM_DS1307_CLOCK)
+#   if defined(GSYSTEM_DS1307_CLOCK)
 	clock_date_t saveDate = {0, 04, 28, 24};
-#else
+#   else
 	clock_date_t saveDate = {RTC_WEEKDAY_SUNDAY, 04, 28, 24};
-#endif
+#   endif
 	clock_time_t saveTime = {13,37,00};
 
-#if GSYSTEM_BEDUG
+#   if GSYSTEM_BEDUG
 	printPretty("Save date test: ");
-#endif
-	if (!save_clock_date(&saveDate)) {
-#if GSYSTEM_BEDUG
+#   endif
+   	if (!save_clock_date(&saveDate)) {
+#   if GSYSTEM_BEDUG
 		gprint("  error\n");
-#endif
-		system_reset_i2c_errata();
-		set_error(RTC_ERROR);
-		return;
+#   endif
+		RTC_ERROR_END();
 	}
-#if GSYSTEM_BEDUG
+#   if GSYSTEM_BEDUG
 	gprint("  OK\n");
 	printPretty("Save time test: ");
-#endif
+#   endif
 	if (!save_clock_time(&saveTime)) {
-#if GSYSTEM_BEDUG
+#   if GSYSTEM_BEDUG
 		gprint("  error\n");
-#endif
-		system_reset_i2c_errata();
-		set_error(RTC_ERROR);
-		return;
+#   endif
+		RTC_ERROR_END();
 	}
-#if GSYSTEM_BEDUG
+#   if GSYSTEM_BEDUG
 	gprint("  OK\n");
-#endif
+#   endif
 
 
 	clock_date_t checkDate = {0,0,0,0};
 	clock_time_t checkTime = {0,0,0};
-#if GSYSTEM_BEDUG
+#   if GSYSTEM_BEDUG
 	printPretty("Check date test: ");
-#endif
+#   endif
 	if (!get_clock_rtc_date(&checkDate)) {
-#if GSYSTEM_BEDUG
+#   if GSYSTEM_BEDUG
 		gprint(" error\n");
-#endif
-		system_reset_i2c_errata();
-		set_error(RTC_ERROR);
-		return;
+#   endif
+		RTC_ERROR_END();
 	}
 	if (!is_same_date(&saveDate, &checkDate)) {
-#if GSYSTEM_BEDUG
+#   if GSYSTEM_BEDUG
 		gprint(" error\n");
-#endif
-		system_reset_i2c_errata();
-		set_error(RTC_ERROR);
-		return;
+#   endif
+		RTC_ERROR_END();
 	}
-#if GSYSTEM_BEDUG
+#   if GSYSTEM_BEDUG
 	gprint(" OK\n");
 	printPretty("Check time test: ");
-#endif
+#   endif
 	if (!get_clock_rtc_time(&checkTime)) {
-#if GSYSTEM_BEDUG
+#   if GSYSTEM_BEDUG
 		gprint(" error\n");
-#endif
-		system_reset_i2c_errata();
-		set_error(RTC_ERROR);
-		return;
+#   endif
+		RTC_ERROR_END();
 	}
 	if (!is_same_time(&saveTime, &checkTime)) {
-#if GSYSTEM_BEDUG
+#   if GSYSTEM_BEDUG
 		gprint(" error\n");
-#endif
-		system_reset_i2c_errata();
-		set_error(RTC_ERROR);
-		return;
+#   endif
+		RTC_ERROR_END();
 	}
-#if GSYSTEM_BEDUG
+#   if GSYSTEM_BEDUG
 	gprint(" OK\n");
-#endif
+#   endif
 
 	uint64_t res_seconds = get_clock_datetime_to_seconds(&dumpDate, &dumpTime);
 	res_seconds += ((getMillis() - dumpMs) / SECOND_MS);
 	get_clock_seconds_to_datetime(res_seconds, &dumpDate, &dumpTime);
-#if GSYSTEM_BEDUG
+#   if GSYSTEM_BEDUG
 	printPretty("Dump date save: ");
-#endif
+#   endif
 	if (!save_clock_date(&dumpDate)) {
-#if GSYSTEM_BEDUG
+#   if GSYSTEM_BEDUG
 		gprint("  error\n");
-#endif
-		system_reset_i2c_errata();
-		set_error(RTC_ERROR);
-		return;
+#   endif
+		RTC_ERROR_END();
 	}
-#if GSYSTEM_BEDUG
+#   if GSYSTEM_BEDUG
 	gprint("  OK\n");
 	printPretty("Dump time save: ");
-#endif
+#   endif
 	if (!save_clock_time(&dumpTime)) {
-#if GSYSTEM_BEDUG
+#   if GSYSTEM_BEDUG
 		gprint("  error\n");
-#endif
-		system_reset_i2c_errata();
-		set_error(RTC_ERROR);
-		return;
+#   endif
+		RTC_ERROR_END();
 	}
-#if GSYSTEM_BEDUG
+#   if GSYSTEM_BEDUG
 	gprint("  OK\n");
-#endif
+#   endif
 
-#if GSYSTEM_BEDUG
+#   if GSYSTEM_BEDUG
 	printPretty("Check dump date: ");
-#endif
+#   endif
 	if (!get_clock_rtc_date(&checkDate)) {
-#if GSYSTEM_BEDUG
+#   if GSYSTEM_BEDUG
 		gprint(" error\n");
-#endif
-		system_reset_i2c_errata();
-		set_error(RTC_ERROR);
-		return;
+#   endif
+		RTC_ERROR_END();
 	}
 	if (!is_same_date(&dumpDate, &checkDate)) {
-#if GSYSTEM_BEDUG
+#   if GSYSTEM_BEDUG
 		gprint(" error\n");
-#endif
-		system_reset_i2c_errata();
-		set_error(RTC_ERROR);
-		return;
+#   endif
+		RTC_ERROR_END();
 	}
-#if GSYSTEM_BEDUG
+#   if GSYSTEM_BEDUG
 	gprint(" OK\n");
-	printPretty("Check dump time: ");
-#endif
+ 	printPretty("Check dump time: ");
+#   endif
 	if (!get_clock_rtc_time(&checkTime)) {
-#if GSYSTEM_BEDUG
+#   if GSYSTEM_BEDUG
 		gprint(" error\n");
-#endif
-		system_reset_i2c_errata();
-		set_error(RTC_ERROR);
-		return;
+#   endif
+		RTC_ERROR_END();
 	}
 	if (!is_same_time(&dumpTime, &checkTime)) {
-#if GSYSTEM_BEDUG
+#   if GSYSTEM_BEDUG
 		gprint(" error\n");
-#endif
-		system_reset_i2c_errata();
-		set_error(RTC_ERROR);
-		return;
+#   endif
+		RTC_ERROR_END();
 	}
-#if GSYSTEM_BEDUG
+#   if GSYSTEM_BEDUG
 	gprint(" OK\n");
-#endif
+#   endif
 
 
-#if GSYSTEM_BEDUG
+#   if GSYSTEM_BEDUG
 	printPretty("Weekday test\n");
-#endif
+#   endif
 	const clock_date_t dates[] = {
-#if defined(GSYSTEM_DS1307_CLOCK)
+#   if defined(GSYSTEM_DS1307_CLOCK)
 		{0, 01, 01, 00},
 		{0, 01, 02, 00},
 		{0, 04, 27, 24},
@@ -400,7 +386,7 @@ extern "C" void rtc_watchdog_check()
 		{0, 05, 01, 24},
 		{0, 05, 02, 24},
 		{0, 05, 03, 24},
-#else
+#   else
 		{RTC_WEEKDAY_SATURDAY,  01, 01, 00},
 		{RTC_WEEKDAY_SUNDAY,    01, 02, 00},
 		{RTC_WEEKDAY_SATURDAY,  04, 27, 24},
@@ -410,7 +396,7 @@ extern "C" void rtc_watchdog_check()
 		{RTC_WEEKDAY_WEDNESDAY, 05, 01, 24},
 		{RTC_WEEKDAY_THURSDAY,  05, 02, 24},
 		{RTC_WEEKDAY_FRIDAY,    05, 03, 24},
-#endif
+#   endif
 	};
 	const clock_time_t times[] = {
 		{00, 00, 00},
@@ -436,59 +422,54 @@ extern "C" void rtc_watchdog_check()
 	};
 
 	for (unsigned i = 0; i < __arr_len(seconds); i++) {
-#if GSYSTEM_BEDUG
+#   if GSYSTEM_BEDUG
 		printPretty("[%02u]: ", i);
-#endif
+#   endif
 
 		clock_date_t tmpDate = {0,0,0,0};
 		clock_time_t tmpTime = {0,0,0};
 		get_clock_seconds_to_datetime(seconds[i], &tmpDate, &tmpTime);
 		if (!is_same_date(&tmpDate, &dates[i])
-#if !defined(GSYSTEM_DS1307_CLOCK)
+#   if !defined(GSYSTEM_DS1307_CLOCK)
 			&& tmpDate.WeekDay == dates[i].WeekDay
-#endif
+#   endif
 		) {
-#if GSYSTEM_BEDUG
+#   if GSYSTEM_BEDUG
 			gprint("            error\n");
-#endif
-			system_reset_i2c_errata();
-			set_error(RTC_ERROR);
-			return;
+#   endif
+			RTC_ERROR_END();
 		}
 		if (!is_same_time(&tmpTime, &times[i])) {
-#if GSYSTEM_BEDUG
+#   if GSYSTEM_BEDUG
 			gprint("            error\n");
-#endif
-			system_reset_i2c_errata();
-			set_error(RTC_ERROR);
-			return;
+#   endif
+			RTC_ERROR_END();
 		}
 
 		uint64_t tmpSeconds = get_clock_datetime_to_seconds(&dates[i], &times[i]);
 		if (tmpSeconds != seconds[i]) {
-#if GSYSTEM_BEDUG
+#   if GSYSTEM_BEDUG
 			gprint("            error\n");
-#endif
-			system_reset_i2c_errata();
-			set_error(RTC_ERROR);
-			return;
+#   endif
+			RTC_ERROR_END();
 		}
 
-#if GSYSTEM_BEDUG
+#   if GSYSTEM_BEDUG
 		gprint("            OK\n");
-#endif
+#   endif
 	}
 
 	reset_error(RTC_ERROR);
 	tested = true;
 
 
-#if GSYSTEM_BEDUG
+#   if GSYSTEM_BEDUG
 	printTagLog(TAG, "RTC testing done");
-#endif
+#   endif
 
-#endif
+#   endif
 }
+#   undef RTC_ERROR_END
 #endif
 
 #ifndef GSYSTEM_NO_ADC_W
@@ -534,6 +515,10 @@ extern "C" void memory_watchdog_check()
 	static utl::Timer timer(SECOND_MS);
 	static uint8_t errors = 0;
 	static bool timerStarted = false;
+
+	if (!is_system_ready() && !is_error(MEMORY_ERROR) && !is_error(EXPECTED_MEMORY_ERROR)) {
+		return;
+	}
 
 	uint8_t data = 0;
 #ifdef GSYSTEM_EEPROM_MODE
@@ -626,6 +611,10 @@ extern "C" void memory_watchdog_check()
 #if !defined(GSYSTEM_NO_POWER_W) && !defined(GSYSTEM_NO_ADC_W)
 extern "C" void power_watchdog_check()
 {
+	if (!is_system_ready()) {
+		return;
+	}
+
 	uint32_t voltage = get_system_power();
 
 	if (STM_MIN_VOLTAGEx10 <= voltage && voltage <= STM_MAX_VOLTAGEx10) {
@@ -677,5 +666,16 @@ extern "C" void restart_watchdog_check()
 //		system_reset_i2c_errata(); // TODO
 		HAL_Delay(2500);
 	}
+}
+#endif
+
+#ifndef GSYSTEM_NO_I2C_W
+extern "C" void i2c_watchdog_check()
+{
+	if (!is_error(I2C_ERROR)) {
+		return;
+	}
+
+	system_reset_i2c_errata();
 }
 #endif

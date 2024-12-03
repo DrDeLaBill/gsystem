@@ -189,6 +189,7 @@ char* get_status_name(SOUL_STATUS status)
 	CASE_STATUS(PUMP_FAULT)
 	CASE_STATUS(RTC_FAULT)
 	CASE_STATUS(CAN_FAULT)
+	CASE_STATUS(PLL_FAULT)
 	CASE_STATUS(RTC_READY)
 	CASE_STATUS(MCU_ERROR)
 	CASE_STATUS(SYS_TICK_ERROR)
@@ -274,7 +275,7 @@ void show_errors()
 		printPretty("%s\n", get_status_name(i));
 	}
 	if (!cnt) {
-		printPretty("%s", __STR_DEF__(NO_ERROR));
+		printPretty("%s\n", __STR_DEF__(NO_ERROR));
 	}
 }
 
