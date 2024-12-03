@@ -412,7 +412,6 @@ extern "C" void rtc_watchdog_check()
 		{RTC_WEEKDAY_FRIDAY,    05, 03, 24},
 #endif
 	};
-#if defined(STM32F1)
 	const clock_time_t times[] = {
 		{00, 00, 00},
 		{00, 00, 00},
@@ -424,19 +423,6 @@ extern "C" void rtc_watchdog_check()
 		{04, 26, 12},
 		{03, 52, 35},
 	};
-#elif defined(STM32F4)
-	const RTC_TimeTypeDef times[] = {
-		{00, 00, 00, 0, 0, 0, 0, 0},
-		{00, 00, 00, 0, 0, 0, 0, 0},
-		{03, 24, 49, 0, 0, 0, 0, 0},
-		{04, 14, 24, 0, 0, 0, 0, 0},
-		{03, 27, 01, 0, 0, 0, 0, 0},
-		{23, 01, 40, 0, 0, 0, 0, 0},
-		{03, 01, 40, 0, 0, 0, 0, 0},
-		{04, 26, 12, 0, 0, 0, 0, 0},
-		{03, 52, 35, 0, 0, 0, 0, 0},
-	};
-#endif
 	const uint64_t seconds[] = {
 		0,
 		86400,

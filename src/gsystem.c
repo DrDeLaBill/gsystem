@@ -157,6 +157,10 @@ void system_pre_load(void)
 	system_timer_stop(&timer);
 #endif
 
+	system_timer_start(&timer, GSYSTEM_TIMER, SECOND_MS);
+	while (system_timer_wait(&timer));
+	system_timer_stop(&timer);
+
 	memset((uint8_t*)&processes, 0, sizeof(GSYSTEM_POCESSES_COUNT));
 
 	gtimer_start(&err_timer, err_delay_ms);
@@ -534,6 +538,7 @@ uint32_t get_system_power(void)
 #ifndef GSYSTEM_NO_SYS_TICK_W
 __attribute__((weak)) void system_hse_config(void)
 {
+#ifdef STM32F1
 	RCC_OscInitTypeDef RCC_OscInitStruct   = {0};
 	RCC_ClkInitTypeDef RCC_ClkInitStruct   = {0};
 	RCC_PeriphCLKInitTypeDef PeriphClkInit = {0};
@@ -571,6 +576,39 @@ __attribute__((weak)) void system_hse_config(void)
 	}
 
 	HAL_RCC_EnableCSS();
+#elif defined(STM32F4)
+	RCC_OscInitTypeDef RCC_OscInitStruct = {0};
+	RCC_ClkInitTypeDef RCC_ClkInitStruct = {0};
+
+	__HAL_RCC_PWR_CLK_ENABLE();
+	__HAL_PWR_VOLTAGESCALING_CONFIG(PWR_REGULATOR_VOLTAGE_SCALE2);
+
+	RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_LSI|RCC_OSCILLATORTYPE_HSE;
+	RCC_OscInitStruct.HSEState = RCC_HSE_ON;
+	RCC_OscInitStruct.LSIState = RCC_LSI_ON;
+	RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
+	RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSE;
+	RCC_OscInitStruct.PLL.PLLM = 4;
+	RCC_OscInitStruct.PLL.PLLN = 84;
+	RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV2;
+	RCC_OscInitStruct.PLL.PLLQ = 4;
+	if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK) {
+		set_error(SYS_TICK_FAULT);
+		return;
+	}
+
+	RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK|RCC_CLOCKTYPE_SYSCLK
+							  |RCC_CLOCKTYPE_PCLK1|RCC_CLOCKTYPE_PCLK2;
+	RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
+	RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
+	RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV2;
+	RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV1;
+
+	if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_2) != HAL_OK) {
+		set_error(SYS_TICK_FAULT);
+		return;
+	}
+#endif
 }
 
 __attribute__((weak)) void system_hsi_config(void)
@@ -670,6 +708,8 @@ void system_reset_i2c_errata(void)
 #if GSYSTEM_BEDUG
 	printTagLog(SYSTEM_TAG, "RESET I2C (ERRATA)");
 #endif
+
+	extern I2C_HandleTypeDef GSYSTEM_I2C;
 
 	if (!GSYSTEM_I2C.Instance) {
 		return;

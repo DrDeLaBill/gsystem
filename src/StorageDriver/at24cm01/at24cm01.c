@@ -21,6 +21,7 @@
 
 const char EEPROM_TAG[] = "EEPR";
 
+extern I2C_HandleTypeDef GSYSTEM_EEPROM_I2C;
 
 eeprom_status_t eeprom_read(const uint32_t addr, uint8_t* buf, const uint32_t len)
 {
@@ -44,7 +45,7 @@ eeprom_status_t eeprom_read(const uint32_t addr, uint8_t* buf, const uint32_t le
     gtimer_t timer = { 0 };
     gtimer_start(&timer, EEPROM_TIMER_DELAY_MS);
     while (gtimer_wait(&timer)) {
-        status = HAL_I2C_IsDeviceReady(&EEPROM_I2C, dev_addr, 1, EEPROM_DELAY_MS);
+        status = HAL_I2C_IsDeviceReady(&GSYSTEM_EEPROM_I2C, dev_addr, 1, EEPROM_DELAY_MS);
 
         if (status == HAL_OK) {
             break;
@@ -58,7 +59,7 @@ eeprom_status_t eeprom_read(const uint32_t addr, uint8_t* buf, const uint32_t le
     }
 
     status = HAL_I2C_Mem_Read(
-		&EEPROM_I2C,
+		&GSYSTEM_EEPROM_I2C,
 		dev_addr,
 		(uint16_t)(addr & 0xFFFF),
 		I2C_MEMADD_SIZE_16BIT,
@@ -102,7 +103,7 @@ eeprom_status_t eeprom_write(const uint32_t addr, const uint8_t* buf, const uint
     gtimer_t timer = { 0 };
     gtimer_start(&timer, EEPROM_TIMER_DELAY_MS);
     while (gtimer_wait(&timer)) {
-        status = HAL_I2C_IsDeviceReady(&EEPROM_I2C, dev_addr, 1, EEPROM_DELAY_MS);
+        status = HAL_I2C_IsDeviceReady(&GSYSTEM_EEPROM_I2C, dev_addr, 1, EEPROM_DELAY_MS);
         if (status == HAL_OK) {
             break;
         }
@@ -115,7 +116,7 @@ eeprom_status_t eeprom_write(const uint32_t addr, const uint8_t* buf, const uint
     }
 
     status = HAL_I2C_Mem_Write(
-		&EEPROM_I2C,
+		&GSYSTEM_EEPROM_I2C,
 		dev_addr,
 		(uint16_t)(addr & 0xFFFF),
 		I2C_MEMADD_SIZE_16BIT,
