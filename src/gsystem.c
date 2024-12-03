@@ -2,6 +2,7 @@
 
 #include "gsystem.h"
 
+#include <malloc.h>
 #include <stdbool.h>
 
 #include "main.h"
@@ -27,6 +28,7 @@
 #endif
 
 static void _system_watchdog_check(void);
+static void _fill_ram();
 
 
 #if GSYSTEM_BEDUG || defined(DEBUG) || defined(GBEDUG_FORCE)
@@ -128,6 +130,10 @@ static process_t processes[GSYSTEM_POCESSES_COUNT] = { 0 };
 
 void system_pre_load(void)
 {
+#ifndef GSYSTEM_NO_RAM_W
+	_fill_ram();
+#endif
+
 	if (!MCUcheck()) {
 		set_error(MCU_ERROR);
 		system_error_handler(get_first_error());
@@ -927,6 +933,19 @@ void _system_watchdog_check(void)
 
 	if (!is_status(SYSTEM_HARDWARE_READY)) {
 		reset_status(SYSTEM_SOFTWARE_READY);
+	}
+}
+
+void _fill_ram()
+{
+	volatile unsigned *top, *start;
+	__asm__ volatile ("mov %[top], sp" : [top] "=r" (top) : : );
+	unsigned *end_heap = (unsigned*)malloc(sizeof(size_t));
+	start = end_heap;
+	free(end_heap);
+	start++;
+	while (start < top) {
+		*(start++) = SYSTEM_CANARY_WORD;
 	}
 }
 
