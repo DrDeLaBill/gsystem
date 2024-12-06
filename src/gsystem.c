@@ -858,7 +858,7 @@ void system_reset_i2c_errata(void)
 	GSYSTEM_I2C.Instance->CR1 |= 0x0001;
 
 	HAL_I2C_Init(&GSYSTEM_I2C);
-#elif !defined(GSYSTEM_NO_I2C)
+#elif !defined(GSYSTEM_NO_I2C_W)
 #   warning "GSystem i2c has not selected"
 #endif
 }
@@ -1050,7 +1050,7 @@ int _write(int line, uint8_t *ptr, int len) {
 
 #   if defined(DEBUG) || defined(GBEDUG_FORCE)
 #       ifdef GSYSTEM_BEDUG_UART
-
+    extern UART_HandleTypeDef GSYSTEM_BEDUG_UART;
     HAL_UART_Transmit(&GSYSTEM_BEDUG_UART, (uint8_t*)ptr, (uint16_t)(len), 100);
 #       endif 
 

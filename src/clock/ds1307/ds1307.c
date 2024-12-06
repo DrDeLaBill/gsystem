@@ -1,8 +1,6 @@
 #include "ds1307.h"
 
 #include "main.h"
-#include "gutils.h"
-#include "stm32f1xx_hal.h"
 
 
 #if defined(GSYSTEM_DS1307_CLOCK)

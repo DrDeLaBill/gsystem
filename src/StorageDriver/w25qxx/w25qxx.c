@@ -1011,18 +1011,18 @@ flash_status_t _flash_read_SR1(uint8_t* SR1)
 {
     uint8_t spi_cmd[] = { FLASH_W25_CMD_READ_SR1 };
 
-    bool cs_enabled = !(bool)HAL_GPIO_ReadPin(FLASH_CS_GPIO_Port, FLASH_CS_Pin);
+    bool cs_enabled = !(bool)HAL_GPIO_ReadPin(GSYSTEM_FLASH_CS_PORT, GSYSTEM_FLASH_CS_PIN);
 	if (cs_enabled) {
 	    _FLASH_CS_reset();
 	}
     _FLASH_CS_set();
 
-    HAL_StatusTypeDef status = HAL_SPI_Transmit(&FLASH_SPI, spi_cmd, sizeof(spi_cmd), FLASH_SPI_TIMEOUT_MS);
+    HAL_StatusTypeDef status = HAL_SPI_Transmit(&GSYSTEM_FLASH_SPI, spi_cmd, sizeof(spi_cmd), FLASH_SPI_TIMEOUT_MS);
     if (status != HAL_OK) {
         goto do_spi_stop;
     }
 
-    status = HAL_SPI_Receive(&FLASH_SPI, SR1, sizeof(uint8_t), FLASH_SPI_TIMEOUT_MS);
+    status = HAL_SPI_Receive(&GSYSTEM_FLASH_SPI, SR1, sizeof(uint8_t), FLASH_SPI_TIMEOUT_MS);
     if (status != HAL_OK) {
         goto do_spi_stop;
     }
@@ -1222,7 +1222,7 @@ do_spi_stop:
 
 flash_status_t _flash_send_data(const uint8_t* data, const uint32_t len)
 {
-    HAL_StatusTypeDef status = HAL_SPI_Transmit(&FLASH_SPI, (uint8_t*)data, (uint16_t)len, FLASH_SPI_TIMEOUT_MS);
+    HAL_StatusTypeDef status = HAL_SPI_Transmit(&GSYSTEM_FLASH_SPI, (uint8_t*)data, (uint16_t)len, FLASH_SPI_TIMEOUT_MS);
 
     if (status == HAL_BUSY) {
     	return FLASH_BUSY;
@@ -1236,7 +1236,7 @@ flash_status_t _flash_send_data(const uint8_t* data, const uint32_t len)
 
 flash_status_t _flash_recieve_data(uint8_t* data, uint32_t len)
 {
-    HAL_StatusTypeDef status =  HAL_SPI_Receive(&FLASH_SPI, data, (uint16_t)len, FLASH_SPI_TIMEOUT_MS);
+    HAL_StatusTypeDef status =  HAL_SPI_Receive(&GSYSTEM_FLASH_SPI, data, (uint16_t)len, FLASH_SPI_TIMEOUT_MS);
 
     if (status == HAL_BUSY) {
     	return FLASH_BUSY;
@@ -1250,12 +1250,12 @@ flash_status_t _flash_recieve_data(uint8_t* data, uint32_t len)
 
 void _FLASH_CS_set()
 {
-    HAL_GPIO_WritePin(FLASH_CS_GPIO_Port, FLASH_CS_Pin, GPIO_PIN_RESET);
+    HAL_GPIO_WritePin(GSYSTEM_FLASH_CS_PORT, GSYSTEM_FLASH_CS_PIN, GPIO_PIN_RESET);
 }
 
 void _FLASH_CS_reset()
 {
-    HAL_GPIO_WritePin(FLASH_CS_GPIO_Port, FLASH_CS_Pin, GPIO_PIN_SET);
+    HAL_GPIO_WritePin(GSYSTEM_FLASH_CS_PORT, GSYSTEM_FLASH_CS_PIN, GPIO_PIN_SET);
 }
 
 bool _flash_check_FREE()
