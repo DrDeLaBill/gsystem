@@ -227,10 +227,6 @@ void system_pre_load(void)
 
 void system_post_load(void)
 {
-#if GSYSTEM_BEDUG
-	printTagLog(SYSTEM_TAG, "System postload");
-#endif
-
 	set_status(SYSTEM_SOFTWARE_STARTED);
 
 	SystemInfo();
@@ -279,10 +275,6 @@ void system_post_load(void)
 				(SOUL_STATUS)get_first_error()
 		);
 	}
-
-#if GSYSTEM_BEDUG
-	printTagLog(SYSTEM_TAG, "System loaded");
-#endif
 }
 
 void system_registrate(void (*process) (void), uint32_t delay_ms, bool work_with_error)

@@ -3,19 +3,20 @@
 #ifndef _STORAGE_DRIVER_H_
 #define _STORAGE_DRIVER_H_
 
+
+#include "gconfig.h"
+
 #ifndef GSYSTEM_NO_MEMORY_W
 
 #include <stdint.h>
-
-#include "gconfig.h"
 
 #include "Timer.h"
 #include "StorageAT.h"
 
 #ifdef GSYSTEM_EEPROM_MODE
-#    include "at24cm01.h"
+#   include "at24cm01.h"
 #elif defined(GSYSTEM_FLASH_MODE)
-#    include "w25qxx.h"
+#   include "w25qxx.h"
 #else
 #    warning "Storage driver mode has not selected"
 #endif
