@@ -128,7 +128,7 @@ static unsigned  processes_cnt = 0;
 static process_t processes[GSYSTEM_POCESSES_COUNT] = { 0 };
 
 
-void system_pre_load(void)
+void system_init(void)
 {
 #ifndef GSYSTEM_NO_RAM_W
 	_fill_ram();
@@ -295,7 +295,7 @@ void set_system_timeout(uint32_t timeout_ms)
 	sys_timeout_ms      = timeout_ms;
 }
 
-void system_start()
+void system_start(void)
 {
 	HAL_Delay(100);
 
@@ -318,8 +318,6 @@ void system_start()
 		if (!is_system_ready() && sys_timeout_enabled) {
 			continue;
 		}
-
-		system_ready_check();
 
 		gtimer_start(&err_timer, sys_timeout_ms);
 	}
@@ -382,6 +380,11 @@ void system_tick()
 bool is_system_ready()
 {
 	return !(has_errors() || is_status(SYSTEM_SAFETY_MODE) || !is_status(SYSTEM_HARDWARE_READY) || !is_status(SYSTEM_SOFTWARE_READY));
+}
+
+__attribute__ ((weak)) bool is_software_ready(void)
+{
+	return true;
 }
 
 void system_error_handler(SOUL_STATUS error)
@@ -741,8 +744,6 @@ __attribute__((weak)) void system_hsi_config(void)
 }
 #endif
 
-__attribute__((weak)) void system_ready_check(void) {}
-
 __attribute__((weak)) void system_error_loop(void) {}
 
 void system_reset_i2c_errata(void)
@@ -1014,6 +1015,12 @@ void _system_watchdog_check(void)
 		set_status(SYSTEM_HARDWARE_READY);
 	} else {
 		reset_status(SYSTEM_HARDWARE_READY);
+	}
+
+	if (is_software_ready()) {
+		set_status(SYSTEM_SOFTWARE_READY);
+	} else {
+		reset_status(SYSTEM_SOFTWARE_READY);
 	}
 
 	if (!is_status(SYSTEM_HARDWARE_READY)) {

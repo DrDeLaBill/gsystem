@@ -42,16 +42,16 @@ typedef struct _system_timer_t {
 } system_timer_t;
 
 
-void system_pre_load(void);
+void system_init(void);
 void system_registrate(void (*process) (void), uint32_t delay_ms, bool work_with_error);
 void set_system_timeout(uint32_t timeout_ms);
-void system_start();
+void system_start(void);
 
 void system_post_load(void);
 void system_tick(void);
-void system_ready_check(void);
 
 bool is_system_ready(void);
+bool is_software_ready(void);
 
 void system_error_handler(SOUL_STATUS error);
 
@@ -59,15 +59,15 @@ void system_timer_start(system_timer_t* timer, TIM_TypeDef* fw_tim, uint32_t del
 bool system_timer_wait(system_timer_t* timer);
 void system_timer_stop(system_timer_t* timer);
 
-#ifndef GSYSTEM_NO_ADC_W
-uint32_t get_system_power(void);
-#endif
-
 void system_reset_i2c_errata(void);
 
 char* get_system_serial_str(void);
 
 void system_error_loop(void);
+
+#ifndef GSYSTEM_NO_ADC_W
+uint32_t get_system_power(void);
+#endif
 
 #ifndef GSYSTEM_NO_SYS_TICK_W
 void system_hsi_config(void);
