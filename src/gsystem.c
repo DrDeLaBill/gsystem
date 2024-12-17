@@ -161,10 +161,14 @@ void system_init(void)
 	RCC_PLLInitTypeDef PLL = {0};
 	PLL.PLLState = RCC_PLL_ON;
 	PLL.PLLSource = RCC_PLLSOURCE_HSE;
+#       if defined(STM32F1)
+	PLL.PLLMUL = RCC_PLL_MUL9;
+#       elif defined(STM32F4)
 	PLL.PLLM = 4;
 	PLL.PLLN = 84;
 	PLL.PLLP = RCC_PLLP_DIV2;
 	PLL.PLLQ = 4;
+#       endif
 
     __HAL_RCC_PLL_DISABLE();
 	system_timer_start(&timer, GSYSTEM_TIMER, SECOND_MS);
@@ -179,11 +183,16 @@ void system_init(void)
 	}
 	system_timer_stop(&timer);
 
+#       if defined(STM32F1)
+    __HAL_RCC_PLL_CONFIG(PLL.PLLSource,
+                         PLL.PLLMUL);
+#       elif defined(STM32F4)
     WRITE_REG(RCC->PLLCFGR, (PLL.PLLSource                     | \
 			    PLL.PLLM                                       | \
 			 (  PLL.PLLN << RCC_PLLCFGR_PLLN_Pos)              | \
 			 (((PLL.PLLP >> 1U) - 1U) << RCC_PLLCFGR_PLLP_Pos) | \
 			 (  PLL.PLLQ << RCC_PLLCFGR_PLLQ_Pos)));
+#       endif
     __HAL_RCC_PLL_ENABLE();
 
 	system_timer_start(&timer, GSYSTEM_TIMER, SECOND_MS);
@@ -198,13 +207,22 @@ void system_init(void)
 	}
 	system_timer_stop(&timer);
 
+#       if defined(STM32F1)
+	uint32_t pll_config = RCC->CFGR;
+#       elif defined(STM32F4)
 	uint32_t pll_config = RCC->PLLCFGR;
+#       endif
     if (((PLL.PLLState) == RCC_PLL_OFF)                                                                ||
+#       if defined(STM32F1)
+       (READ_BIT(pll_config, RCC_CFGR_PLLSRC)  != PLL.PLLSource)                                       ||
+       (READ_BIT(pll_config, RCC_CFGR_PLLMULL) != PLL.PLLMUL)
+#       elif defined(STM32F4)
        (READ_BIT(pll_config, RCC_PLLCFGR_PLLSRC) != PLL.PLLSource)                                     ||
        (READ_BIT(pll_config, RCC_PLLCFGR_PLLM)   != (PLL.PLLM) << RCC_PLLCFGR_PLLM_Pos)                ||
        (READ_BIT(pll_config, RCC_PLLCFGR_PLLN)   != (PLL.PLLN) << RCC_PLLCFGR_PLLN_Pos)                ||
        (READ_BIT(pll_config, RCC_PLLCFGR_PLLP)   != (((PLL.PLLP >> 1U) - 1U)) << RCC_PLLCFGR_PLLP_Pos) ||
        (READ_BIT(pll_config, RCC_PLLCFGR_PLLQ)   != (PLL.PLLQ << RCC_PLLCFGR_PLLQ_Pos))
+#       endif
 	) {
 		set_status(SYS_TICK_ERROR);
 		set_error(SYS_TICK_FAULT);
