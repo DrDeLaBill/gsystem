@@ -28,6 +28,10 @@ extern "C" {
 #define SYSTEM_CANARY_WORD                 ((uint32_t)0xBEDAC0DE)
 #define SYSTEM_BKUP_STATUS_TYPE            uint32_t
 
+#if !defined(STM32F1) && defined(GSYSTEM_NO_I2C_W)
+#   undef GSYSTEM_NO_I2C_W
+#endif
+
 #ifndef GSYSTEM_ADC_VOLTAGE_COUNT
 #   define GSYSTEM_ADC_VOLTAGE_COUNT (1)
 #endif
@@ -73,6 +77,7 @@ void system_timer_stop(system_timer_t* timer);
 void system_add_button(GPIO_TypeDef* port, uint16_t pin, bool inverse);
 bool system_button_clicked(GPIO_TypeDef* port, uint16_t pin);
 bool system_button_pressed(GPIO_TypeDef* port, uint16_t pin);
+bool system_button_holded(GPIO_TypeDef* port, uint16_t pin);
 #endif
 
 #ifndef GSYSTEM_NO_ADC_W

@@ -15,6 +15,7 @@ extern "C" {
 #include "gconfig.h"
 #include "hal_defs.h"
 
+#ifndef GSYSTEM_NO_RTC_W
 
 #ifdef DEBUG
 #   define CLOCK_BEDUG     (0)
@@ -69,6 +70,9 @@ bool     get_clock_ram(const uint8_t idx, uint8_t* data);
 bool     set_clock_ram(const uint8_t idx, uint8_t data);
 bool     is_same_date(const clock_date_t* date1, const clock_date_t* date2);
 bool     is_same_time(const clock_time_t* time1, const clock_time_t* time2);
+
+
+#endif
 
 
 #ifdef __cplusplus

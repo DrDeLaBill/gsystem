@@ -307,6 +307,16 @@ void system_post_load(void)
 				(SOUL_STATUS)get_first_error()
 		);
 	}
+
+#if defined(STM32F1) && !defined(GSYSTEM_NO_TAMPER_RESET) && !defined(GSYSTEM_NO_RTC_W)
+	HAL_PWR_EnableBkUpAccess();
+    MODIFY_REG(BKP->RTCCR, (BKP_RTCCR_CCO | BKP_RTCCR_ASOE | BKP_RTCCR_ASOS), RTC_OUTPUTSOURCE_NONE);
+	CLEAR_BIT(BKP->CSR, BKP_CSR_TPIE);
+	SET_BIT(BKP->CSR, BKP_CSR_CTI);
+	SET_BIT(BKP->CSR, BKP_CSR_CTE);
+	CLEAR_BIT(BKP->CR, BKP_CR_TPE);
+	HAL_PWR_DisableBkUpAccess();
+#endif
 }
 
 void system_registrate(void (*process) (void), uint32_t delay_ms, bool work_with_error)
@@ -587,7 +597,7 @@ void system_timer_stop(system_timer_t* timer)
 {
 	if (!timer->tim || timer->verif != TIMER_VERIF_WORD) {
 		BEDUG_ASSERT(false, "GSYSTEM TIM WAS NOT SELECTED");
-		return false;
+		return;
 	}
 
 	timer->tim->SR &= ~(TIM_SR_UIF | TIM_SR_CC1IF);
@@ -658,6 +668,15 @@ bool system_button_pressed(GPIO_TypeDef* port, uint16_t pin)
 		return false;
 	}
 	return button_pressed(btn);
+}
+
+bool system_button_holded(GPIO_TypeDef* port, uint16_t pin)
+{
+	button_t* btn = _find_button(port, pin);
+	if (!btn) {
+		return false;
+	}
+	return button_holded(btn);
 }
 #endif
 

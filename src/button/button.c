@@ -29,7 +29,7 @@ void button_create(
 	button->_inverse     = inverse;
 	button->_clicked     = false;
 	button->_hold_ms     = hold_ms;
-	button->_hold_start  = 0;
+	button->_holded      = false;
 }
 
 void button_tick(button_t* button)
@@ -44,9 +44,6 @@ void button_tick(button_t* button)
 	}
 
 	bool state = button_pressed(button);
-	if (!state) {
-		button->_hold_start = 0;
-	}
 	if (state == button->_curr_state) {
 		return;
 	}
@@ -67,6 +64,11 @@ bool button_one_click(button_t* button)
 		BEDUG_ASSERT(false, "button is null pointer");
 		return false;
 	}
+	if (button->_clicked && button->_holded) {
+		button->_clicked = false;
+		button->_holded  = false;
+		return false;
+	}
 	if (button->_clicked) {
 		button->_clicked = false;
 		return true;
@@ -82,6 +84,9 @@ bool button_holded(button_t* button)
 	}
 	if (!button_pressed(button)) {
 		return false;
+	}
+	if (!gtimer_wait(&button->_hold)) {
+		button->_holded = true;
 	}
 	return !gtimer_wait(&button->_hold);
 }

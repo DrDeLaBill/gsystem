@@ -1,11 +1,16 @@
 /* Copyright © 2023 Georgy E. All rights reserved. */
 
+#include "clock.h"
+
+
+#ifndef GSYSTEM_NO_RTC_W
+
+
 #include <clock.h>
 #include <stdint.h>
 #include <stdbool.h>
 
 #include "glog.h"
-#include "clock.h"
 #include "bmacro.h"
 #include "hal_defs.h"
 
@@ -628,3 +633,6 @@ uint8_t _get_days_in_month(uint16_t year, Months month)
 	};
 	return 0;
 }
+
+
+#endif

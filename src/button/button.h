@@ -26,9 +26,9 @@ typedef struct _button_t {
 	bool            _curr_state;
 	bool            _inverse;
 	bool            _clicked;
+	bool            _holded;
 
 	uint32_t        _hold_ms;
-	uint32_t        _hold_start;
 	gtimer_t        _hold;
 } button_t;
 
