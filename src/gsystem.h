@@ -32,15 +32,9 @@ extern "C" {
 #   define GSYSTEM_ADC_VOLTAGE_COUNT (1)
 #endif
 
-
-typedef struct _system_timer_t {
-	TIM_TypeDef* tim;
-	TIM_TypeDef  bkup_tim;
-	bool         enabled;
-	uint32_t     end;
-	uint32_t     count;
-} system_timer_t;
-
+#ifndef GSYSTEM_BUTTONS_COUNT
+#   define GSYSTEM_BUTTONS_COUNT     (10)
+#endif
 
 void system_init(void);
 void system_registrate(void (*process) (void), uint32_t delay_ms, bool work_with_error);
@@ -55,15 +49,31 @@ bool is_software_ready(void);
 
 void system_error_handler(SOUL_STATUS error);
 
-void system_timer_start(system_timer_t* timer, TIM_TypeDef* fw_tim, uint32_t delay_ms);
-bool system_timer_wait(system_timer_t* timer);
-void system_timer_stop(system_timer_t* timer);
-
 void system_reset_i2c_errata(void);
 
 char* get_system_serial_str(void);
 
 void system_error_loop(void);
+
+
+typedef struct _system_timer_t {
+	uint32_t     verif;
+	TIM_TypeDef* tim;
+	TIM_TypeDef  bkup_tim;
+	bool         enabled;
+	uint32_t     end;
+	uint32_t     count;
+} system_timer_t;
+
+void system_timer_start(system_timer_t* timer, TIM_TypeDef* fw_tim, uint32_t delay_ms);
+bool system_timer_wait(system_timer_t* timer);
+void system_timer_stop(system_timer_t* timer);
+
+#if GSYSTEM_BUTTONS_COUNT
+void system_add_button(GPIO_TypeDef* port, uint16_t pin, bool inverse);
+bool system_button_clicked(GPIO_TypeDef* port, uint16_t pin);
+bool system_button_pressed(GPIO_TypeDef* port, uint16_t pin);
+#endif
 
 #ifndef GSYSTEM_NO_ADC_W
 uint32_t get_system_power(void);

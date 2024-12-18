@@ -8,6 +8,8 @@
 #include "main.h"
 #include "glog.h"
 #include "clock.h"
+#include "bmacro.h"
+#include "button.h"
 #include "hal_defs.h"
 
 #if defined(GSYSTEM_DS1307_CLOCK)
@@ -30,6 +32,13 @@
 static void _system_watchdog_check(void);
 static void _fill_ram();
 
+
+static const uint32_t TIMER_VERIF_WORD = 0xBEDAC1DE;
+
+#if GSYSTEM_BUTTONS_COUNT
+unsigned buttons_count = 0;
+button_t buttons[GSYSTEM_BUTTONS_COUNT] = {0};
+#endif
 
 #if GSYSTEM_BEDUG || defined(DEBUG) || defined(GBEDUG_FORCE)
 static const char SYSTEM_TAG[] = "GSYS";
@@ -55,7 +64,6 @@ uint16_t SYSTEM_ADC_VOLTAGE[GSYSTEM_ADC_VOLTAGE_COUNT] = {0};
 #ifndef GSYSTEM_TIMER
 #   define GSYSTEM_TIMER (TIM1)
 #endif
-
 
 typedef struct _watchdogs_t {
 	void     (*action)(void);
@@ -88,6 +96,9 @@ extern void rtc_watchdog_check();
 #ifndef GSYSTEM_NO_MEMORY_W
 extern void memory_watchdog_check();
 #endif
+#if GSYSTEM_BUTTONS_COUNT
+extern void btn_watchdog_check();
+#endif
 watchdogs_t watchdogs[] = {
 	{_system_watchdog_check,   SYSTEM_WATCHDOG_MIN_DELAY_MS, {0,0}},
 #if !defined(GSYSTEM_NO_RESTART_W) || !defined(GSYSTEM_NO_RTC_W)
@@ -113,6 +124,9 @@ watchdogs_t watchdogs[] = {
 #endif
 #ifndef GSYSTEM_NO_MEMORY_W
 	{memory_watchdog_check,    SECOND_MS,                    {0,0}},
+#endif
+#if GSYSTEM_BUTTONS_COUNT
+	{btn_watchdog_check,       5,                            {0,0}},
 #endif
 };
 
@@ -504,6 +518,7 @@ void system_timer_start(system_timer_t* timer, TIM_TypeDef* fw_tim, uint32_t del
 		timer->enabled = READ_BIT(RCC->APB1ENR, RCC_APB1ENR_TIM4EN);
 		break;
 	default:
+		BEDUG_ASSERT(false, "GSYSTEM TIM WAS NOT SELECTED");
 		return;
 	}
 	if (timer->enabled) {
@@ -527,6 +542,7 @@ void system_timer_start(system_timer_t* timer, TIM_TypeDef* fw_tim, uint32_t del
 		__TIM4_CLK_ENABLE();
 		break;
 	default:
+		BEDUG_ASSERT(false, "GSYSTEM TIM WAS NOT SELECTED");
 		return;
 	}
 	uint32_t count_cnt = SECOND_MS;
@@ -549,10 +565,16 @@ void system_timer_start(system_timer_t* timer, TIM_TypeDef* fw_tim, uint32_t del
 	timer->tim->CNT  = 0;
 	timer->tim->CR1 &= ~(TIM_CR1_DIR); // count up
 	timer->tim->CR1 |= TIM_CR1_CEN;
+
+	timer->verif = TIMER_VERIF_WORD;
 }
 
 bool system_timer_wait(system_timer_t* timer)
 {
+	if (!timer->tim || timer->verif != TIMER_VERIF_WORD) {
+		BEDUG_ASSERT(false, "GSYSTEM TIM WAS NOT SELECTED");
+		return false;
+	}
 	if (timer->tim->SR & TIM_SR_CC1IF) {
 		timer->count++;
 		timer->tim->SR   = 0;
@@ -563,6 +585,11 @@ bool system_timer_wait(system_timer_t* timer)
 
 void system_timer_stop(system_timer_t* timer)
 {
+	if (!timer->tim || timer->verif != TIMER_VERIF_WORD) {
+		BEDUG_ASSERT(false, "GSYSTEM TIM WAS NOT SELECTED");
+		return false;
+	}
+
 	timer->tim->SR &= ~(TIM_SR_UIF | TIM_SR_CC1IF);
 	timer->tim->CNT = 0;
 
@@ -584,10 +611,55 @@ void system_timer_stop(system_timer_t* timer)
 			__TIM4_CLK_DISABLE();
 			break;
 		default:
+			BEDUG_ASSERT(false, "GSYSTEM TIM WAS NOT SELECTED");
 			return;
 		}
 	}
+
+	timer->verif = 0;
+	timer->tim = NULL;
 }
+
+#if GSYSTEM_BUTTONS_COUNT
+void system_add_button(GPIO_TypeDef* port, uint16_t pin, bool inverse)
+{
+	if (buttons_count >= __arr_len(buttons)) {
+		return;
+	}
+	util_port_pin_t tmp_pin = {port, pin};
+	button_create(&buttons[buttons_count++], &tmp_pin, inverse, DEFAULT_HOLD_TIME_MS);
+}
+
+button_t* _find_button(GPIO_TypeDef* port, uint16_t pin)
+{
+	button_t* btn = NULL;
+	for (unsigned i = 0; i < buttons_count; i++) {
+		if (buttons[i]._pin.port == port && buttons[i]._pin.pin == pin) {
+			btn = &buttons[i];
+			break;
+		}
+	}
+	return btn;
+}
+
+bool system_button_clicked(GPIO_TypeDef* port, uint16_t pin)
+{
+	button_t* btn = _find_button(port, pin);
+	if (!btn) {
+		return false;
+	}
+	return button_one_click(btn);
+}
+
+bool system_button_pressed(GPIO_TypeDef* port, uint16_t pin)
+{
+	button_t* btn = _find_button(port, pin);
+	if (!btn) {
+		return false;
+	}
+	return button_pressed(btn);
+}
+#endif
 
 #ifndef GSYSTEM_NO_ADC_W
 uint32_t get_system_power(void)

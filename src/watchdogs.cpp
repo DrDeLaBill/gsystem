@@ -6,6 +6,7 @@
 #include "soul.h"
 #include "glog.h"
 #include "clock.h"
+#include "button.h"
 #include "gsystem.h"
 #include "hal_defs.h"
 
@@ -20,7 +21,9 @@
 #endif
 
 
-static const char TAG[] = "SYS";
+#if GSYSTEM_BEDUG || defined(DEBUG) || defined(GBEDUG_FORCE)
+static const char TAG[] = "GSYS";
+#endif
 
 #ifndef GSYSTEM_NO_ADC_W
 static gtimer_t adc_timer = {};
@@ -677,5 +680,24 @@ extern "C" void i2c_watchdog_check()
 	}
 
 	system_reset_i2c_errata();
+}
+#endif
+
+#if GSYSTEM_BUTTONS_COUNT
+extern "C" void btn_watchdog_check()
+{
+	extern unsigned buttons_count;
+	extern button_t buttons[GSYSTEM_BUTTONS_COUNT];
+
+	if (!buttons_count) {
+		return;
+	}
+
+	static unsigned counter = 0;
+	if (counter >= buttons_count) {
+		counter = 0;
+	}
+
+	button_tick(&buttons[counter++]);
 }
 #endif
