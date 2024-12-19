@@ -12,9 +12,6 @@ extern "C" {
 #endif
 
 
-#include "soul.h"
-
-
 //#define GSYSTEM_NO_RESTART_W
 //#define GSYSTEM_NO_RTC_W
 //#define GSYSTEM_NO_RTC_CALENDAR_W

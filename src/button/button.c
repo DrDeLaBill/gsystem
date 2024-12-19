@@ -8,7 +8,7 @@
 #define BUTTON_DEBOUNCE_MS (60)
 
 
-const uint32_t DEFAULT_HOLD_TIME_MS = 1500;
+const uint32_t DEFAULT_HOLD_TIME_MS = 1000;
 
 
 void button_create(
@@ -25,11 +25,15 @@ void button_create(
 	button->_debounce_ms = BUTTON_DEBOUNCE_MS;
 	button->_pin.port    = pin->port;
 	button->_pin.pin     = pin->pin;
-	button->_curr_state  = !inverse;
 	button->_inverse     = inverse;
 	button->_clicked     = false;
 	button->_hold_ms     = hold_ms;
 	button->_holded      = false;
+
+	button->_curr_state  = button_pressed(button);
+
+	gtimer_reset(&button->_debounce);
+	gtimer_reset(&button->_hold);
 }
 
 void button_tick(button_t* button)
@@ -44,16 +48,20 @@ void button_tick(button_t* button)
 	}
 
 	bool state = button_pressed(button);
+	if (!state) {
+		gtimer_start(&button->_hold, button->_hold_ms);
+	}
 	if (state == button->_curr_state) {
 		return;
+	} else if (state) {
+		gtimer_start(&button->_hold, button->_hold_ms);
 	}
 	gtimer_start(&button->_debounce, button->_debounce_ms);
 
-	if (state) {
-		button->_clicked    = false;
-		gtimer_start(&button->_hold, button->_hold_ms);
+	if (button->_holded) {
+		button->_clicked = false;
 	} else {
-		button->_clicked = true;
+		button->_clicked = !state;
 	}
 	button->_curr_state = state;
 }
@@ -62,11 +70,6 @@ bool button_one_click(button_t* button)
 {
 	if (!button) {
 		BEDUG_ASSERT(false, "button is null pointer");
-		return false;
-	}
-	if (button->_clicked && button->_holded) {
-		button->_clicked = false;
-		button->_holded  = false;
 		return false;
 	}
 	if (button->_clicked) {
@@ -83,6 +86,7 @@ bool button_holded(button_t* button)
 		return false;
 	}
 	if (!button_pressed(button)) {
+		button->_holded = false;
 		return false;
 	}
 	if (!gtimer_wait(&button->_hold)) {
