@@ -328,7 +328,7 @@ void system_post_load(void)
 #endif
 }
 
-void system_registrate(void (*process) (void), uint32_t delay_ms, bool work_with_error)
+void system_register(void (*process) (void), uint32_t delay_ms, bool work_with_error)
 {
 	if (processes_cnt >= __arr_len(processes)) {
 		BEDUG_ASSERT(false, "GSystem processes count is out of range");

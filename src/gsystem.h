@@ -41,7 +41,7 @@ extern "C" {
 #endif
 
 void system_init(void);
-void system_registrate(void (*process) (void), uint32_t delay_ms, bool work_with_error);
+void system_register(void (*process) (void), uint32_t delay_ms, bool work_with_error);
 void set_system_timeout(uint32_t timeout_ms);
 void system_start(void);
 
