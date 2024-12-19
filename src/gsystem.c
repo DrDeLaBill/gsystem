@@ -16,6 +16,18 @@
 #   include "ds1307.h"
 #endif
 
+
+#define GSYSTEM_BEDUG (defined(DEBUG) || defined(GBEDUG_FORCE))
+#if GSYSTEM_BEDUG
+static const char SYSTEM_TAG[] = "GSYS";
+#   define SYSTEM_BEDUG(FORMAT, ...) printTagLog(SYSTEM_TAG, FORMAT __VA_OPT__(,) __VA_ARGS__);
+#else
+#   define SYSTEM_BEDUG(FORMAT, ...)
+#endif
+#if defined(GSYSTEM_BEDUG_UART) && !GSYSTEM_BEDUG
+#   undef GSYSTEM_BEDUG_UART
+#endif
+
 #define SYSTEM_WATCHDOG_MIN_DELAY_MS (20)
 
 #if defined(GSYSTEM_DS1307_CLOCK)
@@ -40,9 +52,6 @@ unsigned buttons_count = 0;
 button_t buttons[GSYSTEM_BUTTONS_COUNT] = {0};
 #endif
 
-#if GSYSTEM_BEDUG || defined(DEBUG) || defined(GBEDUG_FORCE)
-static const char SYSTEM_TAG[] = "GSYS";
-#endif
 static const uint32_t err_delay_ms = 30 * MINUTE_MS;
 
 static bool sys_timeout_enabled = false;
@@ -341,12 +350,14 @@ void system_start(void)
 {
 	HAL_Delay(100);
 
+#if GSYSTEM_BEDUG
 	gprint("\n\n\n");
-	printTagLog(SYSTEM_TAG, "GSystem is loading");
+#endif
+	SYSTEM_BEDUG("GSystem is loading");
 
 	system_post_load();
 
-	printTagLog(SYSTEM_TAG, "GSystem loaded");
+	SYSTEM_BEDUG("GSystem loaded");
 
 	gtimer_t err_timer = {0};
 	gtimer_start(&err_timer, sys_timeout_ms);
@@ -442,9 +453,7 @@ void system_error_handler(SOUL_STATUS error)
 		error = INTERNAL_ERROR;
 	}
 
-#if GSYSTEM_BEDUG
-	printTagLog(SYSTEM_TAG, "GSystem_error_handler called error=%s", get_status_name(error));
-#endif
+	SYSTEM_BEDUG("GSystem_error_handler called error=%s", get_status_name(error));
 
 #ifndef GSYSTEM_NO_SYS_TICK_W
 	if (is_error(SYS_TICK_ERROR) && !system_hsi_initialized) {
@@ -503,7 +512,7 @@ void system_error_handler(SOUL_STATUS error)
 
 #if GSYSTEM_BEDUG
 	system_timer_start(&s_timer, GSYSTEM_TIMER, 300);
-	printTagLog(SYSTEM_TAG, "GSystem reset");
+	SYSTEM_BEDUG("GSystem reset");
 	while(system_timer_wait(&s_timer));
 	system_timer_stop(&s_timer);
 #endif
@@ -582,7 +591,7 @@ void system_timer_start(system_timer_t* timer, TIM_TypeDef* fw_tim, uint32_t del
 bool system_timer_wait(system_timer_t* timer)
 {
 	if (!timer->tim || timer->verif != TIMER_VERIF_WORD) {
-		BEDUG_ASSERT(false, "GSYSTEM TIM WAS NOT SELECTED");
+		SYSTEM_BEDUG("System timer has not initialized");
 		return false;
 	}
 	if (timer->tim->SR & TIM_SR_CC1IF) {
@@ -858,9 +867,7 @@ __attribute__((weak)) void system_error_loop(void) {}
 void system_reset_i2c_errata(void)
 {
 #if defined(GSYSTEM_EEPROM_MODE) || defined(GSYSTEM_I2C) || (defined(GSYSTEM_DS1307_CLOCK) && defined(GSYSTEM_NO_RTC_W))
-#if GSYSTEM_BEDUG
-	printTagLog(SYSTEM_TAG, "RESET I2C (ERRATA)");
-#endif
+	SYSTEM_BEDUG("RESET I2C (ERRATA)");
 
 	extern I2C_HandleTypeDef GSYSTEM_I2C;
 
@@ -884,9 +891,7 @@ void system_reset_i2c_errata(void)
     }
 
     if (!I2C_PORT) {
-#if defined(DEBUG) || defined(GBEDUG_FORCE)
-    	printTagLog(SYSTEM_TAG, "GSystem i2c has not selected");
-#endif
+    	SYSTEM_BEDUG("GSystem i2c has not selected");
 		system_error_handler(I2C_ERROR);
     }
 
@@ -1019,15 +1024,13 @@ void system_sys_tick_reanimation(void)
 	reset_error(NON_MASKABLE_INTERRUPT);
 
 
-#if defined(DEBUG) || defined(GBEDUG_FORCE)
 	if (is_status(SYS_TICK_FAULT)) {
-		printTagLog(SYSTEM_TAG, "Critical external RCC failure");
-		printTagLog(SYSTEM_TAG, "The internal RCC has been started");
+		SYSTEM_BEDUG("Critical external RCC failure");
+		SYSTEM_BEDUG("The internal RCC has been started");
 	} else {
-		printTagLog(SYSTEM_TAG, "Critical external RCC failure");
-		printTagLog(SYSTEM_TAG, "The external RCC has been restarted");
+		SYSTEM_BEDUG("Critical external RCC failure");
+		SYSTEM_BEDUG("The external RCC has been restarted");
 	}
-#endif
 
 	__enable_irq();
 }
@@ -1074,7 +1077,7 @@ bool set_system_rtc_ram(const uint8_t idx, const uint8_t data)
 
 void _system_watchdog_check(void)
 {
-#ifdef DEBUG
+#if GSYSTEM_BEDUG
 	static gtimer_t kCPSTimer = {0,(10 * SECOND_MS)};
 #endif
 
@@ -1087,7 +1090,7 @@ void _system_watchdog_check(void)
 		gtimer_start(&err_timer, err_delay_ms);
 	}
 
-#ifdef DEBUG
+#if GSYSTEM_BEDUG
 	if (!gtimer_wait(&kCPSTimer)) {
 		printTagLog(
 			SYSTEM_TAG,
@@ -1110,9 +1113,6 @@ void _system_watchdog_check(void)
 	if (has_new_status_data()) {
 		show_statuses();
 	}
-#endif
-
-#if defined(DEBUG) || defined(GBEDUG_FORCE)
 	if (has_new_error_data()) {
 		show_errors();
 	}
@@ -1156,18 +1156,15 @@ int _write(int line, uint8_t *ptr, int len) {
 	(void)ptr;
 	(void)len;
 
-#   if defined(DEBUG) || defined(GBEDUG_FORCE)
-#       ifdef GSYSTEM_BEDUG_UART
+#   if GSYSTEM_BEDUG_UART
     extern UART_HandleTypeDef GSYSTEM_BEDUG_UART;
     HAL_UART_Transmit(&GSYSTEM_BEDUG_UART, (uint8_t*)ptr, (uint16_t)(len), 100);
-#       endif 
+#   endif
 
     for (int DataIdx = 0; DataIdx < len; DataIdx++) {
         ITM_SendChar(*ptr++);
     }
     return len;
-	
-#   endif
 
     return 0;
 }
