@@ -93,7 +93,7 @@ extern void ram_watchdog_check();
 #ifndef GSYSTEM_NO_ADC_W
 extern void adc_watchdog_check();
 #endif
-#ifndef GSYSTEM_NO_I2C_W
+#if defined(STM32F1) && !defined(GSYSTEM_NO_I2C_W)
 extern void i2c_watchdog_check();
 #endif
 #if !defined(GSYSTEM_NO_POWER_W) && !defined(GSYSTEM_NO_ADC_W)
@@ -122,7 +122,7 @@ watchdogs_t watchdogs[] = {
 #ifndef GSYSTEM_NO_ADC_W
 	{adc_watchdog_check,       SECOND_MS / 10,               {0,0}},
 #endif
-#ifndef GSYSTEM_NO_I2C_W
+#if defined(STM32F1) && !defined(GSYSTEM_NO_I2C_W)
 	{i2c_watchdog_check,       5 * SECOND_MS,                {0,0}},
 #endif
 #ifndef GSYSTEM_NO_RTC_W
@@ -965,7 +965,7 @@ void system_reset_i2c_errata(void)
 	GSYSTEM_I2C.Instance->CR1 |= 0x0001;
 
 	HAL_I2C_Init(&GSYSTEM_I2C);
-#elif !defined(GSYSTEM_NO_I2C_W)
+#elif defined(STM32F1) && !defined(GSYSTEM_NO_I2C_W)
 #   warning "GSystem i2c has not selected"
 #endif
 }
