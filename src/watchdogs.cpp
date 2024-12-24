@@ -6,13 +6,16 @@
 #include "soul.h"
 #include "glog.h"
 #include "clock.h"
-#include "button.h"
 #include "gsystem.h"
 #include "hal_defs.h"
 
 #ifndef GSYSTEM_NO_MEMORY_W
 #   include "StorageAT.h"
 #   include "StorageDriver.h"
+#endif
+
+#if GSYSTEM_BUTTONS_COUNT > 0
+#   include "button.h"
 #endif
 
 

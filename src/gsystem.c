@@ -9,13 +9,15 @@
 #include "glog.h"
 #include "clock.h"
 #include "bmacro.h"
-#include "button.h"
 #include "hal_defs.h"
 
 #if defined(GSYSTEM_DS1307_CLOCK)
 #   include "ds1307.h"
 #endif
 
+#if GSYSTEM_BUTTONS_COUNT > 0
+#   include "button.h"
+#endif
 
 #define GSYSTEM_BEDUG (defined(DEBUG) || defined(GBEDUG_FORCE))
 #if GSYSTEM_BEDUG
