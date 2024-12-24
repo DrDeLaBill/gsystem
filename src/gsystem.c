@@ -1158,7 +1158,7 @@ int _write(int line, uint8_t *ptr, int len) {
 	(void)ptr;
 	(void)len;
 
-#   if GSYSTEM_BEDUG_UART
+#   if defined(GSYSTEM_BEDUG_UART)
     extern UART_HandleTypeDef GSYSTEM_BEDUG_UART;
     HAL_UART_Transmit(&GSYSTEM_BEDUG_UART, (uint8_t*)ptr, (uint16_t)(len), 100);
 #   endif
