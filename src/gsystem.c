@@ -10,6 +10,7 @@
 #include "clock.h"
 #include "bmacro.h"
 #include "hal_defs.h"
+#include "gversion.h"
 
 #if defined(GSYSTEM_DS1307_CLOCK)
 #   include "ds1307.h"
@@ -75,6 +76,8 @@ uint16_t SYSTEM_ADC_VOLTAGE[GSYSTEM_ADC_VOLTAGE_COUNT] = {0};
 #ifndef GSYSTEM_TIMER
 #   define GSYSTEM_TIMER (TIM1)
 #endif
+
+gversion_t build_ver = {0};
 
 typedef struct _watchdogs_t {
 	void     (*action)(void);
@@ -328,6 +331,12 @@ void system_post_load(void)
 	CLEAR_BIT(BKP->CR, BKP_CR_TPE);
 	HAL_PWR_DisableBkUpAccess();
 #endif
+
+	if (!gversion_from_string(BUILD_VERSION, strlen(BUILD_VERSION), &build_ver)) {
+		memset((void*)&build_ver, 0, sizeof(build_ver));
+	}
+
+	printTagLog(SYSTEM_TAG, "BUILD VERSION=%s", gversion_to_string(&build_ver));
 }
 
 void system_register(void (*process) (void), uint32_t delay_ms, bool work_with_error)

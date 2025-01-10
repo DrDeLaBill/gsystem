@@ -16,14 +16,14 @@ extern "C" {
 #include "gconfig.h"
 
 
-#define SYSTEM_CASE_STATUS(TARGET, STATUS) case STATUS:                \
-										   snprintf(                    \
-											   TARGET,                    \
-											   sizeof(TARGET) - 1,        \
-											   "%s",                    \
-											   __STR_DEF__(STATUS) \
-											   );                           \
-											   break;
+#define SYSTEM_CASE_STATUS(TARGET, STATUS) case STATUS:                 \
+                                               snprintf(                \
+                                                   TARGET,              \
+                                                   sizeof(TARGET) - 1,  \
+                                                   "%s",                \
+                                                   __STR_DEF__(STATUS)  \
+                                               );                       \
+                                               break;
 
 #define SYSTEM_CANARY_WORD                 ((uint32_t)0xBEDAC0DE)
 #define SYSTEM_BKUP_STATUS_TYPE            uint32_t
@@ -38,6 +38,10 @@ extern "C" {
 
 #ifndef GSYSTEM_BUTTONS_COUNT
 #   define GSYSTEM_BUTTONS_COUNT     (10)
+#endif
+
+#ifndef BUILD_VERSION
+#   define BUILD_VERSION             "v0.0.0"
 #endif
 
 void system_init(void);
@@ -61,12 +65,12 @@ void system_error_loop(void);
 
 
 typedef struct _system_timer_t {
-	uint32_t     verif;
-	TIM_TypeDef* tim;
-	TIM_TypeDef  bkup_tim;
-	bool         enabled;
-	uint32_t     end;
-	uint32_t     count;
+    uint32_t     verif;
+    TIM_TypeDef* tim;
+    TIM_TypeDef  bkup_tim;
+    bool         enabled;
+    uint32_t     end;
+    uint32_t     count;
 } system_timer_t;
 
 void system_timer_start(system_timer_t* timer, TIM_TypeDef* fw_tim, uint32_t delay_ms);
