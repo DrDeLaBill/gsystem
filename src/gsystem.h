@@ -44,6 +44,11 @@ extern "C" {
 #   define BUILD_VERSION             "v0.0.0"
 #endif
 
+#define GSYSTEM_BEDUG (defined(DEBUG) || defined(GBEDUG_FORCE))
+#if GSYSTEM_BEDUG
+extern const char SYSTEM_TAG[];
+#endif
+
 void system_init(void);
 void system_register(void (*process) (void), uint32_t delay_ms, bool work_with_error);
 void set_system_timeout(uint32_t timeout_ms);

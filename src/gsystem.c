@@ -20,9 +20,8 @@
 #   include "button.h"
 #endif
 
-#define GSYSTEM_BEDUG (defined(DEBUG) || defined(GBEDUG_FORCE))
 #if GSYSTEM_BEDUG
-static const char SYSTEM_TAG[] = "GSYS";
+const char SYSTEM_TAG[] = "GSYS";
 #   define SYSTEM_BEDUG(FORMAT, ...) printTagLog(SYSTEM_TAG, FORMAT __VA_OPT__(,) __VA_ARGS__);
 #else
 #   define SYSTEM_BEDUG(FORMAT, ...)
@@ -45,6 +44,7 @@ static const char SYSTEM_TAG[] = "GSYS";
 #endif
 
 static void _system_watchdog_check(void);
+static void _system_restart_check(void);
 static void _fill_ram();
 
 
@@ -86,9 +86,6 @@ typedef struct _watchdogs_t {
 } watchdogs_t;
 
 
-#if !defined(GSYSTEM_NO_RESTART_W) || !defined(GSYSTEM_NO_RTC_W)
-extern void restart_watchdog_check();
-#endif
 #ifndef GSYSTEM_NO_SYS_TICK_W
 extern void sys_clock_watchdog_check();
 #endif
@@ -115,9 +112,6 @@ extern void btn_watchdog_check();
 #endif
 watchdogs_t watchdogs[] = {
 	{_system_watchdog_check,   SYSTEM_WATCHDOG_MIN_DELAY_MS, {0,0}},
-#if !defined(GSYSTEM_NO_RESTART_W) || !defined(GSYSTEM_NO_RTC_W)
-	{restart_watchdog_check,   SECOND_MS / 10,               {0,0}},
-#endif
 #ifndef GSYSTEM_NO_SYS_TICK_W
 	{sys_clock_watchdog_check, SECOND_MS / 10,               {0,0}},
 #endif
@@ -276,6 +270,8 @@ void system_post_load(void)
 	set_status(SYSTEM_SOFTWARE_STARTED);
 
 	SystemInfo();
+
+	_system_restart_check();
 
 #ifndef GSYSTEM_NO_ADC_W
 	const uint32_t delay_ms = 10000;
@@ -1145,6 +1141,41 @@ void _system_watchdog_check(void)
 
 	if (!is_status(SYSTEM_HARDWARE_READY)) {
 		reset_status(SYSTEM_SOFTWARE_READY);
+	}
+}
+
+void _system_restart_check(void)
+{
+	bool flag = false;
+	// IWDG check reboot
+	if (__HAL_RCC_GET_FLAG(RCC_FLAG_IWDGRST)) {
+#if GSYSTEM_BEDUG
+		printTagLog(SYSTEM_TAG, "IWDG just went off");
+#endif
+		flag = true;
+	}
+
+	// WWDG check reboot
+	if (__HAL_RCC_GET_FLAG(RCC_FLAG_WWDGRST)) {
+#if GSYSTEM_BEDUG
+		printTagLog(SYSTEM_TAG, "WWDG just went off");
+#endif
+		flag = true;
+	}
+
+	if (__HAL_RCC_GET_FLAG(RCC_FLAG_SFTRST)) {
+#if GSYSTEM_BEDUG
+		printTagLog(SYSTEM_TAG, "SOFT RESET");
+#endif
+		flag = true;
+	}
+
+	if (flag) {
+		__HAL_RCC_CLEAR_RESET_FLAGS();
+#if GSYSTEM_BEDUG
+		printTagLog(SYSTEM_TAG, "DEVICE HAS BEEN REBOOTED");
+#endif
+		HAL_Delay(2500);
 	}
 }
 
