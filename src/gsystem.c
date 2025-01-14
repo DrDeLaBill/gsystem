@@ -1098,12 +1098,12 @@ void _system_watchdog_check(void)
 	}
 
 #if GSYSTEM_BEDUG
-	printTagLog(
-		SYSTEM_TAG,
-		"firmware version: v%s",
-		gversion_to_string(&build_ver)
-	);
 	if (!gtimer_wait(&kCPSTimer)) {
+		printTagLog(
+			SYSTEM_TAG,
+			"firmware version: v%s",
+			gversion_to_string(&build_ver)
+		);
 		printTagLog(
 			SYSTEM_TAG,
 			"kCPS: %lu.%lu",
