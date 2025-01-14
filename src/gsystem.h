@@ -42,6 +42,11 @@ extern "C" {
 
 #ifndef BUILD_VERSION
 #   define BUILD_VERSION             "v0.0.0"
+#else
+#   define BUILD_VERSION_TMP         BUILD_VERSION
+#   undef  BUILD_VERSION
+#   define BUILD_VERSION             __STR_DEF__(__STR_DEF__(BUILD_VERSION_TMP))
+#   undef  BUILD_VERSION_TMP
 #endif
 
 #define GSYSTEM_BEDUG (defined(DEBUG) || defined(GBEDUG_FORCE))
