@@ -50,6 +50,10 @@ void button_tick(button_t* button)
 	bool state = button_pressed(button);
 	if (!state) {
 		gtimer_start(&button->_hold, button->_hold_ms);
+	} else if (!gtimer_wait(&button->_hold)) {
+		gtimer_start(&button->_debounce, button->_debounce_ms);
+		button->_curr_state = false;
+		return;
 	}
 	if (state == button->_curr_state) {
 		return;
