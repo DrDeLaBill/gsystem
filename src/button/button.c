@@ -2,13 +2,22 @@
 
 #include "button.h"
 
+#include "glog.h"
 #include "bmacro.h"
+#include "fsm_gc.h"
+#include "gsystem.h"
 
 
 #define BUTTON_DEBOUNCE_MS (60)
 
 
 const uint32_t DEFAULT_HOLD_TIME_MS = 1000;
+
+
+static void _btn_idle_action(button_t* button);
+static void _btn_pressed_action(button_t* button);
+static void _btn_holded_action(button_t* button);
+static void _btn_clicked_action(button_t* button);
 
 
 void button_create(
@@ -30,7 +39,7 @@ void button_create(
 	button->_hold_ms     = hold_ms;
 	button->_holded      = false;
 
-	button->_curr_state  = button_pressed(button);
+	button->_pressed     = button_pressed(button);
 
 	gtimer_reset(&button->_debounce);
 	gtimer_reset(&button->_hold);
@@ -47,27 +56,15 @@ void button_tick(button_t* button)
 		return;
 	}
 
-	bool state = button_pressed(button);
-	if (!state) {
-		gtimer_start(&button->_hold, button->_hold_ms);
-	} else if (!gtimer_wait(&button->_hold)) {
-		gtimer_start(&button->_debounce, button->_debounce_ms);
-		button->_curr_state = false;
-		return;
-	}
-	if (state == button->_curr_state) {
-		return;
-	} else if (state) {
-		gtimer_start(&button->_hold, button->_hold_ms);
-	}
-	gtimer_start(&button->_debounce, button->_debounce_ms);
-
-	if (button->_holded) {
-		button->_clicked = false;
+	if (button->_clicked) {
+		_btn_clicked_action(button);
+	} else if (button->_holded) {
+		_btn_holded_action(button);
+	} else if (button->_pressed) {
+		_btn_pressed_action(button);
 	} else {
-		button->_clicked = !state;
+		_btn_idle_action(button);
 	}
-	button->_curr_state = state;
 }
 
 bool button_one_click(button_t* button)
@@ -107,4 +104,59 @@ bool button_pressed(button_t* button)
 	}
 	bool state = HAL_GPIO_ReadPin(button->_pin.port, button->_pin.pin);
 	return button->_inverse ? !state : state;
+}
+
+void _btn_idle_action(button_t* button)
+{
+	gtimer_start(&button->_debounce, button->_debounce_ms);
+	gtimer_start(&button->_hold, button->_hold_ms);
+	button->_pressed = button_pressed(button);
+	button->_clicked = false;
+	button->_holded  = false;
+	if (button->_pressed) {
+#if GSYSTEM_BEDUG
+		printTagLog(SYSTEM_TAG, "button [0x%08X-0x%02X]: pressed", (unsigned)button->_pin.port, button->_pin.pin);
+#endif
+	}
+}
+
+void _btn_pressed_action(button_t* button)
+{
+	if (gtimer_wait(&button->_debounce)) {
+		return;
+	}
+	bool pressed = button_pressed(button);
+	if (button->_pressed && !pressed) {
+#if GSYSTEM_BEDUG
+		printTagLog(SYSTEM_TAG, "button [0x%08X-0x%02X]: clicked", (unsigned)button->_pin.port, button->_pin.pin);
+#endif
+		button->_clicked = true;
+	} else if (!gtimer_wait(&button->_hold)) {
+#if GSYSTEM_BEDUG
+		printTagLog(SYSTEM_TAG, "button [0x%08X-0x%02X]: holded", (unsigned)button->_pin.port, button->_pin.pin);
+#endif
+		button->_holded = true;
+	}
+	button->_pressed = pressed;
+}
+
+void _btn_holded_action(button_t* button)
+{
+	button->_pressed = button_pressed(button);
+	if (!button->_pressed) {
+#if GSYSTEM_BEDUG
+		printTagLog(SYSTEM_TAG, "button [0x%08X-0x%02X]: not holded", (unsigned)button->_pin.port, button->_pin.pin);
+#endif
+		gtimer_start(&button->_debounce, button->_debounce_ms);
+		button->_holded = false;
+	}
+}
+
+void _btn_clicked_action(button_t* button)
+{
+	button->_pressed = button_pressed(button);
+	if (button->_pressed) {
+		gtimer_start(&button->_debounce, button->_debounce_ms);
+		button->_clicked = false;
+	}
 }
