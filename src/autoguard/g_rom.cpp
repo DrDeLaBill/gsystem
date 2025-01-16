@@ -5,6 +5,10 @@
 
 #ifndef GSYSTEM_NO_MEMORY_W
 
+#   include <cmath>
+
+#   include "glog.h"
+#   include "gsystem.h"
 #   include "StorageAT.h"
 #   include "StorageDriver.h"
 
@@ -40,7 +44,13 @@ extern "C" void memory_watchdog_check()
 	static uint8_t errors = 0;
 	static bool timerStarted = false;
 
-	if (!is_system_ready() && !is_error(MEMORY_ERROR) && !is_error(EXPECTED_MEMORY_ERROR)) {
+	if (!is_system_ready() &&
+		is_status(MEMORY_INITIALIZED) &&
+		!is_status(MEMORY_READ_FAULT) &&
+		!is_status(MEMORY_WRITE_FAULT) &&
+		!is_error(MEMORY_ERROR) &&
+		!is_error(EXPECTED_MEMORY_ERROR)
+	) {
 		return;
 	}
 
@@ -57,11 +67,11 @@ extern "C" void memory_watchdog_check()
 			set_status(MEMORY_INITIALIZED);
 			storage.setPagesCount(flash_w25qxx_get_pages_count());
 #   ifdef GSYSTEM_BEDUG
-			printTagLog(TAG, "flash init success (%lu pages)", flash_w25qxx_get_pages_count());
+			printTagLog(SYSTEM_TAG, "flash init success (%lu pages)", flash_w25qxx_get_pages_count());
 #   endif
 		} else {
 #   ifdef GSYSTEM_BEDUG
-			printTagLog(TAG, "flash init error");
+			printTagLog(SYSTEM_TAG, "flash init error");
 #   endif
 		}
 		return;

@@ -123,7 +123,7 @@ typedef struct _soul_t {
 	bool has_new_status_data;
 #endif
 	SOUL_STATUS last_err;
-	uint8_t statuses[__div_up(SOUL_STATUSES_END - 1, BITS_IN_BYTE)];
+	uint8_t statuses[__div_up(SOUL_STATUSES_END, BITS_IN_BYTE)];
 } soul_t;
 
 extern const char *SOUL_UNKNOWN_STATUS;
@@ -166,7 +166,7 @@ void reset_internal_status(SOUL_STATUS status);
 
 char* get_status_name(SOUL_STATUS status);
 char* get_custom_status_name(SOUL_STATUS status);
-#if defined(DEBUG) || defined(GBEDUG_FORCE) // TODO: add FAULTS to errors
+#if defined(DEBUG) || defined(GBEDUG_FORCE)
 bool has_new_error_data();
 bool has_new_status_data();
 void show_errors();

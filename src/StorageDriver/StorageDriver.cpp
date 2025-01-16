@@ -104,7 +104,7 @@ StorageStatus StorageDriver::read(const uint32_t address, uint8_t *data, const u
 	if (is_error(POWER_ERROR) || is_status(MEMORY_ERROR)) {
 
 #   if STORAGE_DRIVER_BEDUG
-		printTagLog(TAG, "Error power", address);
+		printTagLog(TAG, "Error power: unable to read 0x%08X", (unsigned int)address);
 #   endif
 
 		return STORAGE_ERROR;
@@ -239,7 +239,7 @@ StorageStatus StorageDriver::write(const uint32_t address, const uint8_t *data, 
 	if (is_error(POWER_ERROR) || is_status(MEMORY_ERROR)) {
 
 #   if STORAGE_DRIVER_BEDUG
-		printTagLog(TAG, "Error power", address);
+		printTagLog(TAG, "Error power: unable to write 0x%08X", (unsigned int)address);
 #   endif
 
 		return STORAGE_ERROR;
@@ -307,7 +307,7 @@ StorageStatus StorageDriver::erase(const uint32_t* addresses, const uint32_t cou
 	if (is_error(POWER_ERROR) || is_status(MEMORY_ERROR)) {
 
 #   if STORAGE_DRIVER_BEDUG
-		printTagLog(TAG, "Error power", address);
+		printTagLog(TAG, "Error power: unable to erase from 0x%08X %lu pages", (unsigned int)addresses[0], count);
 #   endif
 
 		return STORAGE_ERROR;

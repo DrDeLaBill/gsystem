@@ -2,7 +2,7 @@
 
 #include "gsystem.h"
 
-#include <malloc.h>
+#include <unistd.h>
 #include <stdbool.h>
 
 #include "main.h"
@@ -66,7 +66,7 @@ static bool system_hsi_initialized = false;
 static gtimer_t err_timer = {0};
 
 #if defined(DEBUG)
-static unsigned kCPScounter = 0;
+static unsigned kTPScounter = 0;
 #endif
 
 #ifndef GSYSTEM_NO_ADC_W
@@ -131,7 +131,7 @@ watchdogs_t watchdogs[] = {
 	{power_watchdog_check,     SECOND_MS,                    {0,0}},
 #endif
 #ifndef GSYSTEM_NO_MEMORY_W
-	{memory_watchdog_check,    SECOND_MS,                    {0,0}},
+	{memory_watchdog_check,    5 * SECOND_MS,                {0,0}},
 #endif
 #if GSYSTEM_BUTTONS_COUNT
 	{btn_watchdog_check,       5,                            {0,0}},
@@ -389,7 +389,7 @@ void system_tick()
 	static unsigned index_p = 0;
 
 #if defined(DEBUG)
-	kCPScounter++;
+	kTPScounter++;
 #endif
 
 	static bool work_w = true;
@@ -412,6 +412,10 @@ void system_tick()
 		index_w++;
 	} else {
 		if (!processes_cnt) {
+			return;
+		}
+
+		if (is_status(SYSTEM_ERROR_HANDLER_CALLED) && is_error(HARD_FAULT)) {
 			return;
 		}
 
@@ -518,7 +522,7 @@ void system_error_handler(SOUL_STATUS error)
 	}
 
 #if GSYSTEM_BEDUG
-	system_timer_start(&s_timer, GSYSTEM_TIMER, 300);
+	system_timer_start(&s_timer, GSYSTEM_TIMER, SECOND_MS);
 	SYSTEM_BEDUG("GSystem reset");
 	while(system_timer_wait(&s_timer));
 	system_timer_stop(&s_timer);
@@ -1085,7 +1089,7 @@ bool set_system_rtc_ram(const uint8_t idx, const uint8_t data)
 void _system_watchdog_check(void)
 {
 #if GSYSTEM_BEDUG
-	static gtimer_t kCPSTimer = {0,(10 * SECOND_MS)};
+	static gtimer_t kTPSTimer = {0,(10 * SECOND_MS)};
 #endif
 
 	if (!gtimer_wait(&err_timer)) {
@@ -1098,29 +1102,29 @@ void _system_watchdog_check(void)
 	}
 
 #if GSYSTEM_BEDUG
-	if (!gtimer_wait(&kCPSTimer)) {
+	if (!gtimer_wait(&kTPSTimer)) {
 		printTagLog(
 			SYSTEM_TAG,
-			"firmware version: v%s",
+			"firmware: v%s",
 			gversion_to_string(&build_ver)
 		);
 		printTagLog(
 			SYSTEM_TAG,
-			"kCPS: %lu.%lu",
-			kCPScounter / (10 * SECOND_MS),
-			(kCPScounter / SECOND_MS) % 10
+			"kTPS    : %lu.%lu",
+			kTPScounter / (10 * SECOND_MS),
+			(kTPScounter / SECOND_MS) % 10
 		);
 #   ifndef GSYSTEM_NO_ADC_W
 		uint32_t power = get_system_power();
 		printTagLog(
 			SYSTEM_TAG,
-			"Power: %lu.%lu V",
+			"power   : %lu.%lu V",
 			power / 10,
 			power % 10
 		);
 #   endif
-		kCPScounter = 0;
-		gtimer_start(&kCPSTimer, (10 * SECOND_MS));
+		kTPScounter = 0;
+		gtimer_start(&kTPSTimer, (10 * SECOND_MS));
 	}
 	if (has_new_status_data()) {
 		show_statuses();
@@ -1188,9 +1192,8 @@ void _fill_ram()
 {
 	volatile unsigned *top, *start;
 	__asm__ volatile ("mov %[top], sp" : [top] "=r" (top) : : );
-	unsigned *end_heap = (unsigned*)malloc(sizeof(size_t));
+	unsigned *end_heap = (unsigned*)sbrk(0);
 	start = end_heap;
-	free(end_heap);
 	start++;
 	while (start < top) {
 		*(start++) = SYSTEM_CANARY_WORD;

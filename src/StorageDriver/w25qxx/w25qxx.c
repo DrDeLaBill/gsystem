@@ -88,6 +88,7 @@ uint32_t       _flash_get_storage_bytes_size();
 const char FLASH_TAG[] = "FLSH";
 #endif
 
+extern SPI_HandleTypeDef GSYSTEM_FLASH_SPI;
 
 #define FLASH_W25_JDEC_ID_BLOCK_COUNT_MASK ((uint16_t)0x4011)
 const uint16_t w25qxx_jdec_id_block_count[] = {

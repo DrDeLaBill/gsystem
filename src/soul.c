@@ -45,7 +45,7 @@ void set_last_error(SOUL_STATUS error)
 bool has_errors()
 {
 	for (unsigned i = ERRORS_START + 1; i < ERRORS_END; i++) {
-		if (is_error((SOUL_STATUS)(i))) {
+		if (_is_status((SOUL_STATUS)(i))) {
 			return true;
 		}
 	}
@@ -64,7 +64,7 @@ void set_internal_error(SOUL_STATUS error)
 {
 	if (error > ERRORS_START && error < ERRORS_END) {
 #if defined(DEBUG) || defined(GBEDUG_FORCE)
-		if (!is_error(error)) {
+		if (!_is_status(error)) {
 			soul.has_new_error_data = true;
 		}
 #endif
@@ -76,7 +76,7 @@ void reset_internal_error(SOUL_STATUS error)
 {
 	if (error > ERRORS_START && error < ERRORS_END) {
 #if defined(DEBUG) || defined(GBEDUG_FORCE)
-		if (is_error(error)) {
+		if (_is_status(error)) {
 			soul.has_new_error_data = true;
 		}
 #endif
@@ -87,7 +87,7 @@ void reset_internal_error(SOUL_STATUS error)
 SOUL_STATUS get_first_error()
 {
 	for (unsigned i = ERRORS_START + 1; i < ERRORS_END; i++) {
-		if (is_error((SOUL_STATUS)(i))) {
+		if (_is_status((SOUL_STATUS)(i))) {
 			return i;
 		}
 	}
@@ -106,7 +106,7 @@ void set_internal_status(SOUL_STATUS status)
 {
 	if (status > STATUSES_START && status < STATUSES_END) {
 #if defined(DEBUG) || defined(GBEDUG_FORCE)
-		if (!is_status(status)) {
+		if (!_is_status(status)) {
 			soul.has_new_status_data = true;
 		}
 #endif
@@ -118,7 +118,7 @@ void reset_internal_status(SOUL_STATUS status)
 {
 	if (status > STATUSES_START && status < STATUSES_END) {
 #if defined(DEBUG) || defined(GBEDUG_FORCE)
-		if (is_status(status)) {
+		if (_is_status(status)) {
 			soul.has_new_status_data = true;
 		}
 #endif
@@ -128,31 +128,22 @@ void reset_internal_status(SOUL_STATUS status)
 
 bool _is_status(SOUL_STATUS status)
 {
-	uint8_t status_num = (uint8_t)(status) - 1;
 	return (bool)(
 		(
-			soul.statuses[status_num / BITS_IN_BYTE] >>
-			(status_num % BITS_IN_BYTE)
+			soul.statuses[status / BITS_IN_BYTE] >>
+			(status % BITS_IN_BYTE)
 		) & 0x01
 	);
 }
 
 void _set_status(SOUL_STATUS status)
 {
-	if (status == 0) {
-		return;
-	}
-	uint8_t status_num = (uint8_t)(status) - 1;
-	soul.statuses[status_num / BITS_IN_BYTE] |= (0x01 << (status_num % BITS_IN_BYTE));
+	soul.statuses[status / BITS_IN_BYTE] |= (0x01 << (status % BITS_IN_BYTE));
 }
 
 void _reset_status(SOUL_STATUS status)
 {
-	if (status == 0) {
-		return;
-	}
-	uint8_t status_num = (uint8_t)(status) - 1;
-	soul.statuses[status_num / BITS_IN_BYTE] &= (uint8_t)~(0x01 << (status_num % BITS_IN_BYTE));
+	soul.statuses[status / BITS_IN_BYTE] &= (uint8_t)~(0x01 << (status % BITS_IN_BYTE));
 }
 
 #define CASE_STATUS(SOUL_STATUS) case SOUL_STATUS:                \
@@ -250,7 +241,7 @@ void show_statuses()
 
 	unsigned cnt = 0;
 	for (SOUL_STATUS i = STATUSES_START + 1; i < STATUSES_END; i++) {
-		if (!is_status(i)) {
+		if (!_is_status(i)) {
 			continue;
 		}
 		cnt++;
