@@ -2,7 +2,7 @@
 
 #include "gconfig.h"
 
-#include <cstdlib>
+#include <unistd.h>
 #include <cstdint>
 
 #include "glog.h"
@@ -17,9 +17,8 @@ extern "C" void ram_watchdog_check()
 
 	unsigned *start, *end;
 	__asm__ volatile ("mov %[end], sp" : [end] "=r" (end) : : );
-	unsigned *end_heap = (unsigned*)malloc(sizeof(size_t));
+	unsigned *end_heap = (unsigned*)sbrk(0);
 	start = end_heap;
-	free(end_heap);
 	start++;
 
 	unsigned heap_end = 0;

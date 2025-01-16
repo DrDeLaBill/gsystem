@@ -23,6 +23,8 @@ typedef struct _button_t {
 	uint32_t        _debounce_ms;
 	gtimer_t        _debounce;
 
+	gtimer_t        _timeout;
+
 	bool            _pressed;
 	bool            _inverse;
 	bool            _clicked;

@@ -130,6 +130,8 @@ void _btn_pressed_action(button_t* button)
 #if GSYSTEM_BEDUG
 		printTagLog(SYSTEM_TAG, "button [0x%08X-0x%02X]: clicked", (unsigned)button->_pin.port, button->_pin.pin);
 #endif
+		gtimer_start(&button->_timeout, 10 * SECOND_MS);
+		gtimer_start(&button->_hold, button->_hold_ms);
 		button->_clicked = true;
 	} else if (!gtimer_wait(&button->_hold)) {
 #if GSYSTEM_BEDUG
@@ -154,8 +156,16 @@ void _btn_holded_action(button_t* button)
 
 void _btn_clicked_action(button_t* button)
 {
+	gtimer_start(&button->_hold, button->_hold_ms);
 	button->_pressed = button_pressed(button);
 	if (button->_pressed) {
+		gtimer_start(&button->_debounce, button->_debounce_ms);
+		button->_clicked = false;
+	}
+	if (!gtimer_wait(&button->_timeout)) {
+#if GSYSTEM_BEDUG
+		printTagLog(SYSTEM_TAG, "button [0x%08X-0x%02X]: click removed", (unsigned)button->_pin.port, button->_pin.pin);
+#endif
 		gtimer_start(&button->_debounce, button->_debounce_ms);
 		button->_clicked = false;
 	}
