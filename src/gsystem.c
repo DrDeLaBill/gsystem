@@ -634,9 +634,11 @@ void system_timer_stop(system_timer_t* timer)
 		case TIM2_BASE:
 			__TIM2_CLK_DISABLE();
 			break;
+#ifdef STM32F4
 		case TIM3_BASE:
 			__TIM3_CLK_DISABLE();
 			break;
+#endif
 		case TIM4_BASE:
 			__TIM4_CLK_DISABLE();
 			break;
