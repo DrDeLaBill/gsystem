@@ -12,6 +12,8 @@ extern "C" {
 #endif
 
 
+//#define GSYSTEM_RESET_TIMEOUT_MS  (30000)
+
 //#define GSYSTEM_NO_RESTART_W
 //#define GSYSTEM_NO_RTC_W
 //#define GSYSTEM_NO_RTC_CALENDAR_W
@@ -25,7 +27,7 @@ extern "C" {
 
 //#define GSYSTEM_NO_I2C
 
-//#define GSYSTEM_ADC_VOLTAGE_COUNT (1)
+#define GSYSTEM_ADC_VOLTAGE_COUNT (1)
 
 //#define GSYSTEM_FLASH_MODE
 //#define GSYSTEM_EEPROM_MODE

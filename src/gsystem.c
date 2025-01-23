@@ -16,6 +16,10 @@
 #   include "ds1307.h"
 #endif
 
+#if !GSYSTEM_RESET_TIMEOUT_MS
+#   define GSYSTEM_RESET_TIMEOUT_MS (30 * SECOND_MSGSYSTEM_RESET_TIMEOUT_MS)
+#endif
+
 #if GSYSTEM_BUTTONS_COUNT > 0
 #   include "button.h"
 #endif
@@ -497,7 +501,7 @@ void system_error_handler(SOUL_STATUS error)
 	}
 #endif
 
-	const uint32_t delay_ms = 30 * SECOND_MS;
+	uint32_t delay_ms = GSYSTEM_RESET_TIMEOUT_MS;
 	gtimer_t timer = {0};
 	system_timer_t s_timer = {0};
 	bool need_error_timer = is_status(SYS_TICK_FAULT) || is_error(HARD_FAULT);
@@ -594,6 +598,7 @@ void system_timer_start(system_timer_t* timer, TIM_TypeDef* fw_tim, uint32_t del
 	timer->tim->ARR  = count_cnt - 1;
 	timer->tim->CNT  = 0;
 	timer->tim->CR1 &= ~(TIM_CR1_DIR); // count up
+	timer->tim->CR1 |= TIM_CR1_OPM;
 	timer->tim->CR1 |= TIM_CR1_CEN;
 
 	timer->verif = TIMER_VERIF_WORD;
@@ -609,6 +614,7 @@ bool system_timer_wait(system_timer_t* timer)
 		timer->count++;
 		timer->tim->SR   = 0;
 		timer->tim->CNT  = 0;
+		timer->tim->CR1 |= TIM_CR1_CEN;
 	}
 	return timer->count < timer->end;
 }
@@ -634,11 +640,9 @@ void system_timer_stop(system_timer_t* timer)
 		case TIM2_BASE:
 			__TIM2_CLK_DISABLE();
 			break;
-#ifdef STM32F4
 		case TIM3_BASE:
 			__TIM3_CLK_DISABLE();
 			break;
-#endif
 		case TIM4_BASE:
 			__TIM4_CLK_DISABLE();
 			break;
