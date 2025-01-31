@@ -91,6 +91,12 @@ else()
         message(STATUS "${src}")
     endforeach()
 
+    # Указываем дополнительные библиотеки, если необходимо
+    foreach(cur_dir ${${PROJECT_NAME}_cmake_dirs})
+        message(STATUS "ADD SUB      : ${cur_dir}")
+        add_subdirectory("${cur_dir}")
+    endforeach()
+
     target_include_directories(
         ${PROJECT_NAME}
         PUBLIC
