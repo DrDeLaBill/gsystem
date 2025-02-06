@@ -269,5 +269,9 @@ void show_errors()
 		printPretty("%s\n", __STR_DEF__(NO_ERROR));
 	}
 }
-
+#else
+bool has_new_error_data() {return false;}
+bool has_new_status_data() {return false;}
+void show_errors() {}
+void show_statuses() {}
 #endif

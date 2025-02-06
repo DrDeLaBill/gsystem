@@ -166,12 +166,10 @@ void reset_internal_status(SOUL_STATUS status);
 
 char* get_status_name(SOUL_STATUS status);
 char* get_custom_status_name(SOUL_STATUS status);
-#if defined(DEBUG) || defined(GBEDUG_FORCE)
 bool has_new_error_data();
 bool has_new_status_data();
 void show_errors();
 void show_statuses();
-#endif
 
 
 #ifdef __cplusplus
