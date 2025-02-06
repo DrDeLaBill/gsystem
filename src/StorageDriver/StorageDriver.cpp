@@ -2,6 +2,9 @@
 
 #include "StorageDriver.h"
 
+#include "gdefines.h"
+#include "gconfig.h"
+
 #ifndef GSYSTEM_NO_MEMORY_W
 
 #include "glog.h"

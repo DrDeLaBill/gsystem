@@ -1,4 +1,4 @@
-/* Copyright © 2024 Georgy E. All rights reserved. */
+/* Copyright © 2025 Georgy E. All rights reserved. */
 
 #ifndef _SYSTEM_H_
 #define _SYSTEM_H_
@@ -12,42 +12,8 @@ extern "C" {
 #include <stdio.h>
 #include <stdint.h>
 
-#include "soul.h"
-#include "gconfig.h"
+#include "gdefines.h"
 
-
-#define SYSTEM_CASE_STATUS(TARGET, STATUS) case STATUS:                 \
-                                               snprintf(                \
-                                                   TARGET,              \
-                                                   sizeof(TARGET) - 1,  \
-                                                   "%s",                \
-                                                   __STR_DEF__(STATUS)  \
-                                               );                       \
-                                               break;
-
-#define SYSTEM_CANARY_WORD                 ((uint32_t)0xBEDAC0DE)
-#define SYSTEM_BKUP_STATUS_TYPE            uint32_t
-
-#if !defined(STM32F1) && defined(GSYSTEM_NO_I2C_W)
-#   undef GSYSTEM_NO_I2C_W
-#endif
-
-#ifndef GSYSTEM_ADC_VOLTAGE_COUNT
-#   define GSYSTEM_ADC_VOLTAGE_COUNT (1)
-#endif
-
-#ifndef GSYSTEM_BUTTONS_COUNT
-#   define GSYSTEM_BUTTONS_COUNT     (10)
-#endif
-
-#ifndef BUILD_VERSION
-#   define BUILD_VERSION             "v0.0.0"
-#endif
-
-#define GSYSTEM_BEDUG (defined(DEBUG) || defined(GBEDUG_FORCE))
-#if GSYSTEM_BEDUG
-extern const char SYSTEM_TAG[];
-#endif
 
 void system_init(void);
 void system_register(void (*process) (void), uint32_t delay_ms, bool work_with_error);

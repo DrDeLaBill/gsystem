@@ -3,6 +3,10 @@
 #include "clock.h"
 
 
+#include "gconfig.h"
+#include "gdefines.h"
+
+
 #ifndef GSYSTEM_NO_RTC_W
 
 

@@ -4,7 +4,9 @@
 #define _STORAGE_DRIVER_H_
 
 
+#include "gdefines.h"
 #include "gconfig.h"
+
 
 #ifndef GSYSTEM_NO_MEMORY_W
 

@@ -1,4 +1,4 @@
-/* Copyright © 2024 Georgy E. All rights reserved. */
+/* Copyright © 2025 Georgy E. All rights reserved. */
 
 #include "gsystem.h"
 
@@ -9,6 +9,8 @@
 #include "glog.h"
 #include "clock.h"
 #include "bmacro.h"
+#include "gconfig.h"
+#include "gdefines.h"
 #include "hal_defs.h"
 #include "gversion.h"
 
@@ -16,39 +18,16 @@
 #   include "ds1307.h"
 #endif
 
-#if !GSYSTEM_RESET_TIMEOUT_MS
-#   ifdef GSYSTEM_RESET_TIMEOUT_MS
-#       undef GSYSTEM_RESET_TIMEOUT_MS
-#   endif
-#   define GSYSTEM_RESET_TIMEOUT_MS (30 * SECOND_MS)
-#endif
-
-#if GSYSTEM_BUTTONS_COUNT > 0
+#if GSYSTEM_BUTTONS_COUNT
 #   include "button.h"
 #endif
 
 #if GSYSTEM_BEDUG
 const char SYSTEM_TAG[] = "GSYS";
-#   define SYSTEM_BEDUG(FORMAT, ...) printTagLog(SYSTEM_TAG, FORMAT __VA_OPT__(,) __VA_ARGS__);
-#else
-#   define SYSTEM_BEDUG(FORMAT, ...)
-#endif
-#if defined(GSYSTEM_BEDUG_UART) && !GSYSTEM_BEDUG
-#   undef GSYSTEM_BEDUG_UART
 #endif
 
 #define SYSTEM_WATCHDOG_MIN_DELAY_MS (20)
 
-#if defined(GSYSTEM_DS1307_CLOCK)
-#   define SYSTEM_BKUP_SIZE (DS1307_REG_RAM_END - DS1307_REG_RAM - sizeof(SYSTEM_BKUP_STATUS_TYPE))
-#elif !defined(GSYSTEM_NO_RTC_W)
-#   define SYSTEM_BKUP_SIZE (RTC_BKP_NUMBER - RTC_BKP_DR2 - sizeof(SYSTEM_BKUP_STATUS_TYPE))
-#endif
-
-
-#ifndef GSYSTEM_POCESSES_COUNT
-#   define GSYSTEM_POCESSES_COUNT (32)
-#endif
 
 static void _system_watchdog_check(void);
 static void _system_restart_check(void);
@@ -86,11 +65,11 @@ uint16_t SYSTEM_ADC_VOLTAGE[GSYSTEM_ADC_VOLTAGE_COUNT] = {0};
 
 gversion_t build_ver = {0};
 
-typedef struct _watchdogs_t {
+typedef struct _autoguard_t {
 	void     (*action)(void);
 	uint32_t delay_ms;
 	gtimer_t timer;
-} watchdogs_t;
+} autoguard_t;
 
 
 #ifndef GSYSTEM_NO_SYS_TICK_W
@@ -117,7 +96,7 @@ extern void memory_watchdog_check();
 #if GSYSTEM_BUTTONS_COUNT
 extern void btn_watchdog_check();
 #endif
-watchdogs_t watchdogs[] = {
+autoguard_t autoguards[] = {
 	{_system_watchdog_check,   SYSTEM_WATCHDOG_MIN_DELAY_MS, {0,0}},
 #ifndef GSYSTEM_NO_SYS_TICK_W
 	{sys_clock_watchdog_check, SECOND_MS / 10,               {0,0}},
@@ -325,7 +304,10 @@ void system_post_load(void)
 		);
 	}
 
-#if defined(STM32F1) && !defined(GSYSTEM_NO_TAMPER_RESET) && !defined(GSYSTEM_NO_RTC_W)
+#if defined(STM32F1) && \
+	!defined(GSYSTEM_NO_TAMPER_RESET) && \
+	!defined(GSYSTEM_NO_RTC_W) && \
+	!defined(GSYSTEM_DS1307_CLOCK)
 	HAL_PWR_EnableBkUpAccess();
     MODIFY_REG(BKP->RTCCR, (BKP_RTCCR_CCO | BKP_RTCCR_ASOE | BKP_RTCCR_ASOS), RTC_OUTPUTSOURCE_NONE);
 	CLEAR_BIT(BKP->CSR, BKP_CSR_TPIE);
@@ -403,17 +385,17 @@ void system_tick()
 	bool tmp_work_w = work_w;
 	work_w = !work_w;
 	if (tmp_work_w) {
-		if (!__arr_len(watchdogs)) {
+		if (!__arr_len(autoguards)) {
 			return;
 		}
 
-		if (index_w >= __arr_len(watchdogs)) {
+		if (index_w >= __arr_len(autoguards)) {
 			index_w = 0;
 		}
 
-		if (is_status(SYS_TICK_FAULT) || !gtimer_wait(&watchdogs[index_w].timer)) {
-			gtimer_start(&watchdogs[index_w].timer, watchdogs[index_w].delay_ms);
-			watchdogs[index_w].action();
+		if (is_status(SYS_TICK_FAULT) || !gtimer_wait(&autoguards[index_w].timer)) {
+			gtimer_start(&autoguards[index_w].timer, autoguards[index_w].delay_ms);
+			autoguards[index_w].action();
 		}
 
 		index_w++;
@@ -481,16 +463,16 @@ void system_error_handler(SOUL_STATUS error)
 
 #if !defined(GSYSTEM_NO_RTC_W) && defined(GSYSTEM_DS1307_CLOCK)
 	if (!is_clock_started()) {
-		SYSTEM_CLOCK_I2C.Instance = I2C1;
-		SYSTEM_CLOCK_I2C.Init.ClockSpeed = 100000;
-		SYSTEM_CLOCK_I2C.Init.DutyCycle = I2C_DUTYCYCLE_2;
-		SYSTEM_CLOCK_I2C.Init.OwnAddress1 = 0;
-		SYSTEM_CLOCK_I2C.Init.AddressingMode = I2C_ADDRESSINGMODE_7BIT;
-		SYSTEM_CLOCK_I2C.Init.DualAddressMode = I2C_DUALADDRESS_DISABLE;
-		SYSTEM_CLOCK_I2C.Init.OwnAddress2 = 0;
-		SYSTEM_CLOCK_I2C.Init.GeneralCallMode = I2C_GENERALCALL_DISABLE;
-		SYSTEM_CLOCK_I2C.Init.NoStretchMode = I2C_NOSTRETCH_DISABLE;
-		if (HAL_I2C_Init(&SYSTEM_CLOCK_I2C) != HAL_OK) {
+		GSYSTEM_CLOCK_I2C.Instance = GSYSTEM_CLOCK_I2C_BASE;
+		GSYSTEM_CLOCK_I2C.Init.ClockSpeed = 100000;
+		GSYSTEM_CLOCK_I2C.Init.DutyCycle = I2C_DUTYCYCLE_2;
+		GSYSTEM_CLOCK_I2C.Init.OwnAddress1 = 0;
+		GSYSTEM_CLOCK_I2C.Init.AddressingMode = I2C_ADDRESSINGMODE_7BIT;
+		GSYSTEM_CLOCK_I2C.Init.DualAddressMode = I2C_DUALADDRESS_DISABLE;
+		GSYSTEM_CLOCK_I2C.Init.OwnAddress2 = 0;
+		GSYSTEM_CLOCK_I2C.Init.GeneralCallMode = I2C_GENERALCALL_DISABLE;
+		GSYSTEM_CLOCK_I2C.Init.NoStretchMode = I2C_NOSTRETCH_DISABLE;
+		if (HAL_I2C_Init(&GSYSTEM_CLOCK_I2C) != HAL_OK) {
 			set_error(I2C_ERROR);
 		}
 		clock_begin();

@@ -9,13 +9,17 @@ extern "C" {
 #endif
 
 
+#include "gconfig.h"
+#include "gdefines.h"
+
+
+#ifndef GSYSTEM_NO_RTC_W
+
+
 #include <stdint.h>
 #include <stdbool.h>
 
-#include "gconfig.h"
 #include "hal_defs.h"
-
-#ifndef GSYSTEM_NO_RTC_W
 
 #ifdef DEBUG
 #   define CLOCK_BEDUG     (0)

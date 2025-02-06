@@ -39,7 +39,9 @@ extern "C" {
 //#define GSYSTEM_BEDUG_UART        (huart2)
 
 //#define GSYSTEM_I2C               (hi2c2)
-//#define GSYSTEM_EEPROM_I2C        GSYSTEM_I2C
+//#define GSYSTEM_EEPROM_I2C        (hi2c2)
+//#define GSYSTEM_CLOCK_I2C         (hi2c1)
+//#define GSYSTEM_CLOCK_I2C_BASE    I2C1
 
 //#define GSYSTEM_FLASH_SPI         (hspi1)
 //#define GSYSTEM_FLASH_CS_PORT     (FLASH1_CS_GPIO_Port)

@@ -1,5 +1,7 @@
-#ifndef INC_DS1307_DRIVER_H_
-#define INC_DS1307_DRIVER_H_
+/* Copyright © 2025 Georgy E. All rights reserved. */
+
+#ifndef _DS1307_H_
+#define _DS1307_H_
 
 
 #ifdef __cplusplus
@@ -7,6 +9,7 @@ extern "C"{
 #endif
 
 
+#include "gdefines.h"
 #include "gconfig.h"
 
 

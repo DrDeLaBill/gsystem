@@ -3,6 +3,10 @@
 #include "w25qxx.h"
 
 
+#include "gdefines.h"
+#include "gconfig.h"
+
+
 #ifdef GSYSTEM_FLASH_MODE
 
 

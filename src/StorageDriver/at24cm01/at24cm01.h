@@ -4,6 +4,7 @@
 #define _EEPROM_AT24CM01_STORAGE_H_
 
 
+#include "gdefines.h"
 #include "gconfig.h"
 
 

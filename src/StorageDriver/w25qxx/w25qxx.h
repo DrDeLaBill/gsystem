@@ -4,6 +4,7 @@
 #define _FLASH_STORAGE_H_
 
 
+#include "gdefines.h"
 #include "gconfig.h"
 
 

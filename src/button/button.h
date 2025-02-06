@@ -8,6 +8,10 @@
 extern "C" {
 #endif
 
+#include "gconfig.h"
+#include "gdefines.h"
+
+#if GSYSTEM_BUTTONS_COUNT
 
 #include <stdint.h>
 
@@ -47,6 +51,8 @@ void button_tick(button_t* button);
 bool button_one_click(button_t* button);
 bool button_holded(button_t* button);
 bool button_pressed(button_t* button);
+
+#endif
 
 #ifdef __cplusplus
 }

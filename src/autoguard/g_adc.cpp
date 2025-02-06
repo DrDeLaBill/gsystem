@@ -1,5 +1,6 @@
 /* Copyright © 2024 Georgy E. All rights reserved. */
 
+#include "gdefines.h"
 #include "gconfig.h"
 
 #include "hal_defs.h"

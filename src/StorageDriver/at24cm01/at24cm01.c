@@ -2,6 +2,10 @@
 
 #include "at24cm01.h"
 
+#include "gdefines.h"
+#include "gconfig.h"
+
+
 #ifdef GSYSTEM_EEPROM_MODE
 
 #include <stdbool.h>

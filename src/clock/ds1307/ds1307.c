@@ -1,6 +1,8 @@
 #include "ds1307.h"
 
-#include "main.h"
+
+#include "gdefines.h"
+#include "gconfig.h"
 
 
 #if defined(GSYSTEM_DS1307_CLOCK)
@@ -57,7 +59,7 @@ DS1307_STATUS DS1307_GetClockHalt(uint8_t* res) {
  */
 DS1307_STATUS DS1307_SetRegByte(uint8_t regAddr, uint8_t val) {
 	uint8_t bytes[2] = { regAddr, val };
-	return HAL_I2C_Master_Transmit(&SYSTEM_CLOCK_I2C, DS1307_I2C_ADDR << 1, bytes, 2, DS1307_TIMEOUT) == HAL_OK ?
+	return HAL_I2C_Master_Transmit(&GSYSTEM_CLOCK_I2C, DS1307_I2C_ADDR << 1, bytes, 2, DS1307_TIMEOUT) == HAL_OK ?
 			DS1307_OK : DS1307_ERROR;
 }
 
@@ -69,10 +71,10 @@ DS1307_STATUS DS1307_SetRegByte(uint8_t regAddr, uint8_t val) {
 DS1307_STATUS DS1307_GetRegByte(uint8_t regAddr, uint8_t* res) {
 	*res = 0;
 	uint8_t val = 0;
-	if (HAL_I2C_Master_Transmit(&SYSTEM_CLOCK_I2C, DS1307_I2C_ADDR << 1, &regAddr, 1, DS1307_TIMEOUT) != HAL_OK) {
+	if (HAL_I2C_Master_Transmit(&GSYSTEM_CLOCK_I2C, DS1307_I2C_ADDR << 1, &regAddr, 1, DS1307_TIMEOUT) != HAL_OK) {
 		return DS1307_ERROR;
 	}
-	if (HAL_I2C_Master_Receive(&SYSTEM_CLOCK_I2C, DS1307_I2C_ADDR << 1, (uint8_t*)&val, 1, DS1307_TIMEOUT) != HAL_OK) {
+	if (HAL_I2C_Master_Receive(&GSYSTEM_CLOCK_I2C, DS1307_I2C_ADDR << 1, (uint8_t*)&val, 1, DS1307_TIMEOUT) != HAL_OK) {
 		return DS1307_ERROR;
 	}
 	*res = val;

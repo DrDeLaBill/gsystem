@@ -2,10 +2,16 @@
 
 #include "button.h"
 
+
+#include "gconfig.h"
+#include "gdefines.h"
+
+
+#if GSYSTEM_BUTTONS_COUNT
+
 #include "glog.h"
 #include "bmacro.h"
 #include "fsm_gc.h"
-#include "gsystem.h"
 
 
 #define BUTTON_DEBOUNCE_MS (60)
@@ -180,3 +186,5 @@ void _btn_clicked_action(button_t* button)
 		button->_clicked = false;
 	}
 }
+
+#endif
