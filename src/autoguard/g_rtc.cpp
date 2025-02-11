@@ -7,255 +7,43 @@
 #include "gsystem.h"
 
 
-#ifdef GSYSTEM_DS1307_CLOCK
-#   define RTC_ERROR_END() system_reset_i2c_errata();     \
-	                       set_error(RTC_ERROR);          \
-                           return;
-#else
-#   define RTC_ERROR_END() set_error(RTC_ERROR);          \
-                           return;
-#endif
-
 #ifndef GSYSTEM_NO_RTC_W
 
 
 #   include "clock.h"
 
 
+void _print_OK()
+{
+#if GSYSTEM_BEDUG
+	gprint("  OK\n");
+#endif
+}
+
 extern "C" void rtc_watchdog_check()
 {
 	static bool system_error_loaded = false;
 	static bool start_timer_flag = false;
 	static gtimer_t timer = {};
-#   ifndef GSYSTEM_NO_RTC_CALENDAR_W
 	static bool tested = false;
-#   endif
-
-	if (!is_system_ready() && !is_error(RTC_ERROR)) {
-		return;
-	}
-
-	if (!start_timer_flag) {
-		gtimer_start(&timer, 15 * SECOND_MS);
-		start_timer_flag = true;
-	}
-
-	if (!is_clock_started()) {
-		clock_begin();
-	}
-	if (is_clock_started() && !system_error_loaded) {
-		SYSTEM_BKUP_STATUS_TYPE status = 0;
-		for (uint8_t i = 0; i < sizeof(status); i++) {
-			uint8_t data = 0;
-			if (!get_clock_ram(i, &data)) {
-				status = 0;
-				break;
-			}
-			((uint8_t*)&status)[i] = data;
-		}
-		set_last_error((SOUL_STATUS)status);
-		set_clock_ram(0, 0);
-		system_error_loaded = true;
-
-#   if GSYSTEM_BEDUG
-		if (get_last_error()) {
-			printTagLog(SYSTEM_TAG, "Last reload error: %s", get_status_name(get_last_error()));
-		}
-#   endif
-	}
-
-	if (!is_clock_started()) {
-		if (!gtimer_wait(&timer)) {
-			set_error(RTC_ERROR);
-		}
-		return;
-	}
-
-	if (!is_status(RTC_READY)) {
-		if (is_clock_ready()) {
-#   ifndef GSYSTEM_NO_RTC_CALENDAR_W
-			tested = false;
-#   endif
-			set_status(RTC_READY);
-		} else {
-			reset_status(RTC_READY);
-		}
-	}
 
 #   ifndef GSYSTEM_NO_RTC_CALENDAR_W
-	if (is_error(RTC_ERROR)) {
-		tested = false;
-	}
-
-	if (tested) {
-		return;
-	}
-
-#   if GSYSTEM_BEDUG
-	printTagLog(SYSTEM_TAG, "RTC testing in progress...");
-#   endif
-
-	clock_date_t dumpDate = {0,0,0,0};
-	clock_time_t dumpTime = {0,0,0};
-	uint64_t dumpMs       = getMillis();
-
-#   if GSYSTEM_BEDUG
-	printPretty("Dump date test: ");
-#   endif
-	if (!get_clock_rtc_date(&dumpDate)) {
-#   if GSYSTEM_BEDUG
-		gprint("  error\n");
-#   endif
-		RTC_ERROR_END();
-	}
-#   if GSYSTEM_BEDUG
-	gprint("  OK\n");
-	printPretty("Dump time test: ");
-#   endif
-	if (!get_clock_rtc_time(&dumpTime)) {
-#   if GSYSTEM_BEDUG
-		gprint("   error\n");
-#   endif
-		RTC_ERROR_END();
-	}
-#   if GSYSTEM_BEDUG
-	gprint("  OK\n");
-#   endif
-
+	clock_date_t dumpDate  = {0,0,0,0};
+	clock_time_t dumpTime  = {0,0,0};
+	uint64_t dumpMs        = getMillis();
 
 #   if defined(GSYSTEM_DS1307_CLOCK)
-	clock_date_t saveDate = {0, 04, 28, 24};
+	clock_date_t saveDate  = {0, 04, 28, 24};
 #   else
-	clock_date_t saveDate = {RTC_WEEKDAY_SUNDAY, 04, 28, 24};
+	clock_date_t saveDate  = {RTC_WEEKDAY_SUNDAY, 04, 28, 24};
 #   endif
-	clock_time_t saveTime = {13,37,00};
-
-#   if GSYSTEM_BEDUG
-	printPretty("Save date test: ");
-#   endif
-   	if (!save_clock_date(&saveDate)) {
-#   if GSYSTEM_BEDUG
-		gprint("  error\n");
-#   endif
-		RTC_ERROR_END();
-	}
-#   if GSYSTEM_BEDUG
-	gprint("  OK\n");
-	printPretty("Save time test: ");
-#   endif
-	if (!save_clock_time(&saveTime)) {
-#   if GSYSTEM_BEDUG
-		gprint("  error\n");
-#   endif
-		RTC_ERROR_END();
-	}
-#   if GSYSTEM_BEDUG
-	gprint("  OK\n");
-#   endif
-
+	clock_time_t saveTime  = {13,37,00};
 
 	clock_date_t checkDate = {0,0,0,0};
 	clock_time_t checkTime = {0,0,0};
-#   if GSYSTEM_BEDUG
-	printPretty("Check date test: ");
-#   endif
-	if (!get_clock_rtc_date(&checkDate)) {
-#   if GSYSTEM_BEDUG
-		gprint(" error\n");
-#   endif
-		RTC_ERROR_END();
-	}
-	if (!is_same_date(&saveDate, &checkDate)) {
-#   if GSYSTEM_BEDUG
-		gprint(" error\n");
-#   endif
-		RTC_ERROR_END();
-	}
-#   if GSYSTEM_BEDUG
-	gprint(" OK\n");
-	printPretty("Check time test: ");
-#   endif
-	if (!get_clock_rtc_time(&checkTime)) {
-#   if GSYSTEM_BEDUG
-		gprint(" error\n");
-#   endif
-		RTC_ERROR_END();
-	}
-	if (!is_same_time(&saveTime, &checkTime)) {
-#   if GSYSTEM_BEDUG
-		gprint(" error\n");
-#   endif
-		RTC_ERROR_END();
-	}
-#   if GSYSTEM_BEDUG
-	gprint(" OK\n");
-#   endif
 
-	uint64_t res_seconds = get_clock_datetime_to_seconds(&dumpDate, &dumpTime);
-	res_seconds += ((getMillis() - dumpMs) / SECOND_MS);
-	get_clock_seconds_to_datetime(res_seconds, &dumpDate, &dumpTime);
-#   if GSYSTEM_BEDUG
-	printPretty("Dump date save: ");
-#   endif
-	if (!save_clock_date(&dumpDate)) {
-#   if GSYSTEM_BEDUG
-		gprint("  error\n");
-#   endif
-		RTC_ERROR_END();
-	}
-#   if GSYSTEM_BEDUG
-	gprint("  OK\n");
-	printPretty("Dump time save: ");
-#   endif
-	if (!save_clock_time(&dumpTime)) {
-#   if GSYSTEM_BEDUG
-		gprint("  error\n");
-#   endif
-		RTC_ERROR_END();
-	}
-#   if GSYSTEM_BEDUG
-	gprint("  OK\n");
-#   endif
+	uint64_t res_seconds   = 0;
 
-#   if GSYSTEM_BEDUG
-	printPretty("Check dump date: ");
-#   endif
-	if (!get_clock_rtc_date(&checkDate)) {
-#   if GSYSTEM_BEDUG
-		gprint(" error\n");
-#   endif
-		RTC_ERROR_END();
-	}
-	if (!is_same_date(&dumpDate, &checkDate)) {
-#   if GSYSTEM_BEDUG
-		gprint(" error\n");
-#   endif
-		RTC_ERROR_END();
-	}
-#   if GSYSTEM_BEDUG
-	gprint(" OK\n");
- 	printPretty("Check dump time: ");
-#   endif
-	if (!get_clock_rtc_time(&checkTime)) {
-#   if GSYSTEM_BEDUG
-		gprint(" error\n");
-#   endif
-		RTC_ERROR_END();
-	}
-	if (!is_same_time(&dumpTime, &checkTime)) {
-#   if GSYSTEM_BEDUG
-		gprint(" error\n");
-#   endif
-		RTC_ERROR_END();
-	}
-#   if GSYSTEM_BEDUG
-	gprint(" OK\n");
-#   endif
-
-
-#   if GSYSTEM_BEDUG
-	printPretty("Weekday test\n");
-#   endif
 	const clock_date_t dates[] = {
 #   if defined(GSYSTEM_DS1307_CLOCK)
 		{0, 01, 01, 00},
@@ -302,52 +90,254 @@ extern "C" void rtc_watchdog_check()
 		768023555,
 	};
 
-	for (unsigned i = 0; i < __arr_len(seconds); i++) {
-#   if GSYSTEM_BEDUG
-		printPretty("[%02u]: ", i);
+	clock_date_t tmpDate = {0,0,0,0};
+	clock_time_t tmpTime = {0,0,0};
+	uint64_t tmpSeconds  = 0;
 #   endif
 
-		clock_date_t tmpDate = {0,0,0,0};
-		clock_time_t tmpTime = {0,0,0};
+	uint8_t  ram_bckp[sizeof(uint32_t)] = {};
+	uint32_t ram_word = 0x12345678;
+	uint32_t ram_word_check = 0;
+
+	if (!is_system_ready() && !is_error(RTC_ERROR)) {
+		return;
+	}
+
+	if (!start_timer_flag) {
+		gtimer_start(&timer, 15 * SECOND_MS);
+		start_timer_flag = true;
+	}
+
+	if (!is_clock_started()) {
+		clock_begin();
+	}
+	if (is_clock_started() && !system_error_loaded) {
+		SOUL_STATUS status = (SOUL_STATUS)0;
+		for (uint8_t i = 0; i < sizeof(status); i++) {
+			if (!get_clock_ram(i, &((uint8_t*)&status)[i])) {
+				status = (SOUL_STATUS)0;
+				break;
+			}
+		}
+		for (uint8_t i = 0; i < sizeof(status); i++) {
+			set_clock_ram(i, 0);
+		}
+		set_last_error((SOUL_STATUS)status);
+		system_error_loaded = true;
+
+#   if GSYSTEM_BEDUG
+		if (get_last_error()) {
+			printTagLog(SYSTEM_TAG, "Last reload error: %s", get_status_name(get_last_error()));
+		}
+#   endif
+	}
+
+	if (!is_clock_started()) {
+		if (!gtimer_wait(&timer)) {
+			set_error(RTC_ERROR);
+		}
+		return;
+	}
+
+	if (!is_status(RTC_READY)) {
+		if (is_clock_ready()) {
+			tested = false;
+			set_status(RTC_READY);
+		} else {
+			reset_status(RTC_READY);
+		}
+	}
+	if (is_error(RTC_ERROR)) {
+		tested = false;
+	}
+
+	if (tested) {
+		return;
+	}
+
+#   if GSYSTEM_BEDUG
+	printTagLog(SYSTEM_TAG, "RTC testing in progress...");
+#   endif
+
+#   ifndef GSYSTEM_NO_RTC_CALENDAR_W
+
+#   if GSYSTEM_BEDUG
+	printPretty("Dump date test:    ");
+#   endif
+	if (!get_clock_rtc_date(&dumpDate)) {
+		goto do_error;
+	}
+	_print_OK();
+
+#   if GSYSTEM_BEDUG
+	printPretty("Dump time test:    ");
+#   endif
+	if (!get_clock_rtc_time(&dumpTime)) {
+		goto do_error;
+	}
+
+#   if GSYSTEM_BEDUG
+	printPretty("Save date test:    ");
+#   endif
+   	if (!save_clock_date(&saveDate)) {
+		goto do_error;
+	}
+   	_print_OK();
+
+#   if GSYSTEM_BEDUG
+	printPretty("Save time test:    ");
+#   endif
+	if (!save_clock_time(&saveTime)) {
+		goto do_error;
+	}
+    _print_OK();
+#   if GSYSTEM_BEDUG
+	printPretty("Check date test:   ");
+#   endif
+	if (!get_clock_rtc_date(&checkDate)) {
+		goto do_error;
+	}
+	if (!is_same_date(&saveDate, &checkDate)) {
+		goto do_error;
+	}
+	_print_OK();
+
+#   if GSYSTEM_BEDUG
+	printPretty("Check time test:   ");
+#   endif
+	if (!get_clock_rtc_time(&checkTime)) {
+		goto do_error;
+	}
+	if (!is_same_time(&saveTime, &checkTime)) {
+		goto do_error;
+	}
+	_print_OK();
+
+	res_seconds = get_clock_datetime_to_seconds(&dumpDate, &dumpTime);
+	res_seconds += ((getMillis() - dumpMs) / SECOND_MS);
+	get_clock_seconds_to_datetime(res_seconds, &dumpDate, &dumpTime);
+#   if GSYSTEM_BEDUG
+	printPretty("Dump date save:    ");
+#   endif
+	if (!save_clock_date(&dumpDate)) {
+		goto do_error;
+	}
+	_print_OK();
+
+#   if GSYSTEM_BEDUG
+	printPretty("Dump time save:    ");
+#   endif
+	if (!save_clock_time(&dumpTime)) {
+		goto do_error;
+	}
+	_print_OK();
+
+#   if GSYSTEM_BEDUG
+	printPretty("Check dump date:   ");
+#   endif
+	if (!get_clock_rtc_date(&checkDate)) {
+		goto do_error;
+	}
+	if (!is_same_date(&dumpDate, &checkDate)) {
+		goto do_error;
+	}
+	_print_OK();
+
+#   if GSYSTEM_BEDUG
+ 	printPretty("Check dump time:   ");
+#   endif
+	if (!get_clock_rtc_time(&checkTime)) {
+		goto do_error;
+	}
+	if (!is_same_time(&dumpTime, &checkTime)) {
+		goto do_error;
+	}
+	_print_OK();
+
+#   if GSYSTEM_BEDUG
+	printPretty("Weekday test\n");
+#   endif
+
+	for (unsigned i = 0; i < __arr_len(seconds); i++) {
+#   if GSYSTEM_BEDUG
+		printPretty("[%02u]:            ", i);
+#   endif
+
+		memset((uint8_t*)&tmpDate, 0, sizeof(tmpDate));
+		memset((uint8_t*)&tmpTime, 0, sizeof(tmpTime));
 		get_clock_seconds_to_datetime(seconds[i], &tmpDate, &tmpTime);
 		if (!is_same_date(&tmpDate, &dates[i])
 #   if !defined(GSYSTEM_DS1307_CLOCK)
 			&& tmpDate.WeekDay == dates[i].WeekDay
 #   endif
 		) {
-#   if GSYSTEM_BEDUG
-			gprint("            error\n");
-#   endif
-			RTC_ERROR_END();
+			goto do_error;
 		}
 		if (!is_same_time(&tmpTime, &times[i])) {
-#   if GSYSTEM_BEDUG
-			gprint("            error\n");
-#   endif
-			RTC_ERROR_END();
+			goto do_error;
 		}
 
-		uint64_t tmpSeconds = get_clock_datetime_to_seconds(&dates[i], &times[i]);
+		tmpSeconds = get_clock_datetime_to_seconds(&dates[i], &times[i]);
 		if (tmpSeconds != seconds[i]) {
-#   if GSYSTEM_BEDUG
-			gprint("            error\n");
-#   endif
-			RTC_ERROR_END();
+			goto do_error;
 		}
-
-#   if GSYSTEM_BEDUG
-		gprint("            OK\n");
-#   endif
+		_print_OK();
 	}
+
+#   endif
 
 	reset_error(RTC_ERROR);
 	tested = true;
 
+	memset(ram_bckp, 0, sizeof(ram_bckp));
+#   if GSYSTEM_BEDUG
+	printPretty("RTC RAM test: ");
+#   endif
+	for (uint8_t i = 0; i < __arr_len(ram_bckp); i++) {
+		if (!get_clock_ram(i, &ram_bckp[i])) {
+			goto do_error;
+		}
+	}
+	ram_word = 0x12345678;
+	for (uint8_t i = 0; i < __arr_len(ram_bckp); i++) {
+		if (!set_clock_ram(i, ((uint8_t*)&ram_word)[i])) {
+			goto do_error;
+		}
+	}
+	ram_word_check = 0;
+	for (uint8_t i = 0; i < __arr_len(ram_bckp); i++) {
+		if (!get_clock_ram(i, &((uint8_t*)&ram_word_check)[i])) {
+			goto do_error;
+		}
+	}
+	if (ram_word_check != ram_word) {
+		goto do_error;
+	}
+	for (uint8_t i = 0; i < __arr_len(ram_bckp); i++) {
+		if (!set_clock_ram(i, ram_bckp[i])) {
+			goto do_error;
+		}
+	}
+	_print_OK();
 
 #   if GSYSTEM_BEDUG
 	printTagLog(SYSTEM_TAG, "RTC testing done");
 #   endif
 
+	return;
+
+do_error:
+#   if GSYSTEM_BEDUG
+	gprint("error\n");
+#   endif
+
+#   ifdef GSYSTEM_DS1307_CLOCK
+	system_reset_i2c_errata();
+	set_error(RTC_ERROR);
+	return;
+#   else
+	set_error(RTC_ERROR);
+	return;
 #   endif
 }
 #   undef RTC_ERROR_END

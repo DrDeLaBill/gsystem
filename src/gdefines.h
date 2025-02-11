@@ -22,7 +22,6 @@ extern "C" {
                                                break;
 
 #define SYSTEM_CANARY_WORD                 ((uint32_t)0xBEDAC0DE)
-#define SYSTEM_BKUP_STATUS_TYPE            uint32_t
 
 #if !defined(STM32F1) && defined(GSYSTEM_NO_I2C_W)
 #   undef GSYSTEM_NO_I2C_W
@@ -63,9 +62,9 @@ extern const char SYSTEM_TAG[];
 #endif
 
 #if defined(GSYSTEM_DS1307_CLOCK)
-#   define SYSTEM_BKUP_SIZE (DS1307_REG_RAM_END - DS1307_REG_RAM - sizeof(SYSTEM_BKUP_STATUS_TYPE))
+#   define SYSTEM_BKUP_SIZE (DS1307_REG_RAM_END - DS1307_REG_RAM_BEGIN - sizeof(SOUL_STATUS))
 #elif !defined(GSYSTEM_NO_RTC_W)
-#   define SYSTEM_BKUP_SIZE (RTC_BKP_NUMBER - RTC_BKP_DR2 - sizeof(SYSTEM_BKUP_STATUS_TYPE))
+#   define SYSTEM_BKUP_SIZE (RTC_BKP_NUMBER - RTC_BKP_DR2 - sizeof(SOUL_STATUS))
 #endif
 
 

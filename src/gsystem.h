@@ -70,8 +70,8 @@ uint16_t get_system_adc(unsigned index);
 #endif
 
 #ifndef GSYSTEM_NO_RTC_W
-bool get_system_rtc_ram(const uint8_t idx, uint8_t* data);
-bool set_system_rtc_ram(const uint8_t idx, const uint8_t data);
+bool get_system_bckp(const uint8_t idx, uint8_t* data);
+bool set_system_bckp(const uint8_t idx, const uint8_t data);
 #endif
 
 #ifndef GSYSTEM_NO_PRINTF

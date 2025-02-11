@@ -496,20 +496,27 @@ bool set_clock_ready()
 {
 #if defined(GSYSTEM_DS1307_CLOCK)
 	bool need_erase = !is_clock_ready();
+	printTagLog("CLCK", "Update clock %s", (need_erase ? "(erase)" : ""));
+	uint32_t value = BEDAC0DE;
 	for (uint8_t i = 0; i < sizeof(BEDAC0DE); i++) {
 		if (DS1307_SetRegByte(
-				(uint8_t)DS1307_REG_RAM_RDY_BE + i,
-				(uint8_t)((BEDAC0DE >> BITS_IN_BYTE * i) & 0xFF)
+				(uint8_t)DS1307_REG_RAM_BEGIN + i,
+				((uint8_t*)&value)[i]
 			) != DS1307_OK
 		) {
 			return false;
 		}
 	}
-	if (need_erase) {
-		for (unsigned i = DS1307_REG_RAM; i <= DS1307_REG_RAM_END; i++)  {
-			if (DS1307_SetRegByte((uint8_t)i, 0xFF) != DS1307_OK) {
-				return false;
-			}
+	if (!need_erase) {
+		return true;
+	}
+	for (
+		unsigned i = DS1307_REG_RAM_BEGIN + sizeof(BEDAC0DE);
+		i <= DS1307_REG_RAM_END;
+		i++
+	)  {
+		if (DS1307_SetRegByte((uint8_t)i, 0xFF) != DS1307_OK) {
+			return false;
 		}
 	}
 	return true;
@@ -524,20 +531,17 @@ bool set_clock_ready()
 bool is_clock_ready()
 {
 #if defined(GSYSTEM_DS1307_CLOCK)
+	uint32_t value = 0;
 	for (uint8_t i = 0; i < sizeof(BEDAC0DE); i++) {
-		uint8_t value = 0;
 		if (DS1307_GetRegByte(
-				(uint8_t)DS1307_REG_RAM_RDY_BE + i,
-				&value
+				(uint8_t)DS1307_REG_RAM_BEGIN + i,
+				&((uint8_t*)&value)[i]
 			) != DS1307_OK
 		) {
 			return false;
 		}
-		if (value != ((BEDAC0DE >> BITS_IN_BYTE * i) & 0xFF)) {
-			return false;
-		}
 	}
-	return true;
+	return value == BEDAC0DE;
 #else
 	HAL_PWR_EnableBkUpAccess();
 	uint32_t value = HAL_RTCEx_BKUPRead(&hrtc, RTC_BKP_DR1);
@@ -549,10 +553,10 @@ bool is_clock_ready()
 bool get_clock_ram(const uint8_t idx, uint8_t* data)
 {
 #if defined(GSYSTEM_DS1307_CLOCK)
-	if (DS1307_REG_RAM + idx > DS1307_REG_RAM_END) {
+	if (DS1307_REG_RAM_BEGIN + sizeof(BEDAC0DE) + idx > DS1307_REG_RAM_END) {
 		return false;
 	}
-	return DS1307_GetRegByte(DS1307_REG_RAM + idx, data) == DS1307_OK;
+	return DS1307_GetRegByte(DS1307_REG_RAM_BEGIN + sizeof(BEDAC0DE) + idx, data) == DS1307_OK;
 #else
 	if (RTC_BKP_DR2 + (idx / 4U) > RTC_BKP_NUMBER) {
 		return false;
@@ -568,10 +572,10 @@ bool get_clock_ram(const uint8_t idx, uint8_t* data)
 bool set_clock_ram(const uint8_t idx, uint8_t data)
 {
 #if defined(GSYSTEM_DS1307_CLOCK)
-	if (DS1307_REG_RAM + idx > DS1307_REG_RAM_END) {
+	if (DS1307_REG_RAM_BEGIN + sizeof(BEDAC0DE) + idx > DS1307_REG_RAM_END) {
 		return false;
 	}
-	return DS1307_SetRegByte(DS1307_REG_RAM + idx, data) == DS1307_OK;
+	return DS1307_SetRegByte(DS1307_REG_RAM_BEGIN + sizeof(BEDAC0DE) + idx, data) == DS1307_OK;
 #else
 	if (RTC_BKP_DR2 + (idx / 4U) > RTC_BKP_NUMBER) {
 		return false;

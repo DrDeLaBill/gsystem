@@ -136,11 +136,11 @@ flash_status_t flash_w25qxx_init()
 #if FLASH_BEDUG
         printTagLog(FLASH_TAG, "flash init: error=%u (read JDEC ID)", status);
 #endif
-        goto do_spi_stop;
+        goto do_error;
     }
     if (!jdec_id) {
     	status = FLASH_ERROR;
-    	goto do_spi_stop;
+    	goto do_error;
     }
 
     flash_info.blocks_count = 0;
@@ -157,7 +157,7 @@ flash_status_t flash_w25qxx_init()
         printTagLog(FLASH_TAG, "flash init: error - unknown JDEC ID");
 #endif
     	status = FLASH_ERROR;
-        goto do_spi_stop;
+        goto do_error;
     }
 
 
@@ -171,18 +171,37 @@ flash_status_t flash_w25qxx_init()
 #if FLASH_BEDUG
         printTagLog(FLASH_TAG, "flash init: error=%u (block FLASH error)", status);
 #endif
-        goto do_spi_stop;
+        goto do_error;
     }
 	_FLASH_CS_reset();
 
-    flash_info.initialized      = true;
-    flash_info.is_24bit_address = (flash_info.blocks_count >= FLASH_W25_24BIT_ADDR_SIZE) ? true : false;
+	static uint32_t address = 0;
+	uint8_t data[FLASH_W25_PAGE_SIZE] = {0};
+    _FLASH_CS_set();
+    status = _flash_read(address, data, sizeof(data));
+    if (!_flash_get_storage_bytes_size()) {
+#if FLASH_BEDUG
+        printTagLog(FLASH_TAG, "flash init: FLASH size error");
+#endif
+        goto do_error;
+    }
+    address = (address + 1) % _flash_get_storage_bytes_size();
+    if (status != FLASH_OK) {
+#if FLASH_BEDUG
+        printTagLog(FLASH_TAG, "flash init: error=%u (read FLASH error)", status);
+#endif
+        goto do_error;
+    }
+	_FLASH_CS_reset();
+
+	flash_info.initialized      = true;
+	flash_info.is_24bit_address = (flash_info.blocks_count >= FLASH_W25_24BIT_ADDR_SIZE) ? true : false;
 
 #if FLASH_BEDUG
     printTagLog(FLASH_TAG, "flash init: OK");
 #endif
 
-do_spi_stop:
+do_error:
 	_FLASH_CS_reset();
 
     return status;

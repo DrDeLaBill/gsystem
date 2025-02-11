@@ -27,6 +27,8 @@ extern "C" {
 
 //#define GSYSTEM_NO_I2C
 
+//#define GSYSTEM_NO_PRINTF
+
 #define GSYSTEM_ADC_VOLTAGE_COUNT (1)
 
 //#define GSYSTEM_FLASH_MODE

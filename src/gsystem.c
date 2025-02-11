@@ -31,7 +31,9 @@ const char SYSTEM_TAG[] = "GSYS";
 
 static void _system_watchdog_check(void);
 static void _system_restart_check(void);
+#ifndef GSYSTEM_NO_RAM_W
 static void _fill_ram();
+#endif
 
 
 static const uint32_t TIMER_VERIF_WORD = 0xBEDAC1DE;
@@ -344,8 +346,6 @@ void set_system_timeout(uint32_t timeout_ms)
 
 void system_start(void)
 {
-	HAL_Delay(100);
-
 #if GSYSTEM_BEDUG
 	gprint("\n\n\n");
 #endif
@@ -480,9 +480,10 @@ void system_error_handler(SOUL_STATUS error)
 	if (!is_clock_ready()) {
 		set_clock_ready();
 	}
-
 	if (is_clock_ready()) {
-		set_clock_ram(0, (uint32_t)error);
+		for (uint8_t i = 0; i < sizeof(error); i++) {
+			set_clock_ram(i, ((uint8_t*)&error)[i]);
+		}
 	}
 #endif
 
@@ -1060,20 +1061,20 @@ uint16_t get_system_adc(unsigned index)
 #endif
 
 #ifndef GSYSTEM_NO_RTC_W
-bool get_system_rtc_ram(const uint8_t idx, uint8_t* data)
+bool get_system_bckp(const uint8_t idx, uint8_t* data)
 {
-	if (idx + sizeof(SYSTEM_BKUP_STATUS_TYPE) >= SYSTEM_BKUP_SIZE) {
+	if (idx + sizeof(SOUL_STATUS) >= SYSTEM_BKUP_SIZE) {
 		return false;
 	}
-	return get_clock_ram(idx + sizeof(SYSTEM_BKUP_STATUS_TYPE), data);
+	return get_clock_ram(idx + sizeof(SOUL_STATUS), data);
 }
 
-bool set_system_rtc_ram(const uint8_t idx, const uint8_t data)
+bool set_system_bckp(const uint8_t idx, const uint8_t data)
 {
-	if (idx + sizeof(SYSTEM_BKUP_STATUS_TYPE) >= SYSTEM_BKUP_SIZE) {
+	if (idx + sizeof(SOUL_STATUS) >= SYSTEM_BKUP_SIZE) {
 		return false;
 	}
-	return set_clock_ram(idx + sizeof(SYSTEM_BKUP_STATUS_TYPE), data);
+	return set_clock_ram(idx + sizeof(SOUL_STATUS), data);
 }
 #endif
 
@@ -1179,6 +1180,7 @@ void _system_restart_check(void)
 	}
 }
 
+#ifndef GSYSTEM_NO_RAM_W
 void _fill_ram()
 {
 	volatile unsigned *top, *start;
@@ -1190,8 +1192,9 @@ void _fill_ram()
 		*(start++) = SYSTEM_CANARY_WORD;
 	}
 }
+#endif
 
-#ifndef GSYSTEM_NO_PRINTF
+#if !defined(GSYSTEM_NO_PRINTF) || defined(GSYSTEM_BEDUG_UART)
 int _write(int line, uint8_t *ptr, int len) {
 	(void)line;
 	(void)ptr;
@@ -1202,11 +1205,12 @@ int _write(int line, uint8_t *ptr, int len) {
     HAL_UART_Transmit(&GSYSTEM_BEDUG_UART, (uint8_t*)ptr, (uint16_t)(len), 100);
 #   endif
 
+#   if !defined(GSYSTEM_NO_PRINTF)
     for (int DataIdx = 0; DataIdx < len; DataIdx++) {
         ITM_SendChar(*ptr++);
     }
-    return len;
+#   endif
 
-    return 0;
+    return len;
 }
 #endif

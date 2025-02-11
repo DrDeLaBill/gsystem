@@ -39,11 +39,7 @@ typedef enum _DS1307_STATUS {
 #define DS1307_REG_RAM_UTC_HR   0x08
 #define DS1307_REG_RAM_UTC_MIN	0x09
 #define DS1307_REG_RAM_CENT    	0x0A
-#define DS1307_REG_RAM_RDY_BE	0x0B
-#define DS1307_REG_RAM_RDY_DA	0x0C
-#define DS1307_REG_RAM_RDY_CO   0x0D
-#define DS1307_REG_RAM_RDY_DE	0x0E
-#define DS1307_REG_RAM   	    0x0F
+#define DS1307_REG_RAM_BEGIN	0x0B
 #define DS1307_REG_RAM_END      0x3F
 #define DS1307_TIMEOUT		    100
 /*----------------------------------------------------------------------------*/
