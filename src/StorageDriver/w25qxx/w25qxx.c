@@ -58,7 +58,7 @@ typedef struct _flash_info_t {
 #define FLASH_W25_SR1_UNBLOCK_VALUE   ((uint8_t)0x00)
 #define FLASH_W25_SR1_BLOCK_VALUE     ((uint8_t)0x0F)
 
-#define FLASH_SPI_TIMEOUT_MS          ((uint32_t)100)
+#define FLASH_SPI_TIMEOUT_MS          ((uint32_t)1000)
 #define FLASH_SPI_COMMAND_SIZE_MAX    ((uint8_t)10)
 
 
@@ -618,8 +618,9 @@ flash_status_t flash_w25qxx_erase_addresses(const uint32_t* addrs, const uint32_
 #if FLASH_BEDUG
 			printTagLog(
 				FLASH_TAG,
-				"flash erase data addr=%08lX error (unable to erase sector: block_addr=%08lX sector_addr=%08lX len=%lu)",
+				"flash erase data addr=%08lX error=%u (unable to erase sector: block_addr=%08lX sector_addr=%08lX len=%lu)",
 				cur_sector_addr,
+				status,
 				cur_sector_addr / flash_info.block_size,
 				(cur_sector_addr % flash_info.block_size) / flash_info.sector_size,
 				FLASH_W25_SECTOR_SIZE

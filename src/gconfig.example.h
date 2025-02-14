@@ -24,6 +24,7 @@ extern "C" {
 //#define GSYSTEM_NO_POWER_W
 //#define GSYSTEM_NO_MEMORY_W
 //#define GSYSTEM_NO_PLL_CHECK_W
+//#define GSYSTEM_NO_STATUS_PRINT
 
 //#define GSYSTEM_NO_I2C
 

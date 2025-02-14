@@ -150,10 +150,10 @@ void system_init(void)
 		while(1) {}
 	}
 
+	system_timer_t timer = {0};
 #ifndef GSYSTEM_NO_SYS_TICK_W
 	RCC->CR |= RCC_CR_HSEON;
 
-	system_timer_t timer = {0};
 	system_timer_start(&timer, GSYSTEM_TIMER, SECOND_MS);
 	while (system_timer_wait(&timer)) {
 		if (RCC->CR & RCC_CR_HSERDY) {
@@ -1093,7 +1093,7 @@ void _system_watchdog_check(void)
 		gtimer_start(&err_timer, err_delay_ms);
 	}
 
-#if GSYSTEM_BEDUG
+#if GSYSTEM_BEDUG && !defined(GSYSTEM_NO_STATUS_PRINT)
 	if (!gtimer_wait(&kTPSTimer)) {
 		printTagLog(
 			SYSTEM_TAG,
