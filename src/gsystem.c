@@ -518,6 +518,15 @@ void system_error_handler(SOUL_STATUS error)
 	system_timer_stop(&s_timer);
 #endif
 
+#ifndef DEBUG
+	if (is_error(POWER_ERROR)) {
+		__disable_irq();
+		__reset_bit(SCB->SCR, SCB_SCR_SEVONPEND_Msk);
+		__set_bit(SCB->SCR, SCB_SCR_SLEEPDEEP_Msk | SCB_SCR_SLEEPONEXIT_Msk);
+		__WFI();
+	}
+#endif
+
 	NVIC_SystemReset();
 }
 
