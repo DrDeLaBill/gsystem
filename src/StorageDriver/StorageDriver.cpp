@@ -127,7 +127,7 @@ StorageStatus StorageDriver::read(const uint32_t address, uint8_t *data, const u
 
 #   endif
 
-		status = flash_w25qxx_read(address, data, len);
+		status = w25qxx_read(address, data, len);
 #   if STORAGE_DRIVER_BEDUG
 		printTagLog(TAG, "Read %lu address start", address);
 #   endif
@@ -252,7 +252,7 @@ StorageStatus StorageDriver::write(const uint32_t address, const uint8_t *data, 
 	printTagLog(TAG, "Write %lu address start", address);
 #   endif
 
-	flash_status_t status = flash_w25qxx_write(address, data, len);
+	flash_status_t status = w25qxx_write(address, data, len);
 
 #   if STORAGE_DRIVER_USE_BUFFER
 
@@ -320,7 +320,7 @@ StorageStatus StorageDriver::erase(const uint32_t* addresses, const uint32_t cou
 	printTagLog(TAG, "Erase addresses start");
 #   endif
 
-	flash_status_t status = flash_w25qxx_erase_addresses(addresses, count);
+	flash_status_t status = w25qxx_erase_addresses(addresses, count);
 
 	if (hasError && !timer.wait()) {
 		set_status(MEMORY_WRITE_FAULT);

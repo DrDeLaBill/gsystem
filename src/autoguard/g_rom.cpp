@@ -64,11 +64,11 @@ extern "C" void memory_watchdog_check()
 
 #ifndef GSYSTEM_EEPROM_MODE
 	if (!is_status(MEMORY_INITIALIZED)) {
-		if (flash_w25qxx_init() == FLASH_OK) {
+		if (w25qxx_init() == FLASH_OK) {
 			set_status(MEMORY_INITIALIZED);
-			storage.setPagesCount(flash_w25qxx_get_pages_count());
+			storage.setPagesCount(w25qxx_get_pages_count());
 #   ifdef GSYSTEM_BEDUG
-			printTagLog(SYSTEM_TAG, "flash init success (%lu pages)", flash_w25qxx_get_pages_count());
+			printTagLog(SYSTEM_TAG, "flash init success (%lu pages)", w25qxx_get_pages_count());
 #   endif
 		} else {
 #   ifdef GSYSTEM_BEDUG
@@ -106,20 +106,20 @@ extern "C" void memory_watchdog_check()
 			errors++;
 		}
 #elif defined(GSYSTEM_FLASH_MODE)
-		if (is_status(MEMORY_INITIALIZED) && flash_w25qxx_init() != FLASH_OK) {
+		if (is_status(MEMORY_INITIALIZED) && w25qxx_init() != FLASH_OK) {
 			reset_status(MEMORY_INITIALIZED);
 		}
 
-		uint32_t pages_cnt = flash_w25qxx_get_pages_count();
+		uint32_t pages_cnt = w25qxx_get_pages_count();
 		uint32_t address   = 0;
 		if (pages_cnt > 0) {
 			address = static_cast<uint32_t>(rand()) % (pages_cnt * FLASH_W25_PAGE_SIZE);
 		}
 
-		status = flash_w25qxx_read(address, &data, sizeof(data));
+		status = w25qxx_read(address, &data, sizeof(data));
 		if (status == FLASH_OK) {
 			reset_status(MEMORY_READ_FAULT);
-			status = flash_w25qxx_write(address, &data, sizeof(data));
+			status = w25qxx_write(address, &data, sizeof(data));
 		} else {
 			errors++;
 		}

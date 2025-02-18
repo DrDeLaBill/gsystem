@@ -3,8 +3,8 @@ cmake_minimum_required(VERSION 3.26)
 
 project(gsystemlib)
 
-message(STATUS "gsystem C compiler: ${CMAKE_C_COMPILER}")
-message(STATUS "gsystem C++ compiler: ${CMAKE_CXX_COMPILER}")
+message(STATUS "${PROJECT_NAME} C compiler  : ${CMAKE_C_COMPILER}")
+message(STATUS "${PROJECT_NAME} C++ compiler: ${CMAKE_CXX_COMPILER}")
 
 option(DEBUG "Enable DEBUG output" OFF)
 
@@ -22,7 +22,7 @@ unset(_file_exists)
 
 if(${CMAKE_CURRENT_SOURCE_DIR} STREQUAL ${CMAKE_SOURCE_DIR})
 
-    message(STATUS "gsystem generated as test project")
+    message(STATUS "${PROJECT_NAME} generated as test project")
 
     if("${CMAKE_CXX_COMPILER_ID}" MATCHES "GNU")
         message(STATUS "Add GCC warnings")
@@ -45,7 +45,7 @@ if(${CMAKE_CURRENT_SOURCE_DIR} STREQUAL ${CMAKE_SOURCE_DIR})
 
 else()
 
-    message(STATUS "gsystem added as a library")
+    message(STATUS "${PROJECT_NAME} added as a library")
 
     # Поиск библиотек со своим сборщиком
     FIND_CMAKE_LIBS(${PROJECT_NAME}_cmake_dirs "${CMAKE_CURRENT_SOURCE_DIR}/Modules")
@@ -56,7 +56,7 @@ else()
     FILE_PATHS_EXT(s_paths   "${CMAKE_CURRENT_SOURCE_DIR}" "s")
     set(${PROJECT_NAME}_SOURCES "${c_paths};${cpp_paths};${s_paths}")
     EXCLUDE_PATHS(${PROJECT_NAME}_SOURCES "test")
-    EXCLUDE_PATHS(${PROJECT_NAME}_SOURCES   "build")
+    EXCLUDE_PATHS(${PROJECT_NAME}_SOURCES "build")
     foreach(cmake_dir ${${PROJECT_NAME}_cmake_dirs})
         EXCLUDE_DIRS(${PROJECT_NAME}_SOURCES ${cmake_dir})
     endforeach()
@@ -67,7 +67,7 @@ else()
     )
 
     if (DEBUG)
-        message(STATUS "Build gsystem with DEBUG")
+        message(STATUS "Build ${PROJECT_NAME} with DEBUG")
         set(CMAKE_C_FLAGS "${CMAKE_CXX_FLAGS} -DDEBUG")
         set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DDEBUG")
     endif()
@@ -75,7 +75,7 @@ else()
     # Указываем директории с заголовочными файлами
     FILE_DIRECTORIES_EXT(h_dirs   "${CMAKE_CURRENT_SOURCE_DIR}" "h")
     FILE_DIRECTORIES_EXT(hpp_dirs "${CMAKE_CURRENT_SOURCE_DIR}" "hpp")
-    set(${PROJECT_NAME}_INCLUDES "${h_dirs};${hpp_dirs}")
+    set(${PROJECT_NAME}_INCLUDES  "${h_dirs};${hpp_dirs}")
     EXCLUDE_PATHS(${PROJECT_NAME}_INCLUDES   "test")
     EXCLUDE_PATHS(${PROJECT_NAME}_INCLUDES "build")
     foreach(cmake_dir ${${PROJECT_NAME}_cmake_dirs})

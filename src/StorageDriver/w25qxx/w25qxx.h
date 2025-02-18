@@ -1,7 +1,7 @@
-/* Copyright © 2023 Georgy E. All rights reserved. */
+/* Copyright © 2025 Georgy E. All rights reserved. */
 
-#ifndef _FLASH_STORAGE_H_
-#define _FLASH_STORAGE_H_
+#ifndef _W25Q_STORAGE_H_
+#define _W25Q_STORAGE_H_
 
 
 #include "gdefines.h"
@@ -11,23 +11,18 @@
 #ifdef GSYSTEM_FLASH_MODE
 
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-
 #include <stdint.h>
 #include <stdbool.h>
 
 
-#define FLASH_BEDUG               (0)
+#define W25Q_BEDUG            (1)
 
-#define FLASH_TEST                (false)
-#define FLASH_TEST_PAGES_COUNT    ((uint32_t)64)
+#define W25Q_TEST             (false)
+#define W25Q_TEST_PAGES_COUNT ((uint32_t)64)
 
-#define FLASH_W25_PAGE_SIZE       ((uint32_t)0x100)
-#define FLASH_W25_SECTOR_SIZE     ((uint32_t)0x1000)
-#define FLASH_W25_SETORS_IN_BLOCK ((uint32_t)0x10)
+#define W25Q_PAGE_SIZE        ((uint32_t)0x100)
+#define W25Q_SECTOR_SIZE      ((uint32_t)0x1000)
+#define W25Q_SETORS_IN_BLOCK  ((uint32_t)0x10)
 
 
 typedef enum _flash_status_t {
@@ -37,59 +32,132 @@ typedef enum _flash_status_t {
     FLASH_OOM   = ((uint8_t)0x03)   // Out Of Memory
 } flash_status_t;
 
+typedef enum _w25q_command_t {
+    W25Q_CMD_WRITE_SR1       = ((uint8_t)0x01),
+    W25Q_CMD_PAGE_PROGRAMM   = ((uint8_t)0x02),
+    W25Q_CMD_READ            = ((uint8_t)0x03),
+    W25Q_CMD_WRITE_DISABLE   = ((uint8_t)0x04),
+    W25Q_CMD_READ_SR1        = ((uint8_t)0x05),
+    W25Q_CMD_WRITE_ENABLE    = ((uint8_t)0x06),
+    W25Q_CMD_ERASE_SECTOR    = ((uint8_t)0x20),
+    W25Q_CMD_WRITE_ENABLE_SR = ((uint8_t)0x50),
+    W25Q_CMD_ENABLE_RESET    = ((uint8_t)0x66),
+    W25Q_CMD_RESET           = ((uint8_t)0x99),
+    W25Q_CMD_JEDEC_ID        = ((uint8_t)0x9f)
+} flash_command_t;
+
 
 /**
  *  Initializes the W25Qxx chip.
  *  @return Result status.
  */
-flash_status_t flash_w25qxx_init();
+flash_status_t w25qxx_init();
 
 /**
- *  Completely clears the FLASH memory.
+ *  Completely clears the W25Q memory.
  *  @return Result status.
  */
-flash_status_t flash_w25qxx_reset();
+flash_status_t w25qxx_reset();
 
 /**
- *  Reads data from the FLASH memory.
+ * The loop of the internal proccess
+ */
+void w24qxx_tick();
+
+/**
+ * Flash TX DMA callback
+ */
+void w25qxx_tx_dma_callback();
+
+/**
+ * Flash RX DMA callback
+ */
+void w25qxx_rx_dma_callback();
+
+/**
+ *  Reads data from the W25Q memory.
  *  @param addr Target read address.
  *  @param data Data buffer for read.
  *  @param len Data buffer length.
  *  @return Result status.
  */
-flash_status_t flash_w25qxx_read(const uint32_t addr, uint8_t* data, const uint32_t len);
+flash_status_t w25qxx_read(const uint32_t addr, uint8_t* data, const uint32_t len);
 
 /**
- *  Writes data to the FLASH memory.
+ *  Reads data from the W25Q memory using DMA.
+ *  @param addr Target read address.
+ *  @param data Data buffer for read.
+ *  @param len Data buffer length.
+ *  @return Result status.
+ */
+flash_status_t w25qxx_read_dma(const uint32_t addr, uint8_t* data, const uint32_t len);
+
+/**
+ *  Writes data to the W25Q memory.
  *  @param addr Target read address.
  *  @param data Buffer with data for write.
  *  @param len Data buffer length (256 units maximum).
  *  @return Result status.
  */
-flash_status_t flash_w25qxx_write(const uint32_t addr, const uint8_t* data, const uint32_t len);
+flash_status_t w25qxx_write(const uint32_t addr, const uint8_t* data, const uint32_t len);
 
 /**
- *  Erases addresses in the FLASH memory.
+ *  Writes data to the W25Q memory using DMA.
+ *  @param addr Target read address.
+ *  @param data Buffer with data for write.
+ *  @param len Data buffer length (256 units maximum).
+ *  @return Result status.
+ */
+flash_status_t w25qxx_write_dma(const uint32_t addr, const uint8_t* data, const uint32_t len);
+
+/**
+ *  Erases addresses in the W25Q memory.
  *  @param addrs[] Array of addresses.
  *  @param count   Number of the addresses.
  *  @return Result status.
  */
-flash_status_t flash_w25qxx_erase_addresses(const uint32_t* addrs, const uint32_t count);
+flash_status_t w25qxx_erase_addresses(const uint32_t* addrs, const uint32_t count);
 
 /**
- *  @return FLASH memory pages count.
+ *  Erases addresses in the W25Q memory using DMA.
+ *  @param addrs[] Array of addresses.
+ *  @param count   Number of the addresses.
+ *  @return Result status.
  */
-uint32_t flash_w25qxx_get_pages_count();
+flash_status_t w25qxx_erase_addresses_dma(const uint32_t* addrs, const uint32_t count);
 
 /**
- *  @return FLASH memory blocks count.
+ * Returns the result status of the w25qxx_read_dma() function.s
+ * @param status Result status.
  */
-uint32_t flash_w25qxx_get_blocks_count();
+void w25qxx_read_event(const flash_status_t status);
 
 /**
- *  @return FLASH memory block size.
+ * Returns the result status of the w25qxx_write_dma() function.s
+ * @param status Result status.
  */
-uint32_t flash_w25qxx_get_block_size();
+void w25qxx_write_event(const flash_status_t status);
+
+/**
+ * Returns the result status of the w25qxx_erase_addresses_dma() function.s
+ * @param status Result status.
+ */
+void w25qxx_erase_event(const flash_status_t status);
+
+/**
+ *  @return W25Q memory pages count.
+ */
+uint32_t w25qxx_get_pages_count();
+
+/**
+ *  @return W25Q memory blocks count.
+ */
+uint32_t w25qxx_get_blocks_count();
+
+/**
+ *  @return W25Q memory block size.
+ */
+uint32_t w25qxx_get_block_size();
 
 
 #ifdef __cplusplus
