@@ -29,7 +29,7 @@ StorageAT storage(
 #   if defined(GSYSTEM_EEPROM_MODE)
 	EEPROM_PAGE_SIZE
 #   elif defined(GSYSTEM_FLASH_MODE)
-	FLASH_W25_SECTOR_SIZE
+	W25Q_SECTOR_SIZE
 #   else
 	0
 #   endif
@@ -113,7 +113,7 @@ extern "C" void memory_watchdog_check()
 		uint32_t pages_cnt = w25qxx_get_pages_count();
 		uint32_t address   = 0;
 		if (pages_cnt > 0) {
-			address = static_cast<uint32_t>(rand()) % (pages_cnt * FLASH_W25_PAGE_SIZE);
+			address = static_cast<uint32_t>(rand()) % (pages_cnt * W25Q_PAGE_SIZE);
 		}
 
 		status = w25qxx_read(address, &data, sizeof(data));

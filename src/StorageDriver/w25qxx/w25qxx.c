@@ -38,10 +38,7 @@ typedef struct _w25q_t {
 
 #define W25Q_JEDEC_ID_SIZE        (sizeof(uint32_t))
 #define W25Q_SR1_BUSY             ((uint8_t)0x01)
-#define W25Q_SR1_WEL              ((uint8_t)0x02)
 #define W25Q_24BIT_ADDR_SIZE      ((uint16_t)512)
-#define W25Q_SR1_UNBLOCK_VALUE    ((uint8_t)0x00)
-#define W25Q_SR1_BLOCK_VALUE      ((uint8_t)0x0F)
 
 #define W25Q_SPI_TIMEOUT_MS       ((uint32_t)1000)
 #define W25Q_SPI_COMMAND_SIZE_MAX ((uint8_t)10)
@@ -67,8 +64,6 @@ static flash_status_t _w25q_recieve_data(uint8_t* data, uint32_t len);
 
 static bool           _w25q_check_FREE();
 static bool           _w25q_check_WEL();
-
-static uint32_t       _w25q_get_storage_bytes_size();
 
 bool                  _w25q_24bit();
 void                  _W25Q_CS_set();
@@ -174,13 +169,13 @@ flash_status_t w25qxx_init()
 	uint8_t data[W25Q_PAGE_SIZE] = {0};
     _W25Q_CS_set();
     status = _w25q_read(address, data, sizeof(data));
-    if (!_w25q_get_storage_bytes_size()) {
+    if (!w25qxx_size()) {
 #if W25Q_BEDUG
         printTagLog(W25Q_TAG, "flash init: W25Q size error");
 #endif
         goto do_error;
     }
-    address = (address + 1) % _w25q_get_storage_bytes_size();
+    address = (address + 1) % w25qxx_size();
     if (status != FLASH_OK) {
 #if W25Q_BEDUG
         printTagLog(W25Q_TAG, "flash init: error=%u (read W25Q error)", status);
@@ -202,11 +197,13 @@ do_error:
     return status;
 }
 
-flash_status_t w25qxx_reset()
+flash_status_t w25qxx_clear()
 {
 #if W25Q_BEDUG
     printTagLog(W25Q_TAG, "flash reset: begin");
 #endif
+
+    w25qxx_stop_dma();
 
 	_W25Q_CS_set();
     flash_status_t status = _w25q_set_protect_block(W25Q_SR1_UNBLOCK_VALUE);
@@ -219,8 +216,6 @@ flash_status_t w25qxx_reset()
     }
 	_W25Q_CS_reset();
 
-    uint8_t spi_cmd[] = { W25Q_CMD_ENABLE_RESET, W25Q_CMD_RESET };
-
     if (!util_wait_event(_w25q_check_FREE, W25Q_SPI_TIMEOUT_MS)) {
 #if W25Q_BEDUG
         printTagLog(W25Q_TAG, "flash reset: error (W25Q busy)");
@@ -228,6 +223,7 @@ flash_status_t w25qxx_reset()
         goto do_block_protect;
     }
 
+    uint8_t spi_cmd[] = { W25Q_CMD_ENABLE_RESET, W25Q_CMD_RESET };
 	_W25Q_CS_set();
     status = _w25q_send_data(spi_cmd, sizeof(spi_cmd));
     if (status != FLASH_OK) {
@@ -268,12 +264,14 @@ do_block_protect:
 #endif
     }
 
+    w25q.initialized = false;
+
     return status;
 }
 
 flash_status_t w25qxx_read(const uint32_t addr, uint8_t* data, const uint32_t len)
 {
-    if (!_flash_ready()) {
+    if (!_w25q_ready()) {
 #if W25Q_BEDUG
         printTagLog(W25Q_TAG, "flash read addr=%08lX len=%lu (flash not ready)", addr, len);
 #endif
@@ -281,7 +279,7 @@ flash_status_t w25qxx_read(const uint32_t addr, uint8_t* data, const uint32_t le
     }
 
     _W25Q_CS_set();
-    flash_status_t status = _flash_read(addr, data, len);
+    flash_status_t status = _w25q_read(addr, data, len);
 	_W25Q_CS_reset();
 
     return status;
@@ -303,7 +301,7 @@ flash_status_t w25qxx_write(const uint32_t addr, const uint8_t* data, const uint
     }
 
 	flash_status_t status = FLASH_OK;
-    if (addr + len > _w25q_get_storage_bytes_size()) {
+    if (addr + len >= w25qxx_size()) {
 #if W25Q_BEDUG
         printTagLog(W25Q_TAG, "flash write addr=%08lX len=%lu error (unacceptable address)", addr, len);
 #endif
@@ -613,7 +611,7 @@ flash_status_t w25qxx_erase_addresses(const uint32_t* addrs, const uint32_t coun
 				status,
 				cur_sector_addr / w25q.block_size,
 				(cur_sector_addr % w25q.block_size) / w25q.sector_size,
-				FLASH_W25_SECTOR_SIZE
+				W25Q_SECTOR_SIZE
 			);
 #endif
 			return status;
@@ -770,7 +768,7 @@ flash_status_t _w25q_write(const uint32_t addr, const uint8_t* data, const uint3
 		return FLASH_ERROR;
 	}
 
-    if (addr + len > _w25q_get_storage_bytes_size()) {
+    if (addr + len >= w25qxx_size()) {
 #if W25Q_BEDUG
         printTagLog(W25Q_TAG, "flash write addr=%08lX len=%lu error (unacceptable address)", addr, len);
 #endif
@@ -851,6 +849,11 @@ do_block_protect:
     return status;
 }
 
+uint32_t w25qxx_size()
+{
+    return w25q.blocks_count * w25q.block_size;
+}
+
 uint32_t w25qxx_get_pages_count()
 {
     if (!w25q.initialized) {
@@ -917,7 +920,7 @@ flash_status_t _w25q_data_cmp(const uint32_t addr, const uint8_t* data, const ui
 
 flash_status_t _w25q_read(uint32_t addr, uint8_t* data, uint32_t len)
 {
-    if (addr + len > _w25q_get_storage_bytes_size()) {
+    if (addr + len >= w25qxx_size()) {
 #if W25Q_BEDUG
         printTagLog(W25Q_TAG, "flash read addr=%08lX len=%lu: error (unacceptable address)", addr, len);
 #endif
@@ -1006,7 +1009,7 @@ do_spi_stop:
 
 flash_status_t _w25q_read_SR1(uint8_t* SR1)
 {
-    bool cs_enabled = !(bool)HAL_GPIO_ReadPin(GSYSTEM_W25Q_CS_PORT, GSYSTEM_W25Q_CS_PIN);
+    bool cs_enabled = !(bool)HAL_GPIO_ReadPin(GSYSTEM_FLASH_CS_PORT, GSYSTEM_FLASH_CS_PIN);
 	if (cs_enabled) {
 	    _W25Q_CS_reset();
 	}
@@ -1244,12 +1247,12 @@ flash_status_t _w25q_recieve_data(uint8_t* data, uint32_t len)
 
 void _W25Q_CS_set()
 {
-    HAL_GPIO_WritePin(GSYSTEM_W25Q_CS_PORT, GSYSTEM_W25Q_CS_PIN, GPIO_PIN_RESET);
+    HAL_GPIO_WritePin(GSYSTEM_FLASH_CS_PORT, GSYSTEM_FLASH_CS_PIN, GPIO_PIN_RESET);
 }
 
 void _W25Q_CS_reset()
 {
-    HAL_GPIO_WritePin(GSYSTEM_W25Q_CS_PORT, GSYSTEM_W25Q_CS_PIN, GPIO_PIN_SET);
+    HAL_GPIO_WritePin(GSYSTEM_FLASH_CS_PORT, GSYSTEM_FLASH_CS_PIN, GPIO_PIN_SET);
 }
 
 bool _w25q_check_FREE()
@@ -1272,11 +1275,6 @@ bool _w25q_check_WEL()
     }
 
     return SR1 & W25Q_SR1_WEL;
-}
-
-uint32_t _w25q_get_storage_bytes_size()
-{
-    return w25q.blocks_count * w25q.block_size;
 }
 
 bool _w25q_initialized()

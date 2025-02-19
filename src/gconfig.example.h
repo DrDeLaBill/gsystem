@@ -1,4 +1,4 @@
-/* Copyright © 2024 Georgy E. All rights reserved. */
+/* Copyright © 2025 Georgy E. All rights reserved. */
 
 #ifndef _G_SYSTEM_CONFIG_EXAMPLE_H_
 #define _G_SYSTEM_CONFIG_EXAMPLE_H_
@@ -26,12 +26,11 @@ extern "C" {
 //#define GSYSTEM_NO_PLL_CHECK_W
 //#define GSYSTEM_NO_STATUS_PRINT
 
-//#define GSYSTEM_NO_I2C
-
 //#define GSYSTEM_NO_PRINTF
 
 #define GSYSTEM_ADC_VOLTAGE_COUNT (1)
 
+//#define GSYSTEM_MEMORY_DMA
 //#define GSYSTEM_FLASH_MODE
 //#define GSYSTEM_EEPROM_MODE
 
@@ -50,7 +49,7 @@ extern "C" {
 //#define GSYSTEM_FLASH_CS_PORT     (FLASH1_CS_GPIO_Port)
 //#define GSYSTEM_FLASH_CS_PIN      (FLASH1_CS_Pin)
 
-//#define GSYSTEM_BUTTONS_COUNT     (10)
+#define GSYSTEM_BUTTONS_COUNT     (0)
 
 //#define GSYSTEM_NO_TAMPER_RESET
 

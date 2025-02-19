@@ -8,6 +8,11 @@
 #include "gconfig.h"
 
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+
 #ifdef GSYSTEM_FLASH_MODE
 
 
@@ -15,14 +20,18 @@
 #include <stdbool.h>
 
 
-#define W25Q_BEDUG            (1)
+#define W25Q_BEDUG             (1)
 
-#define W25Q_TEST             (false)
-#define W25Q_TEST_PAGES_COUNT ((uint32_t)64)
+#define W25Q_TEST              (false)
+#define W25Q_TEST_PAGES_COUNT  ((uint32_t)64)
 
-#define W25Q_PAGE_SIZE        ((uint32_t)0x100)
-#define W25Q_SECTOR_SIZE      ((uint32_t)0x1000)
-#define W25Q_SETORS_IN_BLOCK  ((uint32_t)0x10)
+#define W25Q_PAGE_SIZE         (0x100)
+#define W25Q_SECTOR_SIZE       (0x1000)
+#define W25Q_SETORS_IN_BLOCK   (0x10)
+
+#define W25Q_SR1_WEL           ((uint8_t)0x02)
+#define W25Q_SR1_UNBLOCK_VALUE ((uint8_t)0x00)
+#define W25Q_SR1_BLOCK_VALUE   ((uint8_t)0x0F)
 
 
 typedef enum _flash_status_t {
@@ -31,6 +40,16 @@ typedef enum _flash_status_t {
     FLASH_BUSY  = ((uint8_t)0x02),  // Memory or bus is busy
     FLASH_OOM   = ((uint8_t)0x03)   // Out Of Memory
 } flash_status_t;
+
+typedef enum _dma_status_t {
+    W25Q_DMA_READY,
+    W25Q_DMA_READ,
+    W25Q_DMA_WRITE,
+    W25Q_DMA_ERASE,
+    W25Q_DMA_FREE,
+    W25Q_DMA_WRITE_OFF,
+    W25Q_DMA_WRITE_ON,
+} dma_status_t;
 
 typedef enum _w25q_command_t {
     W25Q_CMD_WRITE_SR1       = ((uint8_t)0x01),
@@ -57,7 +76,7 @@ flash_status_t w25qxx_init();
  *  Completely clears the W25Q memory.
  *  @return Result status.
  */
-flash_status_t w25qxx_reset();
+flash_status_t w25qxx_clear();
 
 /**
  * The loop of the internal proccess
@@ -75,6 +94,11 @@ void w25qxx_tx_dma_callback();
 void w25qxx_rx_dma_callback();
 
 /**
+ * Flash ERROR DMA callback
+ */
+void w25qxx_error_dma_callback();
+
+/**
  *  Reads data from the W25Q memory.
  *  @param addr Target read address.
  *  @param data Data buffer for read.
@@ -90,7 +114,7 @@ flash_status_t w25qxx_read(const uint32_t addr, uint8_t* data, const uint32_t le
  *  @param len Data buffer length.
  *  @return Result status.
  */
-flash_status_t w25qxx_read_dma(const uint32_t addr, uint8_t* data, const uint32_t len);
+flash_status_t w25qxx_read_dma(const uint32_t addr, uint8_t* data, const uint16_t len);
 
 /**
  *  Writes data to the W25Q memory.
@@ -108,7 +132,7 @@ flash_status_t w25qxx_write(const uint32_t addr, const uint8_t* data, const uint
  *  @param len Data buffer length (256 units maximum).
  *  @return Result status.
  */
-flash_status_t w25qxx_write_dma(const uint32_t addr, const uint8_t* data, const uint32_t len);
+flash_status_t w25qxx_write_dma(const uint32_t addr, const uint8_t* data, const uint16_t len);
 
 /**
  *  Erases addresses in the W25Q memory.
@@ -125,6 +149,11 @@ flash_status_t w25qxx_erase_addresses(const uint32_t* addrs, const uint32_t coun
  *  @return Result status.
  */
 flash_status_t w25qxx_erase_addresses_dma(const uint32_t* addrs, const uint32_t count);
+
+/*
+ * Stops DMA process
+ */
+void w25qxx_stop_dma();
 
 /**
  * Returns the result status of the w25qxx_read_dma() function.s
@@ -143,6 +172,11 @@ void w25qxx_write_event(const flash_status_t status);
  * @param status Result status.
  */
 void w25qxx_erase_event(const flash_status_t status);
+
+/**
+ *  @return W25Q memory bytes_size.
+ */
+uint32_t w25qxx_size();
 
 /**
  *  @return W25Q memory pages count.
