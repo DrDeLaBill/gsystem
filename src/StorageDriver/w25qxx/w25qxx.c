@@ -300,6 +300,13 @@ flash_status_t w25qxx_write(const uint32_t addr, const uint8_t* data, const uint
         return FLASH_ERROR;
     }
 
+    if (addr % W25Q_PAGE_SIZE) {
+#if W25Q_BEDUG
+        printTagLog(W25Q_TAG, "flash write addr=%08lX len=%u (bad address)", addr, len);
+#endif
+        return FLASH_ERROR;
+    }
+
 	flash_status_t status = FLASH_OK;
     if (addr + len >= w25qxx_size()) {
 #if W25Q_BEDUG
