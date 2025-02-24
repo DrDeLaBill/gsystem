@@ -197,10 +197,10 @@ do_error:
     return status;
 }
 
-flash_status_t w25qxx_clear()
+flash_status_t w25qxx_erase_chip()
 {
 #if W25Q_BEDUG
-    printTagLog(W25Q_TAG, "flash reset: begin");
+    printTagLog(W25Q_TAG, "flash erase: begin");
 #endif
 
     w25qxx_stop_dma();
@@ -209,7 +209,7 @@ flash_status_t w25qxx_clear()
     flash_status_t status = _w25q_set_protect_block(W25Q_SR1_UNBLOCK_VALUE);
     if (status != FLASH_OK) {
 #if W25Q_BEDUG
-        printTagLog(W25Q_TAG, "flash reset: error=%u (unset block protect)", status);
+        printTagLog(W25Q_TAG, "flash erase: error=%u (unset block protect)", status);
 #endif
         status = FLASH_BUSY;
         goto do_block_protect;
@@ -218,25 +218,25 @@ flash_status_t w25qxx_clear()
 
     if (!util_wait_event(_w25q_check_FREE, W25Q_SPI_TIMEOUT_MS)) {
 #if W25Q_BEDUG
-        printTagLog(W25Q_TAG, "flash reset: error (W25Q busy)");
+        printTagLog(W25Q_TAG, "flash erase: error (W25Q busy)");
 #endif
         goto do_block_protect;
     }
 
-    uint8_t spi_cmd[] = { W25Q_CMD_ENABLE_RESET, W25Q_CMD_RESET };
+    uint8_t spi_cmd[] = { W25Q_CMD_ERASE_CHIP };
 	_W25Q_CS_set();
     status = _w25q_send_data(spi_cmd, sizeof(spi_cmd));
     if (status != FLASH_OK) {
 #if W25Q_BEDUG
-        printTagLog(W25Q_TAG, "flash reset: error=%u (send command)", status);
+        printTagLog(W25Q_TAG, "flash erase: error=%u (send command)", status);
 #endif
         status = FLASH_BUSY;
     }
 	_W25Q_CS_reset();
 
-    if (!util_wait_event(_w25q_check_FREE, W25Q_SPI_TIMEOUT_MS)) {
+    if (!util_wait_event(_w25q_check_FREE, 5 * W25Q_SPI_TIMEOUT_MS)) {
 #if W25Q_BEDUG
-        printTagLog(W25Q_TAG, "flash reset: error (flash is busy)");
+        printTagLog(W25Q_TAG, "flash erase: error (flash is busy)");
 #endif
         goto do_block_protect;
     }
@@ -255,12 +255,12 @@ do_block_protect:
 
     if (status != FLASH_OK) {
 #if W25Q_BEDUG
-        printTagLog(W25Q_TAG, "flash reset: error=%u (set block protected)", status);
+        printTagLog(W25Q_TAG, "flash erase: error=%u (set block protected)", status);
 #endif
         status = FLASH_BUSY;
     } else {
 #if W25Q_BEDUG
-        printTagLog(W25Q_TAG, "flash reset: OK");
+        printTagLog(W25Q_TAG, "flash erase: OK");
 #endif
     }
 

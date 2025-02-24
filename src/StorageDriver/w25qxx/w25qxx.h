@@ -62,7 +62,8 @@ typedef enum _w25q_command_t {
     W25Q_CMD_WRITE_ENABLE_SR = ((uint8_t)0x50),
     W25Q_CMD_ENABLE_RESET    = ((uint8_t)0x66),
     W25Q_CMD_RESET           = ((uint8_t)0x99),
-    W25Q_CMD_JEDEC_ID        = ((uint8_t)0x9f)
+    W25Q_CMD_JEDEC_ID        = ((uint8_t)0x9f),
+	W25Q_CMD_ERASE_CHIP      = ((uint8_t)0xC7),
 } flash_command_t;
 
 
@@ -76,7 +77,7 @@ flash_status_t w25qxx_init();
  *  Completely clears the W25Q memory.
  *  @return Result status.
  */
-flash_status_t w25qxx_clear();
+flash_status_t w25qxx_erase_chip();
 
 /**
  * The loop of the internal proccess
