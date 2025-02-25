@@ -37,10 +37,10 @@ typedef struct _w25q_t {
 
 
 #define W25Q_JEDEC_ID_SIZE        (sizeof(uint32_t))
-#define W25Q_SR1_BUSY             ((uint8_t)0x01)
 #define W25Q_24BIT_ADDR_SIZE      ((uint16_t)512)
 
-#define W25Q_SPI_TIMEOUT_MS       ((uint32_t)1000)
+#define W25Q_SPI_TIMEOUT_MS       ((uint32_t)SECOND_MS)
+#define W25Q_SPI_ERASE_CHIP_MS    ((uint32_t)5 * SECOND_MS)
 #define W25Q_SPI_COMMAND_SIZE_MAX ((uint8_t)10)
 
 
@@ -212,15 +212,25 @@ flash_status_t w25qxx_erase_chip()
         printTagLog(W25Q_TAG, "flash erase: error=%u (unset block protect)", status);
 #endif
         status = FLASH_BUSY;
-        goto do_block_protect;
+        goto do_protect;
     }
 	_W25Q_CS_reset();
 
-    if (!util_wait_event(_w25q_check_FREE, W25Q_SPI_TIMEOUT_MS)) {
+	_W25Q_CS_set();
+    status = _w25q_write_enable();
+    if (status != FLASH_OK) {
 #if W25Q_BEDUG
-        printTagLog(W25Q_TAG, "flash erase: error (W25Q busy)");
+        printTagLog(W25Q_TAG, "flash erase: error=%u (write is not enabled)", status);
 #endif
-        goto do_block_protect;
+        goto do_protect;
+    }
+	_W25Q_CS_reset();
+
+    if (!util_wait_event(_w25q_check_FREE, W25Q_SPI_ERASE_CHIP_MS)) {
+#if W25Q_BEDUG
+        printTagLog(W25Q_TAG, "flash erase: error (flash is busy)");
+#endif
+        goto do_protect;
     }
 
     uint8_t spi_cmd[] = { W25Q_CMD_ERASE_CHIP };
@@ -234,28 +244,38 @@ flash_status_t w25qxx_erase_chip()
     }
 	_W25Q_CS_reset();
 
-    if (!util_wait_event(_w25q_check_FREE, 5 * W25Q_SPI_TIMEOUT_MS)) {
+    if (!util_wait_event(_w25q_check_FREE, W25Q_SPI_ERASE_CHIP_MS)) {
 #if W25Q_BEDUG
         printTagLog(W25Q_TAG, "flash erase: error (flash is busy)");
 #endif
-        goto do_block_protect;
+        goto do_protect;
     }
 
     flash_status_t tmp_status = FLASH_OK;
-do_block_protect:
+do_protect:
+	_W25Q_CS_set();
+	tmp_status = _w25q_write_disable();
+	if (tmp_status != FLASH_OK) {
+	    if (status == FLASH_OK) {
+	        status = tmp_status;
+	    } else {
+	        return status;
+	    }
+	}
+	_W25Q_CS_reset();
+
 	_W25Q_CS_set();
     tmp_status = _w25q_set_protect_block(W25Q_SR1_BLOCK_VALUE);
-    if (status == FLASH_OK) {
+    if (tmp_status == FLASH_OK) {
         status = tmp_status;
     } else {
         return status;
     }
-
 	_W25Q_CS_reset();
 
     if (status != FLASH_OK) {
 #if W25Q_BEDUG
-        printTagLog(W25Q_TAG, "flash erase: error=%u (set block protected)", status);
+        printTagLog(W25Q_TAG, "flash erase: error=%u (protect error)", status);
 #endif
         status = FLASH_BUSY;
     } else {
@@ -308,7 +328,7 @@ flash_status_t w25qxx_write(const uint32_t addr, const uint8_t* data, const uint
     }
 
 	flash_status_t status = FLASH_OK;
-    if (addr + len >= w25qxx_size()) {
+    if (addr + len > w25qxx_size()) {
 #if W25Q_BEDUG
         printTagLog(W25Q_TAG, "flash write addr=%08lX len=%lu error (unacceptable address)", addr, len);
 #endif
@@ -531,9 +551,8 @@ flash_status_t w25qxx_erase_addresses(const uint32_t* addrs, const uint32_t coun
 #if W25Q_BEDUG
 	printTagLog(W25Q_TAG, "erase flash addresses: ")
 	for (uint32_t i = 0; i < count; i++) {
-		gprint("%08lX ", addrs[i]);
+		printPretty("%08lX\n", addrs[i]);
 	}
-	gprint("\n");
 #endif
 
 	for (uint32_t i = 0; i < count;) {
@@ -775,7 +794,7 @@ flash_status_t _w25q_write(const uint32_t addr, const uint8_t* data, const uint3
 		return FLASH_ERROR;
 	}
 
-    if (addr + len >= w25qxx_size()) {
+    if (addr + len > w25qxx_size()) {
 #if W25Q_BEDUG
         printTagLog(W25Q_TAG, "flash write addr=%08lX len=%lu error (unacceptable address)", addr, len);
 #endif
@@ -927,7 +946,7 @@ flash_status_t _w25q_data_cmp(const uint32_t addr, const uint8_t* data, const ui
 
 flash_status_t _w25q_read(uint32_t addr, uint8_t* data, uint32_t len)
 {
-    if (addr + len >= w25qxx_size()) {
+    if (addr + len > w25qxx_size()) {
 #if W25Q_BEDUG
         printTagLog(W25Q_TAG, "flash read addr=%08lX len=%lu: error (unacceptable address)", addr, len);
 #endif

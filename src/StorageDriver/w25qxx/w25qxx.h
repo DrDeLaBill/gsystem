@@ -23,13 +23,13 @@ extern "C" {
 #define W25Q_BEDUG             (1)
 
 #define W25Q_TEST              (false)
-#define W25Q_TEST_PAGES_COUNT  ((uint32_t)64)
 
 #define W25Q_PAGE_SIZE         (0x100)
 #define W25Q_SECTOR_SIZE       (0x1000)
 #define W25Q_SETORS_IN_BLOCK   (0x10)
 
 #define W25Q_SR1_WEL           ((uint8_t)0x02)
+#define W25Q_SR1_BUSY          ((uint8_t)0x01)
 #define W25Q_SR1_UNBLOCK_VALUE ((uint8_t)0x00)
 #define W25Q_SR1_BLOCK_VALUE   ((uint8_t)0x0F)
 
@@ -40,16 +40,6 @@ typedef enum _flash_status_t {
     FLASH_BUSY  = ((uint8_t)0x02),  // Memory or bus is busy
     FLASH_OOM   = ((uint8_t)0x03)   // Out Of Memory
 } flash_status_t;
-
-typedef enum _dma_status_t {
-    W25Q_DMA_READY,
-    W25Q_DMA_READ,
-    W25Q_DMA_WRITE,
-    W25Q_DMA_ERASE,
-    W25Q_DMA_FREE,
-    W25Q_DMA_WRITE_OFF,
-    W25Q_DMA_WRITE_ON,
-} dma_status_t;
 
 typedef enum _w25q_command_t {
     W25Q_CMD_WRITE_SR1       = ((uint8_t)0x01),
