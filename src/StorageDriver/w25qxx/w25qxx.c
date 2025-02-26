@@ -322,7 +322,7 @@ flash_status_t w25qxx_write(const uint32_t addr, const uint8_t* data, const uint
 
     if (addr % W25Q_PAGE_SIZE) {
 #if W25Q_BEDUG
-        printTagLog(W25Q_TAG, "flash write addr=%08lX len=%u (bad address)", addr, len);
+        printTagLog(W25Q_TAG, "flash write addr=%08lX len=%lu (bad address)", addr, len);
 #endif
         return FLASH_ERROR;
     }
@@ -585,7 +585,7 @@ flash_status_t w25qxx_erase_addresses(const uint32_t* addrs, const uint32_t coun
 				cur_sector_addr,
 				cur_sector_addr / w25q.block_size,
 				(cur_sector_addr % w25q.block_size) / w25q.sector_size,
-				W25Q_SECTOR_SIZE
+				(long unsigned int)W25Q_SECTOR_SIZE
 			);
 #endif
 			return status;
@@ -637,7 +637,7 @@ flash_status_t w25qxx_erase_addresses(const uint32_t* addrs, const uint32_t coun
 				status,
 				cur_sector_addr / w25q.block_size,
 				(cur_sector_addr % w25q.block_size) / w25q.sector_size,
-				W25Q_SECTOR_SIZE
+				(long unsigned int)W25Q_SECTOR_SIZE
 			);
 #endif
 			return status;
@@ -783,6 +783,21 @@ flash_status_t w25qxx_erase_addresses(const uint32_t* addrs, const uint32_t coun
 	}
 
 	return FLASH_OK;
+}
+
+flash_status_t w25qxx_erase_sector(const uint32_t addr)
+{
+	if (addr % W25Q_SECTOR_SIZE) {
+#if W25Q_BEDUG
+        printTagLog(W25Q_TAG, "flash erase addr=%08lX (bad address)", addr);
+#endif
+		return FLASH_ERROR;
+	}
+	uint32_t addrs[W25Q_SECTOR_SIZE / W25Q_PAGE_SIZE] = {};
+	for (unsigned i = 0; i < W25Q_SECTOR_SIZE; i+=W25Q_PAGE_SIZE) {
+		addrs[i / W25Q_PAGE_SIZE] = addr + i;
+	}
+	return w25qxx_erase_addresses(addrs, __arr_len(addrs));
 }
 
 flash_status_t _w25q_write(const uint32_t addr, const uint8_t* data, const uint32_t len)

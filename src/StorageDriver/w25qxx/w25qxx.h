@@ -134,12 +134,26 @@ flash_status_t w25qxx_write_dma(const uint32_t addr, const uint8_t* data, const 
 flash_status_t w25qxx_erase_addresses(const uint32_t* addrs, const uint32_t count);
 
 /**
+ *  Erases sector in the W25Q memory.
+ *  @param addr    Address.
+ *  @return Result status.
+ */
+flash_status_t w25qxx_erase_sector(const uint32_t addr);
+
+/**
  *  Erases addresses in the W25Q memory using DMA.
  *  @param addrs[] Array of addresses.
  *  @param count   Number of the addresses.
  *  @return Result status.
  */
 flash_status_t w25qxx_erase_addresses_dma(const uint32_t* addrs, const uint32_t count);
+
+/**
+ *  Erases sector in the W25Q memory using DMA.
+ *  @param addr    Address.
+ *  @return Result status.
+ */
+flash_status_t w25qxx_erase_sector_dma(const uint32_t addr);
 
 /*
  * Stops DMA process
