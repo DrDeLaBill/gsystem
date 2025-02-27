@@ -20,7 +20,7 @@ extern "C" {
 #include <stdbool.h>
 
 
-#define W25Q_BEDUG             (1)
+#define W25Q_BEDUG             (0)
 
 #define W25Q_TEST              (false)
 
