@@ -41,7 +41,7 @@ typedef struct _w25q_route_t {
 	uint32_t     addr;
 	uint32_t     len;
 	uint32_t     cnt;
-	uint32_t     tmp;
+	uint32_t     idx;
 	uint8_t*     rx_ptr;
 	uint8_t*     tx_ptr;
 } w25q_route_t;
@@ -50,12 +50,11 @@ typedef struct _w25q_dma_t {
     circle_buf_gc_t queue;
     w25q_route_t    _queue[10];
 
-    uint8_t         buffer1[W25Q_SECTOR_SIZE];
-    uint8_t         buffer2[W25Q_PAGE_SIZE];
-    uint32_t        addrs1[W25Q_SECTOR_SIZE / W25Q_PAGE_SIZE];
+    uint8_t         cmd[W25Q_SPI_COMMAND_SIZE_MAX];
+    uint8_t         buffer[W25Q_SECTOR_SIZE];
+    uint32_t        addrs[W25Q_SECTOR_SIZE / W25Q_PAGE_SIZE];
 
     gtimer_t        timer;
-    uint8_t         cmd[W25Q_SPI_COMMAND_SIZE_MAX];
     uint8_t         sr1;
     flash_status_t  result;
 } w25q_dma_t;
@@ -82,7 +81,7 @@ static w25q_route_t* _w25q_queue_back();
 static bool _w25q_route_target(dma_status_t status);
 static bool _w25q_route_call();
 
-#ifdef GSYSTEM_BEDUG
+#ifdef W25Q_DMA_BEDUG
 extern const char W25Q_TAG[];
 #endif
 extern SPI_HandleTypeDef GSYSTEM_FLASH_SPI;
@@ -95,12 +94,11 @@ static w25q_dma_t w25q = {
     .queue        = {0},
 	._queue       = {{0}},
 
-	.buffer1      = {0},
-	.buffer2      = {0},
-	.addrs1       = {0},
+    .cmd          = {0},
+	.buffer       = {0},
+	.addrs        = {0},
 
     .timer        = {0},
-    .cmd          = {0},
     .sr1          = 0,
     .result       = FLASH_OK,
 };
@@ -197,34 +195,34 @@ void w24qxx_tick()
 flash_status_t w25qxx_read_dma(const uint32_t addr, uint8_t* data, const uint16_t len)
 {
     if (!_w25q_ready()) {
-#if W25Q_BEDUG
+#if W25Q_DMA_BEDUG
         printTagLog(W25Q_TAG, "flash DMA read addr=%08lX len=%u (flash not ready)", addr, len);
 #endif
         return FLASH_ERROR;
     }
 
     if (addr % W25Q_PAGE_SIZE) {
-#if W25Q_BEDUG
+#if W25Q_DMA_BEDUG
         printTagLog(W25Q_TAG, "flash DMA read addr=%08lX len=%u (bad address)", addr, len);
 #endif
         return FLASH_ERROR;
     }
 
     if (addr + len > w25qxx_size()) {
-#if W25Q_BEDUG
+#if W25Q_DMA_BEDUG
         printTagLog(W25Q_TAG, "flash DMA read addr=%08lX len=%u: error (unacceptable address)", addr, len);
 #endif
         return FLASH_OOM;
     }
 
     if (!data) {
-#if W25Q_BEDUG
+#if W25Q_DMA_BEDUG
         printTagLog(W25Q_TAG, "flash DMA read addr=%08lX len=%u: error (NULL buffer)", addr, len);
 #endif
         return FLASH_ERROR;
     }
 
-#if W25Q_BEDUG
+#if W25Q_DMA_BEDUG
     printTagLog(W25Q_TAG, "read DMA address=%08X len=%u", (unsigned int)addr, len);
 #endif
 
@@ -242,41 +240,41 @@ flash_status_t w25qxx_read_dma(const uint32_t addr, uint8_t* data, const uint16_
 flash_status_t w25qxx_write_dma(const uint32_t addr, const uint8_t* data, const uint16_t len)
 {
     if (!_w25q_ready()) {
-#if W25Q_BEDUG
+#if W25Q_DMA_BEDUG
         printTagLog(W25Q_TAG, "flash DMA write addr=%08lX len=%u (flash not ready)", addr, len);
 #endif
         return FLASH_ERROR;
     }
 
     if (addr % W25Q_PAGE_SIZE) {
-#if W25Q_BEDUG
+#if W25Q_DMA_BEDUG
         printTagLog(W25Q_TAG, "flash DMA write addr=%08lX len=%u (bad address)", addr, len);
 #endif
         return FLASH_ERROR;
     }
 
     if (addr + len > w25qxx_size()) {
-#if W25Q_BEDUG
+#if W25Q_DMA_BEDUG
         printTagLog(W25Q_TAG, "flash DMA write addr=%08lX len=%u: error (unacceptable address)", addr, len);
 #endif
         return FLASH_OOM;
     }
 
     if (!data) {
-#if W25Q_BEDUG
+#if W25Q_DMA_BEDUG
         printTagLog(W25Q_TAG, "flash DMA write addr=%08lX len=%u: error (NULL buffer)", addr, len);
 #endif
         return FLASH_ERROR;
     }
 
-    if (len > sizeof(w25q.buffer1)) {
-#if W25Q_BEDUG
+    if (len > sizeof(w25q.buffer)) {
+#if W25Q_DMA_BEDUG
         printTagLog(W25Q_TAG, "flash DMA write addr=%08lX len=%u: error (overflow buffer)", addr, len);
 #endif
         return FLASH_ERROR;
     }
 
-#if W25Q_BEDUG
+#if W25Q_DMA_BEDUG
     printTagLog(W25Q_TAG, "write DMA address=%08X len=%u", (unsigned int)addr, len);
 #endif
 
@@ -284,7 +282,7 @@ flash_status_t w25qxx_write_dma(const uint32_t addr, const uint8_t* data, const 
 		.status = W25Q_DMA_WRITE,
 		.addr   = addr,
 		.len    = len,
-		.rx_ptr = w25q.buffer1,
+		.rx_ptr = w25q.buffer,
 		.tx_ptr = (uint8_t*)data,
 		.cnt    = 0,
     };
@@ -296,21 +294,21 @@ flash_status_t w25qxx_write_dma(const uint32_t addr, const uint8_t* data, const 
 flash_status_t w25qxx_erase_addresses_dma(const uint32_t* addrs, const uint32_t count)
 {
     if (!_w25q_ready()) {
-#if W25Q_BEDUG
+#if W25Q_DMA_BEDUG
         printTagLog(W25Q_TAG, "erase flash addresses error: flash not ready");
 #endif
         return FLASH_ERROR;
     }
 
     if (!addrs) {
-#if W25Q_BEDUG
+#if W25Q_DMA_BEDUG
         printTagLog(W25Q_TAG, "erase flash addresses error: addresses=NULL");
 #endif
         return FLASH_ERROR;
     }
 
     if (!count) {
-#if W25Q_BEDUG
+#if W25Q_DMA_BEDUG
         printTagLog(W25Q_TAG, "erase flash addresses error: count=%lu", count);
 #endif
         return FLASH_ERROR;
@@ -318,14 +316,14 @@ flash_status_t w25qxx_erase_addresses_dma(const uint32_t* addrs, const uint32_t 
 
     for (unsigned i = 0; i < count; i++) {
         if (addrs[i] % W25Q_PAGE_SIZE) {
-#if W25Q_BEDUG
+#if W25Q_DMA_BEDUG
             printTagLog(W25Q_TAG, "flash DMA erase addr=%08lX index=%u (bad address)",addrs[i], i);
 #endif
             return FLASH_ERROR;
         }
     }
 
-#if W25Q_BEDUG
+#if W25Q_DMA_BEDUG
     printTagLog(W25Q_TAG, "erase DMA addresses: ")
     for (uint32_t i = 0; i < count; i++) {
         printPretty("%08lX\n", addrs[i]);
@@ -334,7 +332,7 @@ flash_status_t w25qxx_erase_addresses_dma(const uint32_t* addrs, const uint32_t 
 
     w25q_route_t route = {
 		.status = W25Q_DMA_ERASE,
-		.rx_ptr = w25q.buffer1,
+		.rx_ptr = w25q.buffer,
 		.tx_ptr = (uint8_t*)addrs,
 		.len    = count,
     };
@@ -346,21 +344,21 @@ flash_status_t w25qxx_erase_addresses_dma(const uint32_t* addrs, const uint32_t 
 flash_status_t w25qxx_erase_sector_dma(const uint32_t addr)
 {
     if (!_w25q_ready()) {
-#if W25Q_BEDUG
+#if W25Q_DMA_BEDUG
         printTagLog(W25Q_TAG, "lash DMA erase sector addr=%08lX (flash not ready)", addr);
 #endif
         return FLASH_ERROR;
     }
 	if (addr % W25Q_SECTOR_SIZE) {
-#if W25Q_BEDUG
+#if W25Q_DMA_BEDUG
 		printTagLog(W25Q_TAG, "flash DMA erase sector addr=%08lX (bad address)", addr);
 #endif
 		return FLASH_ERROR;
 	}
 	for (unsigned i = 0; i < W25Q_SECTOR_SIZE; i+=W25Q_PAGE_SIZE) {
-		w25q.addrs1[i / W25Q_PAGE_SIZE] = addr + i;
+		w25q.addrs[i / W25Q_PAGE_SIZE] = addr + i;
 	}
-	return w25qxx_erase_addresses_dma(w25q.addrs1, __arr_len(w25q.addrs1));
+	return w25qxx_erase_addresses_dma(w25q.addrs, __arr_len(w25q.addrs));
 }
 
 void w25qxx_stop_dma()
@@ -579,65 +577,65 @@ void _router_s(void)
     if (circle_buf_gc_empty(&w25q.queue)) {
         return;
     }
-#if W25Q_BEDUG
+#if W25Q_DMA_BEDUG
     printPretty("- %02u ", circle_buf_gc_count(&w25q.queue));
     w25q_route_t* route = _w25q_queue_back();
 #endif
     switch ((dma_status_t)*circle_buf_gc_back(&w25q.queue))
     {
     case W25Q_DMA_FREE:
-#if W25Q_BEDUG
+#if W25Q_DMA_BEDUG
     	gprint("free      ");
 #endif
         fsm_gc_push_event(&w25qxx_fsm, &free_e);
         break;
     case W25Q_DMA_WRITE_ON:
-#if W25Q_BEDUG
+#if W25Q_DMA_BEDUG
     	gprint("write_on  ");
 #endif
         fsm_gc_push_event(&w25qxx_fsm, &write_on_e);
         break;
     case W25Q_DMA_WRITE_OFF:
-#if W25Q_BEDUG
+#if W25Q_DMA_BEDUG
     	gprint("write_off ");
 #endif
         fsm_gc_push_event(&w25qxx_fsm, &write_off_e);
         break;
     case W25Q_DMA_READ:
-#if W25Q_BEDUG
+#if W25Q_DMA_BEDUG
     	gprint("read      ");
 #endif
         fsm_gc_push_event(&w25qxx_fsm, &read_e);
         break;
     case W25Q_DMA_WRITE:
-#if W25Q_BEDUG
+#if W25Q_DMA_BEDUG
     	gprint("write     ");
 #endif
         fsm_gc_push_event(&w25qxx_fsm, &write_e);
         break;
     case W25Q_DMA_ERASE:
-#if W25Q_BEDUG
+#if W25Q_DMA_BEDUG
     	gprint("erase     ");
 #endif
         fsm_gc_push_event(&w25qxx_fsm, &erase_e);
         break;
     case W25Q_DMA_READY:
     default:
-#if W25Q_BEDUG
+#if W25Q_DMA_BEDUG
     	gprint("empty     ");
 #endif
         circle_buf_gc_free(&w25q.queue);
         break;
     }
-#if W25Q_BEDUG
+#if W25Q_DMA_BEDUG
     gprint(
-		"addr=0x%08lX rx=0x%08lX tx=0x%08lX cnt=%04lu len=%04lu tmp=%lu\n",
+		"addr=0x%08lX rx=0x%08lX tx=0x%08lX cnt=%04lu len=%04lu idx=%lu\n",
 		route->addr,
 		(uint32_t)(uint32_t*)route->rx_ptr,
 		(uint32_t)(uint32_t*)route->tx_ptr,
 		route->cnt,
 		route->len,
-		route->tmp
+		route->idx
 	);
 #endif
 }
@@ -1223,7 +1221,7 @@ FSM_GC_CREATE_TABLE(
     w25qxx_write_fsm_table,
     {&write_init_s,         &success_e,  &write_cmp_s,          &write_cmp_a},
 
-    {&write_cmp_s,          &success_e,  &write_init_s,         &write_success_a},
+    {&write_cmp_s,          &success_e,  &write_disable_s,      &write_disable_a},
     {&write_cmp_s,          &next_e,     &write_erase_s,        &write_success_a},
     {&write_cmp_s,          &erase_e,    &write_erase_s,        &write_erase_a},
     {&write_cmp_s,          &write_e,    &write_enable_s,       &write_enable_a},
@@ -1242,10 +1240,10 @@ FSM_GC_CREATE_TABLE(
     {&write_cmd_s,          &transmit_e, &write_data_s,         &write_data_a},
     {&write_cmd_s,          &error_e,    &write_init_s,         &write_error_a},
 
-    {&write_data_s,         &transmit_e, &write_disable_s,      &write_disable_a},
+    {&write_data_s,         &transmit_e, &write_enable_s,       &write_enable_a},
     {&write_data_s,         &error_e,    &write_init_s,         &write_error_a},
 
-    {&write_disable_s,      &success_e,  &write_enable_s,       &write_enable_a},
+    {&write_disable_s,      &success_e,  &write_init_s,         &write_success_a},
     {&write_disable_s,      &error_e,    &write_init_s,         &write_error_a},
 )
 
@@ -1312,12 +1310,12 @@ void _write_erase_a(void)
 	w25q_route_t* curr = _w25q_queue_back();
 	w25q_route_t route = {
 		.status = W25Q_DMA_ERASE,
-		.rx_ptr = w25q.buffer1,
-		.tx_ptr = (uint8_t*)w25q.addrs1,
+		.rx_ptr = w25q.buffer,
+		.tx_ptr = (uint8_t*)w25q.addrs,
 		.len    = 0,
 	};
     for (uint32_t i = curr->addr; i < curr->addr + curr->len; i += W25Q_PAGE_SIZE) {
-    	w25q.addrs1[route.len++] = i;
+    	w25q.addrs[route.len++] = i;
     }
     _w25q_route(route);
 }
@@ -1674,48 +1672,38 @@ void _erase_repair_a(void)
         );
     }
 
-    bool found = false;
-    uint32_t addr_in_sector = 0;
-    for (unsigned i = addr_in_sector; i < W25Q_SECTOR_SIZE; i++) {
-        if (route->rx_ptr[i] != 0xFF) {
-            addr_in_sector = __rm_mod(i, W25Q_PAGE_SIZE);
-            found = true;
-            break;
-        }
-    }
-
-    if (!found) {
-        fsm_gc_push_event(&w25qxx_erase_fsm, &success_e);
-        return;
-    }
-
-    route->tmp = addr_in_sector;
-
-    w25q_route_t repair = {
-    	.status = W25Q_DMA_WRITE,
-		.addr   = __rm_mod(
-			((uint32_t*)route->tx_ptr)[route->cnt],
-			W25Q_SECTOR_SIZE
-		) + addr_in_sector,
-		.len    = W25Q_PAGE_SIZE,
-		.rx_ptr = w25q.buffer2,
-		.tx_ptr = w25q.buffer1 + addr_in_sector,
-		.cnt    = 0,
-    };
-    _w25q_route(repair);
+    route->idx = 0;
+    _erase_repair_iter_a();
 }
 
 void _erase_repair_iter_a(void)
 {
 	w25q_route_t* route = _w25q_queue_back();
     bool found = false;
-    uint32_t addr_in_sector = route->tmp + W25Q_PAGE_SIZE;
-    for (unsigned i = addr_in_sector; i < W25Q_SECTOR_SIZE; i++) {
-        if (route->rx_ptr[i] != 0xFF) {
-            addr_in_sector = __rm_mod(i, W25Q_PAGE_SIZE);
-            found = true;
-            break;
-        }
+    uint32_t addr_in_sector = route->idx;
+    for (unsigned i = addr_in_sector; i < W25Q_SECTOR_SIZE; i+=W25Q_PAGE_SIZE) {
+    	bool need_skip = false;
+    	for (unsigned j = route->cnt; j < route->len; j++) {
+        	uint32_t addr = ((uint32_t*)route->tx_ptr)[j];
+        	uint32_t sector_addr = __rm_mod(addr, W25Q_SECTOR_SIZE);
+    		if (sector_addr + i == addr) {
+    			need_skip = true;
+    			break;
+    		}
+    	}
+    	if (need_skip) {
+    		continue;
+    	}
+    	for (unsigned j = 0; j < W25Q_PAGE_SIZE; j++) {
+			if (route->rx_ptr[i+j] != 0xFF) {
+				addr_in_sector = __rm_mod(i + j, W25Q_PAGE_SIZE);
+				found = true;
+				break;
+			}
+    	}
+    	if (found) {
+    		break;
+    	}
     }
 
     if (!found) {
@@ -1723,7 +1711,7 @@ void _erase_repair_iter_a(void)
         return;
     }
 
-    route->tmp = addr_in_sector;
+    route->idx = addr_in_sector + W25Q_PAGE_SIZE;
 
     w25q_route_t repair = {
     	.status = W25Q_DMA_WRITE,
@@ -1732,8 +1720,8 @@ void _erase_repair_iter_a(void)
 			W25Q_SECTOR_SIZE
 		) + addr_in_sector,
 		.len    = W25Q_PAGE_SIZE,
-		.rx_ptr = w25q.buffer2,
-		.tx_ptr = w25q.buffer1 + addr_in_sector,
+		.rx_ptr = w25q.buffer + ((uint32_t*)route->tx_ptr)[route->cnt] % W25Q_SECTOR_SIZE,
+		.tx_ptr = w25q.buffer + addr_in_sector,
 		.cnt    = 0,
     };
     _w25q_route(repair);
