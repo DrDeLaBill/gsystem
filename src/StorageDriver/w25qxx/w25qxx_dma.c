@@ -7,6 +7,9 @@
 #include "gconfig.h"
 
 
+extern bool _w25q_initialized();
+
+
 #if defined(GSYSTEM_FLASH_MODE) && defined(GSYSTEM_MEMORY_DMA)
 
 
@@ -84,7 +87,6 @@ extern const char W25Q_TAG[];
 #endif
 extern SPI_HandleTypeDef GSYSTEM_FLASH_SPI;
 
-extern bool     _w25q_initialized();
 extern bool     _w25q_24bit();
 extern void     _W25Q_CS_set();
 extern void     _W25Q_CS_reset();
@@ -1762,5 +1764,11 @@ void _erase_error_a(void)
     fsm_gc_push_event(&w25qxx_fsm, &done_e);
 }
 
+#else
+
+bool _w25q_ready()
+{
+    return _w25q_initialized();
+}
 
 #endif
