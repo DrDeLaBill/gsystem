@@ -34,6 +34,7 @@ typedef enum _dma_status_t {
     W25Q_DMA_FREE,
     W25Q_DMA_WRITE_OFF,
     W25Q_DMA_WRITE_ON,
+	W25Q_DMA_UNBLOCK,
 } dma_status_t;
 
 typedef struct _w25q_route_t {
@@ -106,6 +107,7 @@ static w25q_dma_t w25q = {
 
 FSM_GC_CREATE(w25qxx_fsm)
 FSM_GC_CREATE(w25qxx_free_fsm)
+FSM_GC_CREATE(w25qxx_unblock_fsm)
 FSM_GC_CREATE(w25qxx_write_on_fsm)
 FSM_GC_CREATE(w25qxx_write_off_fsm)
 FSM_GC_CREATE(w25qxx_read_fsm)
@@ -115,6 +117,7 @@ FSM_GC_CREATE(w25qxx_erase_fsm)
 FSM_GC_CREATE_EVENT(router_e,    0)
 FSM_GC_CREATE_EVENT(done_e,      0)
 FSM_GC_CREATE_EVENT(free_e,      0)
+FSM_GC_CREATE_EVENT(unblock_e,   0)
 FSM_GC_CREATE_EVENT(write_on_e,  0)
 FSM_GC_CREATE_EVENT(write_off_e, 0)
 FSM_GC_CREATE_EVENT(read_e,      0)
@@ -131,6 +134,7 @@ FSM_GC_CREATE_STATE(init_s,      _init_s)
 FSM_GC_CREATE_STATE(idle_s,      _idle_s)
 FSM_GC_CREATE_STATE(router_s,    _router_s)
 FSM_GC_CREATE_STATE(free_s,      _free_s)
+FSM_GC_CREATE_STATE(unblock_s,   _unblock_s)
 FSM_GC_CREATE_STATE(write_on_s,  _write_on_s)
 FSM_GC_CREATE_STATE(write_off_s, _write_off_s)
 FSM_GC_CREATE_STATE(read_s,      _read_s)
@@ -140,6 +144,7 @@ FSM_GC_CREATE_STATE(erase_s,     _erase_s)
 FSM_GC_CREATE_ACTION(idle_a,      _idle_a)
 FSM_GC_CREATE_ACTION(router_a,    _router_a)
 FSM_GC_CREATE_ACTION(free_a,      _free_a)
+FSM_GC_CREATE_ACTION(unblock_a,   _unblock_a)
 FSM_GC_CREATE_ACTION(write_on_a,  _write_on_a)
 FSM_GC_CREATE_ACTION(write_off_a, _write_off_a)
 FSM_GC_CREATE_ACTION(read_a,      _read_a)
@@ -157,12 +162,16 @@ FSM_GC_CREATE_TABLE(
     {&router_s,    &write_e,     &write_s,     &write_a},
     {&router_s,    &erase_e,     &erase_s,     &erase_a},
     {&router_s,    &free_e,      &free_s,      &free_a},
+    {&router_s,    &unblock_e,   &unblock_s,   &unblock_a},
     {&router_s,    &write_on_e,  &write_on_s,  &write_on_a},
     {&router_s,    &write_off_e, &write_off_s, &write_off_a},
     {&router_s,    &error_e,     &idle_s,      &idle_a},
 
     {&free_s,      &done_e,      &idle_s,      &callback_a},
     {&free_s,      &router_e,    &router_s,    &router_a},
+
+    {&unblock_s,   &done_e,      &idle_s,      &callback_a},
+    {&unblock_s,   &router_e,    &router_s,    &router_a},
 
     {&write_on_s,  &done_e,      &idle_s,      &callback_a},
     {&write_on_s,  &router_e,    &router_s,    &router_a},
@@ -365,6 +374,7 @@ void w25qxx_stop_dma()
 {
     fsm_gc_reset(&w25qxx_fsm);
     fsm_gc_reset(&w25qxx_free_fsm);
+    fsm_gc_reset(&w25qxx_unblock_fsm);
     fsm_gc_reset(&w25qxx_write_on_fsm);
     fsm_gc_reset(&w25qxx_write_off_fsm);
     fsm_gc_reset(&w25qxx_read_fsm);
@@ -406,6 +416,9 @@ void w25qxx_tx_dma_callback()
     case W25Q_DMA_FREE:
         fsm_gc_push_event(&w25qxx_free_fsm, &transmit_e);
         break;
+    case W25Q_DMA_UNBLOCK:
+        fsm_gc_push_event(&w25qxx_unblock_fsm, &transmit_e);
+        break;
     case W25Q_DMA_WRITE_ON:
         fsm_gc_push_event(&w25qxx_write_on_fsm, &transmit_e);
         break;
@@ -435,6 +448,9 @@ void w25qxx_rx_dma_callback()
     case W25Q_DMA_FREE:
         fsm_gc_push_event(&w25qxx_free_fsm, &receive_e);
         break;
+    case W25Q_DMA_UNBLOCK:
+        fsm_gc_push_event(&w25qxx_unblock_fsm, &receive_e);
+        break;
     case W25Q_DMA_WRITE_ON:
         fsm_gc_push_event(&w25qxx_write_on_fsm, &receive_e);
         break;
@@ -463,6 +479,9 @@ void w25qxx_error_dma_callback()
         break;
     case W25Q_DMA_FREE:
         fsm_gc_push_event(&w25qxx_free_fsm, &error_e);
+        break;
+    case W25Q_DMA_UNBLOCK:
+        fsm_gc_push_event(&w25qxx_unblock_fsm, &error_e);
         break;
     case W25Q_DMA_WRITE_ON:
         fsm_gc_push_event(&w25qxx_write_on_fsm, &error_e);
@@ -589,6 +608,12 @@ void _router_s(void)
 #endif
         fsm_gc_push_event(&w25qxx_fsm, &free_e);
         break;
+    case W25Q_DMA_UNBLOCK:
+#if W25Q_DMA_BEDUG
+    	gprint("unblock   ");
+#endif
+        fsm_gc_push_event(&w25qxx_fsm, &unblock_e);
+        break;
     case W25Q_DMA_WRITE_ON:
 #if W25Q_DMA_BEDUG
     	gprint("write_on  ");
@@ -667,6 +692,7 @@ void _callback_a(void)
         }
         break;
     case W25Q_DMA_FREE:
+    case W25Q_DMA_UNBLOCK:
     case W25Q_DMA_WRITE_ON:
     case W25Q_DMA_WRITE_OFF:
     case W25Q_DMA_READY:
@@ -802,33 +828,125 @@ void _free_error_a(void)
 }
 
 
+FSM_GC_CREATE_STATE(unblock_init_s,          _unblock_init_s)
+FSM_GC_CREATE_STATE(unblock_unblock_free_s,  _unblock_unblock_free_s)
+FSM_GC_CREATE_STATE(unblock_unblock1_s,      _unblock_unblock1_s)
+FSM_GC_CREATE_STATE(unblock_unblock2_s,      _unblock_unblock2_s)
+
+FSM_GC_CREATE_ACTION(unblock_unblock_free_a, _unblock_unblock_free_a)
+FSM_GC_CREATE_ACTION(unblock_unblock1_a,     _unblock_unblock1_a)
+FSM_GC_CREATE_ACTION(unblock_unblock2_a,     _unblock_unblock2_a)
+FSM_GC_CREATE_ACTION(unblock_success_a,      _unblock_success_a)
+FSM_GC_CREATE_ACTION(unblock_error_a,        _unblock_error_a)
+
+FSM_GC_CREATE_TABLE(
+	w25qxx_unblock_fsm_table,
+    {&unblock_init_s,         &success_e,  &unblock_unblock_free_s, &unblock_unblock_free_a},
+
+	{&unblock_unblock_free_s, &success_e,  &unblock_unblock1_s,     &unblock_unblock1_a},
+	{&unblock_unblock_free_s, &error_e,    &unblock_init_s,         &unblock_error_a},
+
+	{&unblock_unblock1_s,     &transmit_e, &unblock_unblock2_s,     &unblock_unblock2_a},
+	{&unblock_unblock1_s,     &error_e,    &unblock_init_s,         &unblock_error_a},
+
+	{&unblock_unblock2_s,     &transmit_e, &unblock_init_s,         &unblock_success_a},
+	{&unblock_unblock2_s,     &error_e,    &unblock_init_s,         &unblock_error_a},
+)
+
+void _unblock_a(void) {}
+
+void _unblock_s(void)
+{
+    static bool initialized = false;
+    if (!initialized) {
+        fsm_gc_init(&w25qxx_unblock_fsm, w25qxx_unblock_fsm_table, __arr_len(w25qxx_unblock_fsm_table));
+        initialized = true;
+    }
+    fsm_gc_process(&w25qxx_unblock_fsm);
+}
+
+void _unblock_init_s(void)
+{
+    fsm_gc_clear(&w25qxx_unblock_fsm);
+    fsm_gc_push_event(&w25qxx_unblock_fsm, &success_e);
+}
+
+void _unblock_unblock_free_a(void)
+{
+	w25q_route_t route = {
+		.status = W25Q_DMA_FREE
+	};
+    _w25q_route(route);
+}
+
+void _unblock_unblock_free_s(void)
+{
+    _w25q_route_res(&w25qxx_unblock_fsm);
+}
+
+void _unblock_unblock1_a(void)
+{
+    fsm_gc_clear(&w25qxx_unblock_fsm);
+    w25q.cmd[0] = W25Q_CMD_WRITE_ENABLE_SR;
+    if (!_w25q_tx(w25q.cmd, 1)) {
+        fsm_gc_push_event(&w25qxx_unblock_fsm, &error_e);
+    }
+    gtimer_start(&w25q.timer, W25Q_SPI_TIMEOUT_MS);
+}
+
+void _unblock_unblock1_s(void)
+{
+    if (!gtimer_wait(&w25q.timer)) {
+        fsm_gc_push_event(&w25qxx_unblock_fsm, &error_e);
+    }
+}
+
+void _unblock_unblock2_a(void)
+{
+    fsm_gc_clear(&w25qxx_unblock_fsm);
+    w25q.cmd[0] = W25Q_CMD_WRITE_SR1;
+    w25q.cmd[1] = ((W25Q_SR1_UNBLOCK_VALUE & 0x0F) << 2);
+    if (!_w25q_tx(w25q.cmd, 2)) {
+        fsm_gc_push_event(&w25qxx_unblock_fsm, &error_e);
+    }
+    gtimer_start(&w25q.timer, W25Q_SPI_TIMEOUT_MS);
+}
+
+void _unblock_unblock2_s(void)
+{
+    if (!gtimer_wait(&w25q.timer)) {
+        fsm_gc_push_event(&w25qxx_unblock_fsm, &error_e);
+    }
+}
+
+void _unblock_success_a(void)
+{
+    w25q.result = FLASH_OK;
+    fsm_gc_clear(&w25qxx_unblock_fsm);
+    fsm_gc_push_event(&w25qxx_fsm, &done_e);
+}
+
+void _unblock_error_a(void)
+{
+    if (w25q.result == FLASH_OK) {
+        w25q.result = FLASH_ERROR;
+    }
+    fsm_gc_clear(&w25qxx_unblock_fsm);
+    fsm_gc_push_event(&w25qxx_fsm, &done_e);
+}
+
 FSM_GC_CREATE_STATE(write_on_init_s,         _write_on_init_s)
-FSM_GC_CREATE_STATE(write_on_unblock_free_s, _write_on_unblock_free_s)
-FSM_GC_CREATE_STATE(write_on_unblock1_s,     _write_on_unblock1_s)
-FSM_GC_CREATE_STATE(write_on_unblock2_s,     _write_on_unblock2_s)
 FSM_GC_CREATE_STATE(write_on_enable_free_s,  _write_on_enable_free_s)
 FSM_GC_CREATE_STATE(write_on_enable_s,       _write_on_enable_s)
 
 FSM_GC_CREATE_ACTION(write_on_success_a,      _write_on_success_a)
 FSM_GC_CREATE_ACTION(write_on_error_a,        _write_on_error_a)
-FSM_GC_CREATE_ACTION(write_on_unblock_free_a, _write_on_unblock_free_a)
-FSM_GC_CREATE_ACTION(write_on_unblock1_a,     _write_on_unblock1_a)
-FSM_GC_CREATE_ACTION(write_on_unblock2_a,     _write_on_unblock2_a)
 FSM_GC_CREATE_ACTION(write_on_enable_free_a,  _write_on_enable_free_a)
 FSM_GC_CREATE_ACTION(write_on_enable_a,       _write_on_enable_a)
 
 FSM_GC_CREATE_TABLE(
     write_on_fsm_table,
-    {&write_on_init_s,         &success_e,  &write_on_unblock_free_s, &write_on_unblock_free_a},
-
-    {&write_on_unblock_free_s, &success_e,  &write_on_unblock1_s,     &write_on_unblock1_a},
-    {&write_on_unblock_free_s, &error_e,    &write_on_init_s,         &write_on_error_a},
-
-    {&write_on_unblock1_s,     &transmit_e, &write_on_unblock2_s,     &write_on_unblock2_a},
-    {&write_on_unblock1_s,     &error_e,    &write_on_init_s,         &write_on_error_a},
-
-    {&write_on_unblock2_s,     &transmit_e, &write_on_enable_free_s,  &write_on_enable_free_a},
-    {&write_on_unblock2_s,     &error_e,    &write_on_init_s,         &write_on_error_a},
+    {&write_on_init_s,         &success_e,  &write_on_enable_free_s,  &write_on_enable_free_a},
 
     {&write_on_enable_free_s,  &success_e,  &write_on_enable_s,       &write_on_enable_a},
     {&write_on_enable_free_s,  &error_e,    &write_on_init_s,         &write_on_error_a},
@@ -853,54 +971,6 @@ void _write_on_init_s(void)
 {
     fsm_gc_clear(&w25qxx_write_on_fsm);
     fsm_gc_push_event(&w25qxx_write_on_fsm, &success_e);
-}
-
-void _write_on_unblock_free_a(void)
-{
-	w25q_route_t route = {
-		.status = W25Q_DMA_FREE
-	};
-    _w25q_route(route);
-}
-
-void _write_on_unblock_free_s(void)
-{
-    _w25q_route_res(&w25qxx_write_on_fsm);
-}
-
-void _write_on_unblock1_a(void)
-{
-    fsm_gc_clear(&w25qxx_write_on_fsm);
-    w25q.cmd[0] = W25Q_CMD_WRITE_ENABLE_SR;
-    if (!_w25q_tx(w25q.cmd, 1)) {
-        fsm_gc_push_event(&w25qxx_write_on_fsm, &error_e);
-    }
-    gtimer_start(&w25q.timer, W25Q_SPI_TIMEOUT_MS);
-}
-
-void _write_on_unblock1_s(void)
-{
-    if (!gtimer_wait(&w25q.timer)) {
-        fsm_gc_push_event(&w25qxx_write_on_fsm, &error_e);
-    }
-}
-
-void _write_on_unblock2_a(void)
-{
-    fsm_gc_clear(&w25qxx_write_on_fsm);
-    w25q.cmd[0] = W25Q_CMD_WRITE_SR1;
-    w25q.cmd[1] = ((W25Q_SR1_UNBLOCK_VALUE & 0x0F) << 2);
-    if (!_w25q_tx(w25q.cmd, 2)) {
-        fsm_gc_push_event(&w25qxx_write_on_fsm, &error_e);
-    }
-    gtimer_start(&w25q.timer, W25Q_SPI_TIMEOUT_MS);
-}
-
-void _write_on_unblock2_s(void)
-{
-    if (!gtimer_wait(&w25q.timer)) {
-        fsm_gc_push_event(&w25qxx_write_on_fsm, &error_e);
-    }
 }
 
 void _write_on_enable_free_a(void)
@@ -1199,6 +1269,7 @@ void _read_error_a(void)
 
 
 FSM_GC_CREATE_STATE(write_init_s,         _write_init_s)
+FSM_GC_CREATE_STATE(write_unblock_s,      _write_unblock_s)
 FSM_GC_CREATE_STATE(write_cmp_s,          _write_cmp_s)
 FSM_GC_CREATE_STATE(write_erase_s,        _write_erase_s)
 FSM_GC_CREATE_STATE(write_enable_s,       _write_enable_s)
@@ -1208,6 +1279,7 @@ FSM_GC_CREATE_STATE(write_data_s,         _write_data_s)
 FSM_GC_CREATE_STATE(write_disable_s,      _write_disable_s)
 
 FSM_GC_CREATE_ACTION(write_cmp_a,         _write_cmp_a)
+FSM_GC_CREATE_ACTION(write_unblock_a,     _write_unblock_a)
 FSM_GC_CREATE_ACTION(write_erase_a,       _write_erase_a)
 FSM_GC_CREATE_ACTION(write_enable_a,      _write_enable_a)
 FSM_GC_CREATE_ACTION(write_cmd_free_a,    _write_cmd_free_a)
@@ -1220,8 +1292,13 @@ FSM_GC_CREATE_ACTION(write_success_a,     _write_success_a)
 FSM_GC_CREATE_TABLE(
     w25qxx_write_fsm_table,
     {&write_init_s,         &success_e,  &write_cmp_s,          &write_cmp_a},
+    {&write_init_s,         &unblock_e,  &write_unblock_s,      &write_unblock_a},
+
+    {&write_unblock_s,      &success_e,  &write_cmp_s,          &write_cmp_a},
+    {&write_unblock_s,      &error_e,    &write_init_s,         &write_error_a},
 
     {&write_cmp_s,          &success_e,  &write_disable_s,      &write_disable_a},
+    {&write_cmp_s,          &done_e,     &write_init_s,         &write_success_a},
     {&write_cmp_s,          &next_e,     &write_erase_s,        &write_success_a},
     {&write_cmp_s,          &erase_e,    &write_erase_s,        &write_erase_a},
     {&write_cmp_s,          &write_e,    &write_enable_s,       &write_enable_a},
@@ -1262,7 +1339,24 @@ void _write_s(void)
 void _write_init_s(void)
 {
     fsm_gc_clear(&w25qxx_erase_fsm);
-    fsm_gc_push_event(&w25qxx_write_fsm, &success_e);
+    if (_w25q_route_call()) {
+        fsm_gc_push_event(&w25qxx_write_fsm, &success_e);
+    } else {
+        fsm_gc_push_event(&w25qxx_write_fsm, &unblock_e);
+    }
+}
+
+void _write_unblock_a(void)
+{
+	w25q_route_t route = {
+		.status = W25Q_DMA_UNBLOCK,
+	};
+    _w25q_route(route);
+}
+
+void _write_unblock_s(void)
+{
+    _w25q_route_res(&w25qxx_write_fsm);
 }
 
 void _write_cmp_a(void)
@@ -1283,7 +1377,9 @@ void _write_cmp_s(void)
     if (!memcmp(route->rx_ptr, route->tx_ptr, route->len)) {
         if (_w25q_route_call() && _w25q_route_target(W25Q_DMA_WRITE)) {
             fsm_gc_push_event(&w25qxx_write_fsm, &next_e);
-        } else {
+        } else if (_w25q_route_call() && _w25q_route_target(W25Q_DMA_ERASE)) {
+        	fsm_gc_push_event(&w25qxx_write_fsm, &done_e);
+    	} else {
         	fsm_gc_push_event(&w25qxx_write_fsm, &success_e);
         }
         return;
@@ -1448,6 +1544,7 @@ void _write_error_a(void)
 
 
 FSM_GC_CREATE_STATE(erase_init_s,        _erase_init_s)
+FSM_GC_CREATE_STATE(erase_unblock_s,     _erase_unblock_s)
 FSM_GC_CREATE_STATE(erase_loop_s,        _erase_loop_s)
 FSM_GC_CREATE_STATE(erase_read_s,        _erase_read_s)
 FSM_GC_CREATE_STATE(erase_enable_s,      _erase_enable_s)
@@ -1456,6 +1553,7 @@ FSM_GC_CREATE_STATE(erase_disable_s,     _erase_disable_s)
 FSM_GC_CREATE_STATE(erase_repair_s,      _erase_repair_s)
 
 FSM_GC_CREATE_ACTION(erase_loop_a,        _erase_loop_a)
+FSM_GC_CREATE_ACTION(erase_unblock_a,     _erase_unblock_a)
 FSM_GC_CREATE_ACTION(erase_iter_a,        _erase_iter_a)
 FSM_GC_CREATE_ACTION(erase_read_a,        _erase_read_a)
 FSM_GC_CREATE_ACTION(erase_enable_a,      _erase_enable_a)
@@ -1470,6 +1568,10 @@ FSM_GC_CREATE_ACTION(erase_repair_iter_a, _erase_repair_iter_a)
 FSM_GC_CREATE_TABLE(
     w25qxx_erase_fsm_table,
     {&erase_init_s,    &success_e,  &erase_loop_s,    &erase_loop_a},
+    {&erase_init_s,    &unblock_e,  &erase_unblock_s, &erase_unblock_a},
+
+    {&erase_unblock_s, &success_e,  &erase_loop_s,    &erase_loop_a},
+    {&erase_unblock_s, &error_e,    &erase_init_s,    &erase_error_a},
 
     {&erase_loop_s,    &success_e,  &erase_init_s,    &erase_success_a},
     {&erase_loop_s,    &next_e,     &erase_read_s,    &erase_read_a},
@@ -1507,7 +1609,24 @@ void _erase_s(void)
 void _erase_init_s(void)
 {
     fsm_gc_clear(&w25qxx_erase_fsm);
-    fsm_gc_push_event(&w25qxx_erase_fsm, &success_e);
+    if (_w25q_route_call()) {
+        fsm_gc_push_event(&w25qxx_erase_fsm, &success_e);
+    } else {
+        fsm_gc_push_event(&w25qxx_erase_fsm, &unblock_e);
+    }
+}
+
+void _erase_unblock_a(void)
+{
+	w25q_route_t route = {
+		.status = W25Q_DMA_UNBLOCK,
+	};
+    _w25q_route(route);
+}
+
+void _erase_unblock_s(void)
+{
+    _w25q_route_res(&w25qxx_erase_fsm);
 }
 
 void _erase_loop_a(void)
@@ -1683,9 +1802,12 @@ void _erase_repair_iter_a(void)
     uint32_t addr_in_sector = route->idx;
     for (unsigned i = addr_in_sector; i < W25Q_SECTOR_SIZE; i+=W25Q_PAGE_SIZE) {
     	bool need_skip = false;
+    	uint32_t sector_addr = __rm_mod(
+			((uint32_t*)route->tx_ptr)[route->cnt],
+			W25Q_SECTOR_SIZE
+		);
     	for (unsigned j = route->cnt; j < route->len; j++) {
         	uint32_t addr = ((uint32_t*)route->tx_ptr)[j];
-        	uint32_t sector_addr = __rm_mod(addr, W25Q_SECTOR_SIZE);
     		if (sector_addr + i == addr) {
     			need_skip = true;
     			break;

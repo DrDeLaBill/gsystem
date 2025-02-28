@@ -21,8 +21,8 @@ extern "C" {
 
 
 #ifdef GSYSTEM_BEDUG
-#   define W25Q_BEDUG             (0)
-#   define W25Q_DMA_BEDUG         (0)
+#   define W25Q_BEDUG          (0)
+#   define W25Q_DMA_BEDUG      (0)
 #endif
 
 #define W25Q_TEST              (false)
