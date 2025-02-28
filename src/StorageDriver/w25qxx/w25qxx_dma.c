@@ -34,17 +34,17 @@ typedef enum _dma_status_t {
     W25Q_DMA_FREE,
     W25Q_DMA_WRITE_OFF,
     W25Q_DMA_WRITE_ON,
-	W25Q_DMA_UNBLOCK,
+    W25Q_DMA_UNBLOCK,
 } dma_status_t;
 
 typedef struct _w25q_route_t {
-	dma_status_t status;
-	uint32_t     addr;
-	uint32_t     len;
-	uint32_t     cnt;
-	uint32_t     idx;
-	uint8_t*     rx_ptr;
-	uint8_t*     tx_ptr;
+    dma_status_t status;
+    uint32_t     addr;
+    uint32_t     len;
+    uint32_t     cnt;
+    uint32_t     idx;
+    uint8_t*     rx_ptr;
+    uint8_t*     tx_ptr;
 } w25q_route_t;
 
 typedef struct _w25q_dma_t {
@@ -68,15 +68,15 @@ static void _write_dma_internal_callback(const flash_status_t status);
 static void _read_dma_internal_callback(const flash_status_t status);
 static void _erase_dma_internal_callback(const flash_status_t status);
 
-static void _w25q_route(w25q_route_t route);
+static void _w25q_route(w25q_route_t* route);
 static void _w25q_route_res(fsm_gc_t* fsm);
 
 static bool _w25q_tx(const uint8_t* data, const uint32_t len);
 static bool _w25q_rx(uint8_t* data, const uint32_t len);
 static void _w25q_abort();
 
-static void _w25q_queue_push(w25q_route_t route);
-static w25q_route_t _w25q_queue_pop();
+static void _w25q_queue_push(w25q_route_t* route);
+static w25q_route_t* _w25q_queue_pop();
 static w25q_route_t* _w25q_queue_back();
 
 static bool _w25q_route_target(dma_status_t status);
@@ -93,11 +93,11 @@ extern void     _W25Q_CS_reset();
 
 static w25q_dma_t w25q = {
     .queue        = {0},
-	._queue       = {{0}},
+    ._queue       = {{0}},
 
     .cmd          = {0},
-	.buffer       = {0},
-	.addrs        = {0},
+    .buffer       = {0},
+    .addrs        = {0},
 
     .timer        = {0},
     .sr1          = 0,
@@ -236,12 +236,12 @@ flash_status_t w25qxx_read_dma(const uint32_t addr, uint8_t* data, const uint16_
 #endif
 
     w25q_route_t route = {
-		.status = W25Q_DMA_READ,
-		.addr   = addr,
-		.len    = len,
-		.rx_ptr = (uint8_t*)data
+        .status = W25Q_DMA_READ,
+        .addr   = addr,
+        .len    = len,
+        .rx_ptr = (uint8_t*)data
     };
-    _w25q_queue_push(route);
+    _w25q_queue_push(&route);
 
     return FLASH_OK;
 }
@@ -288,14 +288,14 @@ flash_status_t w25qxx_write_dma(const uint32_t addr, const uint8_t* data, const 
 #endif
 
     w25q_route_t route = {
-		.status = W25Q_DMA_WRITE,
-		.addr   = addr,
-		.len    = len,
-		.rx_ptr = w25q.buffer,
-		.tx_ptr = (uint8_t*)data,
-		.cnt    = 0,
+        .status = W25Q_DMA_WRITE,
+        .addr   = addr,
+        .len    = len,
+        .rx_ptr = w25q.buffer,
+        .tx_ptr = (uint8_t*)data,
+        .cnt    = 0,
     };
-    _w25q_queue_push(route);
+    _w25q_queue_push(&route);
 
     return FLASH_OK;
 }
@@ -340,12 +340,12 @@ flash_status_t w25qxx_erase_addresses_dma(const uint32_t* addrs, const uint32_t 
 #endif
 
     w25q_route_t route = {
-		.status = W25Q_DMA_ERASE,
-		.rx_ptr = w25q.buffer,
-		.tx_ptr = (uint8_t*)addrs,
-		.len    = count,
+        .status = W25Q_DMA_ERASE,
+        .rx_ptr = w25q.buffer,
+        .tx_ptr = (uint8_t*)addrs,
+        .len    = count,
     };
-    _w25q_queue_push(route);
+    _w25q_queue_push(&route);
 
     return FLASH_OK;
 }
@@ -358,16 +358,16 @@ flash_status_t w25qxx_erase_sector_dma(const uint32_t addr)
 #endif
         return FLASH_ERROR;
     }
-	if (addr % W25Q_SECTOR_SIZE) {
+    if (addr % W25Q_SECTOR_SIZE) {
 #if W25Q_DMA_BEDUG
-		printTagLog(W25Q_TAG, "flash DMA erase sector addr=%08lX (bad address)", addr);
+        printTagLog(W25Q_TAG, "flash DMA erase sector addr=%08lX (bad address)", addr);
 #endif
-		return FLASH_ERROR;
-	}
-	for (unsigned i = 0; i < W25Q_SECTOR_SIZE; i+=W25Q_PAGE_SIZE) {
-		w25q.addrs[i / W25Q_PAGE_SIZE] = addr + i;
-	}
-	return w25qxx_erase_addresses_dma(w25q.addrs, __arr_len(w25q.addrs));
+        return FLASH_ERROR;
+    }
+    for (unsigned i = 0; i < W25Q_SECTOR_SIZE; i+=W25Q_PAGE_SIZE) {
+        w25q.addrs[i / W25Q_PAGE_SIZE] = addr + i;
+    }
+    return w25qxx_erase_addresses_dma(w25q.addrs, __arr_len(w25q.addrs));
 }
 
 void w25qxx_stop_dma()
@@ -513,14 +513,14 @@ void _w25q_abort()
     HAL_SPI_AbortCpltCallback(&GSYSTEM_FLASH_SPI);
 }
 
-void _w25q_queue_push(w25q_route_t status)
+void _w25q_queue_push(w25q_route_t* route)
 {
-    circle_buf_gc_push_back(&w25q.queue, (uint8_t*)&status);
+    circle_buf_gc_push_back(&w25q.queue, (uint8_t*)route);
 }
 
-w25q_route_t _w25q_queue_pop()
+w25q_route_t* _w25q_queue_pop()
 {
-    return *((w25q_route_t*)circle_buf_gc_pop_back(&w25q.queue));
+    return ((w25q_route_t*)circle_buf_gc_pop_back(&w25q.queue));
 }
 
 w25q_route_t* _w25q_queue_back()
@@ -530,12 +530,12 @@ w25q_route_t* _w25q_queue_back()
 
 bool _w25q_route_target(dma_status_t status)
 {
-	return ((w25q_route_t*)circle_buf_gc_front(&w25q.queue))->status == status;
+    return ((w25q_route_t*)circle_buf_gc_front(&w25q.queue))->status == status;
 }
 
 bool _w25q_route_call()
 {
-	return circle_buf_gc_count(&w25q.queue) > 1;
+    return circle_buf_gc_count(&w25q.queue) > 1;
 }
 
 bool _w25q_ready()
@@ -597,77 +597,77 @@ void _router_s(void)
         return;
     }
 #if W25Q_DMA_BEDUG
-    printPretty("- %02u ", circle_buf_gc_count(&w25q.queue));
+    printMessage("%08lu->%s:\t%02u ", getMillis() % 10000000, W25Q_TAG, circle_buf_gc_count(&w25q.queue));
     w25q_route_t* route = _w25q_queue_back();
 #endif
     switch ((dma_status_t)*circle_buf_gc_back(&w25q.queue))
     {
     case W25Q_DMA_FREE:
 #if W25Q_DMA_BEDUG
-    	gprint("free      ");
+        gprint("free      ");
 #endif
         fsm_gc_push_event(&w25qxx_fsm, &free_e);
         break;
     case W25Q_DMA_UNBLOCK:
 #if W25Q_DMA_BEDUG
-    	gprint("unblock   ");
+        gprint("unblock   ");
 #endif
         fsm_gc_push_event(&w25qxx_fsm, &unblock_e);
         break;
     case W25Q_DMA_WRITE_ON:
 #if W25Q_DMA_BEDUG
-    	gprint("write_on  ");
+        gprint("write_on  ");
 #endif
         fsm_gc_push_event(&w25qxx_fsm, &write_on_e);
         break;
     case W25Q_DMA_WRITE_OFF:
 #if W25Q_DMA_BEDUG
-    	gprint("write_off ");
+        gprint("write_off ");
 #endif
         fsm_gc_push_event(&w25qxx_fsm, &write_off_e);
         break;
     case W25Q_DMA_READ:
 #if W25Q_DMA_BEDUG
-    	gprint("read      ");
+        gprint("read      ");
 #endif
         fsm_gc_push_event(&w25qxx_fsm, &read_e);
         break;
     case W25Q_DMA_WRITE:
 #if W25Q_DMA_BEDUG
-    	gprint("write     ");
+        gprint("write     ");
 #endif
         fsm_gc_push_event(&w25qxx_fsm, &write_e);
         break;
     case W25Q_DMA_ERASE:
 #if W25Q_DMA_BEDUG
-    	gprint("erase     ");
+        gprint("erase     ");
 #endif
         fsm_gc_push_event(&w25qxx_fsm, &erase_e);
         break;
     case W25Q_DMA_READY:
     default:
 #if W25Q_DMA_BEDUG
-    	gprint("empty     ");
+        gprint("empty     ");
 #endif
         circle_buf_gc_free(&w25q.queue);
         break;
     }
 #if W25Q_DMA_BEDUG
     gprint(
-		"addr=0x%08lX rx=0x%08lX tx=0x%08lX cnt=%04lu len=%04lu idx=%lu\n",
-		route->addr,
-		(uint32_t)(uint32_t*)route->rx_ptr,
-		(uint32_t)(uint32_t*)route->tx_ptr,
-		route->cnt,
-		route->len,
-		route->idx
-	);
+        "addr=0x%08lX rx=0x%08lX tx=0x%08lX cnt=%04lu len=%04lu idx=%lu\n",
+        route->addr,
+        (uint32_t)(uint32_t*)route->rx_ptr,
+        (uint32_t)(uint32_t*)route->tx_ptr,
+        route->cnt,
+        route->len,
+        route->idx
+    );
 #endif
 }
 
 void _callback_a(void)
 {
-	w25q_route_t route = _w25q_queue_pop();
+    w25q_route_t* route = _w25q_queue_pop();
     if (w25q.result != FLASH_OK && circle_buf_gc_count(&w25q.queue) > 1) {
         while (circle_buf_gc_count(&w25q.queue) > 1) {
             _w25q_queue_pop();
@@ -675,7 +675,7 @@ void _callback_a(void)
         route = _w25q_queue_pop();
         w25qxx_stop_dma();
     }
-    switch (route.status) {
+    switch (route->status) {
     case W25Q_DMA_READ:
         if (circle_buf_gc_empty(&w25q.queue)) {
             _read_dma_internal_callback(w25q.result);
@@ -702,11 +702,11 @@ void _callback_a(void)
     _W25Q_CS_reset();
 }
 
-void _w25q_route(w25q_route_t route)
+void _w25q_route(w25q_route_t* route)
 {
     _W25Q_CS_reset();
     if (circle_buf_gc_full(&w25q.queue)) {
-		w25q.result = FLASH_ERROR;
+        w25q.result = FLASH_ERROR;
         fsm_gc_push_event(&w25qxx_fsm, &done_e);
     } else {
         _w25q_queue_push(route);
@@ -737,7 +737,7 @@ FSM_GC_CREATE_TABLE(
     w25qxx_free_fsm_table,
     {&free_init_s,  &success_e,   &free_free_s, &free_tx_a},
 
-	{&free_free_s,  &success_e,   &free_init_s, &free_success_a},
+    {&free_free_s,  &success_e,   &free_init_s, &free_success_a},
     {&free_free_s,  &timeout_e,   &free_free_s, &free_count_a},
     {&free_free_s,  &transmit_e,  &free_free_s, &free_rx_a},
     {&free_free_s,  &receive_e,   &free_free_s, &free_check_a},
@@ -758,27 +758,27 @@ void _free_s(void)
 
 void _free_init_s(void)
 {
-	w25q_route_t* route = _w25q_queue_back();
-	route->cnt = 0;
+    w25q_route_t* route = _w25q_queue_back();
+    route->cnt = 0;
     fsm_gc_clear(&w25qxx_free_fsm);
     fsm_gc_push_event(&w25qxx_free_fsm, &success_e);
 }
 
 void _free_check_a(void)
 {
-	if (!(w25q.sr1 & W25Q_SR1_BUSY)) {
-	    fsm_gc_push_event(&w25qxx_free_fsm, &success_e);
-	}
+    if (!(w25q.sr1 & W25Q_SR1_BUSY)) {
+        fsm_gc_push_event(&w25qxx_free_fsm, &success_e);
+    }
 }
 
 void _free_count_a(void)
 {
-	w25q_route_t* route = _w25q_queue_back();
+    w25q_route_t* route = _w25q_queue_back();
     if (route->cnt > W25Q_SPI_ATTEMPTS_CNT) {
         w25q.result = FLASH_BUSY;
         fsm_gc_push_event(&w25qxx_free_fsm, &error_e);
     } else {
-    	route->cnt++;
+        route->cnt++;
         _free_tx_a();
     }
 }
@@ -840,17 +840,17 @@ FSM_GC_CREATE_ACTION(unblock_success_a,      _unblock_success_a)
 FSM_GC_CREATE_ACTION(unblock_error_a,        _unblock_error_a)
 
 FSM_GC_CREATE_TABLE(
-	w25qxx_unblock_fsm_table,
+    w25qxx_unblock_fsm_table,
     {&unblock_init_s,         &success_e,  &unblock_unblock_free_s, &unblock_unblock_free_a},
 
-	{&unblock_unblock_free_s, &success_e,  &unblock_unblock1_s,     &unblock_unblock1_a},
-	{&unblock_unblock_free_s, &error_e,    &unblock_init_s,         &unblock_error_a},
+    {&unblock_unblock_free_s, &success_e,  &unblock_unblock1_s,     &unblock_unblock1_a},
+    {&unblock_unblock_free_s, &error_e,    &unblock_init_s,         &unblock_error_a},
 
-	{&unblock_unblock1_s,     &transmit_e, &unblock_unblock2_s,     &unblock_unblock2_a},
-	{&unblock_unblock1_s,     &error_e,    &unblock_init_s,         &unblock_error_a},
+    {&unblock_unblock1_s,     &transmit_e, &unblock_unblock2_s,     &unblock_unblock2_a},
+    {&unblock_unblock1_s,     &error_e,    &unblock_init_s,         &unblock_error_a},
 
-	{&unblock_unblock2_s,     &transmit_e, &unblock_init_s,         &unblock_success_a},
-	{&unblock_unblock2_s,     &error_e,    &unblock_init_s,         &unblock_error_a},
+    {&unblock_unblock2_s,     &transmit_e, &unblock_init_s,         &unblock_success_a},
+    {&unblock_unblock2_s,     &error_e,    &unblock_init_s,         &unblock_error_a},
 )
 
 void _unblock_a(void) {}
@@ -873,10 +873,10 @@ void _unblock_init_s(void)
 
 void _unblock_unblock_free_a(void)
 {
-	w25q_route_t route = {
-		.status = W25Q_DMA_FREE
-	};
-    _w25q_route(route);
+    w25q_route_t route = {
+        .status = W25Q_DMA_FREE
+    };
+    _w25q_route(&route);
 }
 
 void _unblock_unblock_free_s(void)
@@ -975,10 +975,10 @@ void _write_on_init_s(void)
 
 void _write_on_enable_free_a(void)
 {
-	w25q_route_t route = {
-		.status = W25Q_DMA_FREE
-	};
-    _w25q_route(route);
+    w25q_route_t route = {
+        .status = W25Q_DMA_FREE
+    };
+    _w25q_route(&route);
 }
 
 void _write_on_enable_free_s(void)
@@ -1075,10 +1075,10 @@ void _write_off_init_s(void)
 
 void _write_off_disable_free_a(void)
 {
-	w25q_route_t route = {
-		.status = W25Q_DMA_FREE
-	};
-    _w25q_route(route);
+    w25q_route_t route = {
+        .status = W25Q_DMA_FREE
+    };
+    _w25q_route(&route);
 }
 
 void _write_off_disable_free_s(void)
@@ -1105,10 +1105,10 @@ void _write_off_disable_s(void)
 
 void _write_off_block_free_a(void)
 {
-	w25q_route_t route = {
-		.status = W25Q_DMA_FREE
-	};
-    _w25q_route(route);
+    w25q_route_t route = {
+        .status = W25Q_DMA_FREE
+    };
+    _w25q_route(&route);
 }
 
 void _write_off_block_free_s(void)
@@ -1210,10 +1210,10 @@ void _read_init_s(void)
 
 void _read_free_a(void)
 {
-	w25q_route_t route = {
-		.status = W25Q_DMA_FREE
-	};
-    _w25q_route(route);
+    w25q_route_t route = {
+        .status = W25Q_DMA_FREE
+    };
+    _w25q_route(&route);
 }
 
 void _read_free_s(void) 
@@ -1224,7 +1224,7 @@ void _read_free_s(void)
 void _read_send_tx_a(void)
 {
     fsm_gc_clear(&w25qxx_read_fsm);
-	w25q_route_t* route = _w25q_queue_back();
+    w25q_route_t* route = _w25q_queue_back();
     uint8_t counter = 0;
     w25q.cmd[counter++] = W25Q_CMD_READ;
     counter += _w25q_make_addr(&w25q.cmd[counter], route->addr);
@@ -1237,7 +1237,7 @@ void _read_send_tx_a(void)
 void _read_send_rx_a(void)
 {
     fsm_gc_clear(&w25qxx_read_fsm);
-	w25q_route_t* route = _w25q_queue_back();
+    w25q_route_t* route = _w25q_queue_back();
     if (!_w25q_rx(route->rx_ptr, route->len)) {
         fsm_gc_push_event(&w25qxx_read_fsm, &error_e);
     }
@@ -1273,7 +1273,6 @@ FSM_GC_CREATE_STATE(write_unblock_s,      _write_unblock_s)
 FSM_GC_CREATE_STATE(write_cmp_s,          _write_cmp_s)
 FSM_GC_CREATE_STATE(write_erase_s,        _write_erase_s)
 FSM_GC_CREATE_STATE(write_enable_s,       _write_enable_s)
-FSM_GC_CREATE_STATE(write_cmd_free_s,     _write_cmd_free_s)
 FSM_GC_CREATE_STATE(write_cmd_s,          _write_cmd_s)
 FSM_GC_CREATE_STATE(write_data_s,         _write_data_s)
 FSM_GC_CREATE_STATE(write_disable_s,      _write_disable_s)
@@ -1282,7 +1281,6 @@ FSM_GC_CREATE_ACTION(write_cmp_a,         _write_cmp_a)
 FSM_GC_CREATE_ACTION(write_unblock_a,     _write_unblock_a)
 FSM_GC_CREATE_ACTION(write_erase_a,       _write_erase_a)
 FSM_GC_CREATE_ACTION(write_enable_a,      _write_enable_a)
-FSM_GC_CREATE_ACTION(write_cmd_free_a,    _write_cmd_free_a)
 FSM_GC_CREATE_ACTION(write_cmd_a,         _write_cmd_a)
 FSM_GC_CREATE_ACTION(write_data_a,        _write_data_a)
 FSM_GC_CREATE_ACTION(write_disable_a,     _write_disable_a)
@@ -1308,11 +1306,8 @@ FSM_GC_CREATE_TABLE(
     {&write_erase_s,        &error_e,    &write_init_s,         &write_error_a},
 
     {&write_enable_s,       &done_e,     &write_cmp_s,          &write_cmp_a},
-    {&write_enable_s,       &success_e,  &write_cmd_free_s,     &write_cmd_free_a},
+    {&write_enable_s,       &success_e,  &write_cmd_s,          &write_cmd_a},
     {&write_enable_s,       &error_e,    &write_init_s,         &write_error_a},
-
-    {&write_cmd_free_s,     &success_e,  &write_cmd_s,          &write_cmd_a},
-    {&write_cmd_free_s,     &error_e,    &write_init_s,         &write_error_a},
 
     {&write_cmd_s,          &transmit_e, &write_data_s,         &write_data_a},
     {&write_cmd_s,          &error_e,    &write_init_s,         &write_error_a},
@@ -1348,10 +1343,10 @@ void _write_init_s(void)
 
 void _write_unblock_a(void)
 {
-	w25q_route_t route = {
-		.status = W25Q_DMA_UNBLOCK,
-	};
-    _w25q_route(route);
+    w25q_route_t route = {
+        .status = W25Q_DMA_UNBLOCK,
+    };
+    _w25q_route(&route);
 }
 
 void _write_unblock_s(void)
@@ -1361,26 +1356,26 @@ void _write_unblock_s(void)
 
 void _write_cmp_a(void)
 {
-	w25q_route_t* curr = _w25q_queue_back();
-	w25q_route_t route = {
-		.status = W25Q_DMA_READ,
-		.addr   = curr->addr,
-		.len    = curr->len,
-		.rx_ptr = curr->rx_ptr
-	};
-    _w25q_route(route);
+    w25q_route_t* curr = _w25q_queue_back();
+    w25q_route_t route = {
+        .status = W25Q_DMA_READ,
+        .addr   = curr->addr,
+        .len    = curr->len,
+        .rx_ptr = curr->rx_ptr
+    };
+    _w25q_route(&route);
 }
 
 void _write_cmp_s(void)
 {
-	w25q_route_t* route = _w25q_queue_back();
+    w25q_route_t* route = _w25q_queue_back();
     if (!memcmp(route->rx_ptr, route->tx_ptr, route->len)) {
         if (_w25q_route_call() && _w25q_route_target(W25Q_DMA_WRITE)) {
             fsm_gc_push_event(&w25qxx_write_fsm, &next_e);
         } else if (_w25q_route_call() && _w25q_route_target(W25Q_DMA_ERASE)) {
-        	fsm_gc_push_event(&w25qxx_write_fsm, &done_e);
-    	} else {
-        	fsm_gc_push_event(&w25qxx_write_fsm, &success_e);
+            fsm_gc_push_event(&w25qxx_write_fsm, &done_e);
+        } else {
+            fsm_gc_push_event(&w25qxx_write_fsm, &success_e);
         }
         return;
     } else if (route->cnt >= route->len) {
@@ -1403,17 +1398,17 @@ void _write_cmp_s(void)
 
 void _write_erase_a(void)
 {
-	w25q_route_t* curr = _w25q_queue_back();
-	w25q_route_t route = {
-		.status = W25Q_DMA_ERASE,
-		.rx_ptr = w25q.buffer,
-		.tx_ptr = (uint8_t*)w25q.addrs,
-		.len    = 0,
-	};
+    w25q_route_t* curr = _w25q_queue_back();
+    w25q_route_t route = {
+        .status = W25Q_DMA_ERASE,
+        .rx_ptr = w25q.buffer,
+        .tx_ptr = (uint8_t*)w25q.addrs,
+        .len    = 0,
+    };
     for (uint32_t i = curr->addr; i < curr->addr + curr->len; i += W25Q_PAGE_SIZE) {
-    	w25q.addrs[route.len++] = i;
+        w25q.addrs[route.len++] = i;
     }
-    _w25q_route(route);
+    _w25q_route(&route);
 }
 
 void _write_erase_s(void)
@@ -1427,43 +1422,24 @@ void _write_erase_s(void)
 
 void _write_enable_a(void)
 {
-	w25q_route_t* curr = _w25q_queue_back();
+    w25q_route_t* curr = _w25q_queue_back();
     if (curr->cnt >= curr->len) {
         return;
     }
-	w25q_route_t route = {
-		.status = W25Q_DMA_WRITE_ON,
-	};
-    _w25q_route(route);
+    w25q_route_t route = {
+        .status = W25Q_DMA_WRITE_ON,
+    };
+    _w25q_route(&route);
 }
 
 void _write_enable_s(void)
 {
-	w25q_route_t* curr = _w25q_queue_back();
+    w25q_route_t* curr = _w25q_queue_back();
     if (curr->cnt >= curr->len) {
         fsm_gc_push_event(&w25qxx_write_fsm, &done_e);
-    	return;
+        return;
     }
     _w25q_route_res(&w25qxx_write_fsm);
-}
-
-void _write_cmd_free_a(void)
-{
-	w25q_route_t route = {
-		.status = W25Q_DMA_FREE,
-	};
-    _w25q_route(route);
-}
-
-void _write_cmd_free_s(void)
-{
-    if (w25q.result == FLASH_OK &&
-        w25q.sr1 & W25Q_SR1_WEL
-    ) {
-        fsm_gc_push_event(&w25qxx_write_fsm, &success_e);
-    } else {
-        fsm_gc_push_event(&w25qxx_write_fsm, &error_e);
-    }
 }
 
 void _write_cmd_a(void)
@@ -1471,7 +1447,7 @@ void _write_cmd_a(void)
     fsm_gc_clear(&w25qxx_write_fsm);
     uint8_t counter = 0;
     w25q.cmd[counter++] = W25Q_CMD_PAGE_PROGRAMM;
-	w25q_route_t* route = _w25q_queue_back();
+    w25q_route_t* route = _w25q_queue_back();
     counter += _w25q_make_addr(&w25q.cmd[counter], route->addr + route->cnt);
     if (!_w25q_tx(w25q.cmd, counter)) {
         fsm_gc_push_event(&w25qxx_write_fsm, &error_e);
@@ -1489,11 +1465,11 @@ void _write_cmd_s(void)
 void _write_data_a(void)
 {
     fsm_gc_clear(&w25qxx_write_fsm);
-	w25q_route_t* route = _w25q_queue_back();
+    w25q_route_t* route = _w25q_queue_back();
     uint32_t len = W25Q_PAGE_SIZE;
     if (!_w25q_route_call()) {
-    	uint32_t need_len = route->len - route->cnt;
-    	len = need_len > W25Q_PAGE_SIZE ? W25Q_PAGE_SIZE : need_len;
+        uint32_t need_len = route->len - route->cnt;
+        len = need_len > W25Q_PAGE_SIZE ? W25Q_PAGE_SIZE : need_len;
     }
     if (!_w25q_tx(route->tx_ptr + route->cnt, len)) {
         fsm_gc_push_event(&w25qxx_write_fsm, &error_e);
@@ -1511,10 +1487,10 @@ void _write_data_s(void)
 
 void _write_disable_a(void)
 {
-	w25q_route_t route = {
-		.status = W25Q_DMA_WRITE_OFF,
-	};
-    _w25q_route(route);
+    w25q_route_t route = {
+        .status = W25Q_DMA_WRITE_OFF,
+    };
+    _w25q_route(&route);
 }
 
 void _write_disable_s(void)
@@ -1546,7 +1522,7 @@ void _write_error_a(void)
 FSM_GC_CREATE_STATE(erase_init_s,        _erase_init_s)
 FSM_GC_CREATE_STATE(erase_unblock_s,     _erase_unblock_s)
 FSM_GC_CREATE_STATE(erase_loop_s,        _erase_loop_s)
-FSM_GC_CREATE_STATE(erase_read_s,        _erase_read_s)
+FSM_GC_CREATE_STATE(erase_cmp_s,         _erase_cmp_s)
 FSM_GC_CREATE_STATE(erase_enable_s,      _erase_enable_s)
 FSM_GC_CREATE_STATE(erase_erase_s,       _erase_erase_s)
 FSM_GC_CREATE_STATE(erase_disable_s,     _erase_disable_s)
@@ -1555,7 +1531,7 @@ FSM_GC_CREATE_STATE(erase_repair_s,      _erase_repair_s)
 FSM_GC_CREATE_ACTION(erase_loop_a,        _erase_loop_a)
 FSM_GC_CREATE_ACTION(erase_unblock_a,     _erase_unblock_a)
 FSM_GC_CREATE_ACTION(erase_iter_a,        _erase_iter_a)
-FSM_GC_CREATE_ACTION(erase_read_a,        _erase_read_a)
+FSM_GC_CREATE_ACTION(erase_cmp_a,         _erase_cmp_a)
 FSM_GC_CREATE_ACTION(erase_enable_a,      _erase_enable_a)
 FSM_GC_CREATE_ACTION(erase_erase_a,       _erase_erase_a)
 FSM_GC_CREATE_ACTION(erase_disable_a,     _erase_disable_a)
@@ -1574,24 +1550,24 @@ FSM_GC_CREATE_TABLE(
     {&erase_unblock_s, &error_e,    &erase_init_s,    &erase_error_a},
 
     {&erase_loop_s,    &success_e,  &erase_init_s,    &erase_success_a},
-    {&erase_loop_s,    &next_e,     &erase_read_s,    &erase_read_a},
+    {&erase_loop_s,    &next_e,     &erase_cmp_s,     &erase_cmp_a},
 
-    {&erase_read_s,    &success_e,  &erase_loop_s,    &erase_iter_a},
-    {&erase_read_s,    &erase_e,    &erase_enable_s,  &erase_enable_a},
-    {&erase_read_s,    &error_e,    &erase_init_s,    &erase_error_a},
+    {&erase_cmp_s,     &success_e,  &erase_loop_s,    &erase_iter_a},
+    {&erase_cmp_s,     &erase_e,    &erase_enable_s,  &erase_enable_a},
+    {&erase_cmp_s,     &error_e,    &erase_init_s,    &erase_error_a},
 
     {&erase_enable_s,  &success_e,  &erase_erase_s,   &erase_erase_a},
     {&erase_enable_s,  &error_e,    &erase_init_s,    &erase_error_a},
 
-    {&erase_erase_s,   &transmit_e, &erase_disable_s, &erase_disable_a},
+    {&erase_erase_s,   &transmit_e, &erase_repair_s,  &erase_repair_a},
     {&erase_erase_s,   &error_e,    &erase_init_s,    &erase_error_a},
 
-    {&erase_disable_s, &success_e,  &erase_repair_s,  &erase_repair_a},
-    {&erase_disable_s, &error_e,    &erase_init_s,    &erase_error_a},
-
-    {&erase_repair_s,  &success_e,  &erase_loop_s,    &erase_iter_a},
+    {&erase_repair_s,  &success_e,  &erase_disable_s, &erase_disable_a},
     {&erase_repair_s,  &write_e,    &erase_repair_s,  &erase_repair_iter_a},
     {&erase_repair_s,  &error_e,    &erase_init_s,    &erase_error_a},
+
+    {&erase_disable_s, &success_e,  &erase_loop_s,    &erase_iter_a},
+    {&erase_disable_s, &error_e,    &erase_init_s,    &erase_error_a},
 )
 
 void _erase_a(void) {}
@@ -1618,10 +1594,10 @@ void _erase_init_s(void)
 
 void _erase_unblock_a(void)
 {
-	w25q_route_t route = {
-		.status = W25Q_DMA_UNBLOCK,
-	};
-    _w25q_route(route);
+    w25q_route_t route = {
+        .status = W25Q_DMA_UNBLOCK,
+    };
+    _w25q_route(&route);
 }
 
 void _erase_unblock_s(void)
@@ -1631,16 +1607,16 @@ void _erase_unblock_s(void)
 
 void _erase_loop_a(void)
 {
-	w25q_route_t* route = _w25q_queue_back();
-	route->cnt = 0;
+    w25q_route_t* route = _w25q_queue_back();
+    route->cnt = 0;
     fsm_gc_clear(&w25qxx_erase_fsm);
 }
 
 void _erase_iter_a(void)
 {
-	w25q_route_t* route = _w25q_queue_back();
+    w25q_route_t* route = _w25q_queue_back();
     uint32_t last_sector_addr = __rm_mod(((uint32_t*)route->tx_ptr)[route->cnt], W25Q_SECTOR_SIZE);
-	route->cnt++;
+    route->cnt++;
     if (route->cnt >= route->len) {
         return;
     }
@@ -1654,17 +1630,17 @@ void _erase_iter_a(void)
         }
     }
     if (!next_found) {
-    	route->cnt = route->len;
+        route->cnt = route->len;
     }
 }
 
 void _erase_loop_s(void)
 {
-	w25q_route_t* route = _w25q_queue_back();
+    w25q_route_t* route = _w25q_queue_back();
     uint32_t last_sector_addr = __rm_mod(((uint32_t*)route->tx_ptr)[route->cnt], W25Q_SECTOR_SIZE);
     uint32_t next_sector_addr = last_sector_addr;
     if (route->cnt + 1 < route->len) {
-    	next_sector_addr = __rm_mod(((uint32_t*)route->tx_ptr)[route->cnt+1], W25Q_SECTOR_SIZE);
+        next_sector_addr = __rm_mod(((uint32_t*)route->tx_ptr)[route->cnt+1], W25Q_SECTOR_SIZE);
     }
     if (last_sector_addr != next_sector_addr) {
         fsm_gc_push_event(&w25qxx_erase_fsm, &next_e);
@@ -1675,22 +1651,22 @@ void _erase_loop_s(void)
     }
 }
 
-void _erase_read_a(void)
+void _erase_cmp_a(void)
 {
-	w25q_route_t* curr = _w25q_queue_back();
-	w25q_route_t route = {
-		.status = W25Q_DMA_READ,
-		.rx_ptr = curr->rx_ptr,
-		.len    = W25Q_SECTOR_SIZE,
-		.addr   = __rm_mod(
-			((uint32_t*)curr->tx_ptr)[curr->cnt],
-			W25Q_SECTOR_SIZE
-		)
-	};
-    _w25q_route(route);
+    w25q_route_t* curr = _w25q_queue_back();
+    w25q_route_t route = {
+        .status = W25Q_DMA_READ,
+        .rx_ptr = curr->rx_ptr,
+        .len    = W25Q_SECTOR_SIZE,
+        .addr   = __rm_mod(
+            ((uint32_t*)curr->tx_ptr)[curr->cnt],
+            W25Q_SECTOR_SIZE
+        )
+    };
+    _w25q_route(&route);
 }
 
-void _erase_read_s(void)
+void _erase_cmp_s(void)
 {
     if (w25q.result != FLASH_OK) {
         fsm_gc_push_event(&w25qxx_erase_fsm, &error_e);
@@ -1698,27 +1674,27 @@ void _erase_read_s(void)
     }
 
     bool need_erase = false;
-	w25q_route_t* route = _w25q_queue_back();
-	uint32_t curr_sector_addr = __rm_mod(
-		((uint32_t*)route->tx_ptr)[route->cnt],
-		W25Q_SECTOR_SIZE
-	);
+    w25q_route_t* route = _w25q_queue_back();
+    uint32_t curr_sector_addr = __rm_mod(
+        ((uint32_t*)route->tx_ptr)[route->cnt],
+        W25Q_SECTOR_SIZE
+    );
     for (unsigned i = route->cnt; i < route->len && !need_erase; i++) {
-    	uint32_t addr = ((uint32_t*)route->tx_ptr)[i];
-    	uint32_t sector_addr = __rm_mod(addr, W25Q_SECTOR_SIZE);
-    	if (curr_sector_addr != sector_addr) {
-    		break;
-    	}
-    	uint32_t addr_in_sector = addr % W25Q_SECTOR_SIZE;
+        uint32_t addr = ((uint32_t*)route->tx_ptr)[i];
+        uint32_t sector_addr = __rm_mod(addr, W25Q_SECTOR_SIZE);
+        if (curr_sector_addr != sector_addr) {
+            break;
+        }
+        uint32_t addr_in_sector = addr % W25Q_SECTOR_SIZE;
         for (unsigned j = 0; j < W25Q_PAGE_SIZE; j++) {
             if (route->rx_ptr[addr_in_sector + j] != 0xFF) {
-            	route->cnt = i;
+                route->cnt = i;
                 need_erase = true;
                 break;
             }
         }
         if (need_erase) {
-        	break;
+            break;
         }
     }
     if (need_erase) {
@@ -1730,10 +1706,10 @@ void _erase_read_s(void)
 
 void _erase_enable_a(void)
 {
-	w25q_route_t route = {
-		.status = W25Q_DMA_WRITE_ON,
-	};
-    _w25q_route(route);
+    w25q_route_t route = {
+        .status = W25Q_DMA_WRITE_ON,
+    };
+    _w25q_route(&route);
 }
 
 void _erase_enable_s(void)
@@ -1745,7 +1721,7 @@ void _erase_erase_a(void)
 {
     fsm_gc_clear(&w25qxx_erase_fsm);
     uint8_t counter = 0;
-	w25q_route_t* route = _w25q_queue_back();
+    w25q_route_t* route = _w25q_queue_back();
     uint32_t addr = __rm_mod(((uint32_t*)route->tx_ptr)[route->cnt], W25Q_SECTOR_SIZE);
     w25q.cmd[counter++] = W25Q_CMD_ERASE_SECTOR;
     counter += _w25q_make_addr(&w25q.cmd[counter], addr);
@@ -1764,32 +1740,26 @@ void _erase_erase_s(void)
 
 void _erase_disable_a(void)
 {
-	w25q_route_t route = {
-		.status = W25Q_DMA_WRITE_OFF,
-	};
-    _w25q_route(route);
+    if (!_w25q_route_call() && _w25q_route_target(W25Q_DMA_ERASE)) {
+		w25q_route_t route = {
+			.status = W25Q_DMA_WRITE_OFF,
+		};
+		_w25q_route(&route);
+    }
 }
 
 void _erase_disable_s(void)
 {
-    _w25q_route_res(&w25qxx_erase_fsm);
+    if (!_w25q_route_call() && _w25q_route_target(W25Q_DMA_ERASE)) {
+    	_w25q_route_res(&w25qxx_erase_fsm);
+    } else {
+        fsm_gc_push_event(&w25qxx_erase_fsm, &success_e);
+    }
 }
 
 void _erase_repair_a(void)
 {
-	w25q_route_t* route = _w25q_queue_back();
-	uint32_t sector_addr = __rm_mod(((uint32_t*)route->tx_ptr)[route->cnt], W25Q_SECTOR_SIZE);
-    for (unsigned i = route->cnt; i < route->len; i++) {
-    	uint32_t addr = ((uint32_t*)route->tx_ptr)[i];
-    	if (sector_addr != __rm_mod(addr, W25Q_SECTOR_SIZE)) {
-    		break;
-    	}
-        memset(
-			route->rx_ptr + (addr % W25Q_SECTOR_SIZE),
-            0xFF,
-            W25Q_PAGE_SIZE
-        );
-    }
+    w25q_route_t* route = _w25q_queue_back();
 
     route->idx = 0;
     _erase_repair_iter_a();
@@ -1797,35 +1767,35 @@ void _erase_repair_a(void)
 
 void _erase_repair_iter_a(void)
 {
-	w25q_route_t* route = _w25q_queue_back();
+    w25q_route_t* route = _w25q_queue_back();
     bool found = false;
     uint32_t addr_in_sector = route->idx;
     for (unsigned i = addr_in_sector; i < W25Q_SECTOR_SIZE; i+=W25Q_PAGE_SIZE) {
-    	bool need_skip = false;
-    	uint32_t sector_addr = __rm_mod(
-			((uint32_t*)route->tx_ptr)[route->cnt],
-			W25Q_SECTOR_SIZE
-		);
-    	for (unsigned j = route->cnt; j < route->len; j++) {
-        	uint32_t addr = ((uint32_t*)route->tx_ptr)[j];
-    		if (sector_addr + i == addr) {
-    			need_skip = true;
-    			break;
-    		}
-    	}
-    	if (need_skip) {
-    		continue;
-    	}
-    	for (unsigned j = 0; j < W25Q_PAGE_SIZE; j++) {
-			if (route->rx_ptr[i+j] != 0xFF) {
-				addr_in_sector = __rm_mod(i + j, W25Q_PAGE_SIZE);
-				found = true;
-				break;
-			}
-    	}
-    	if (found) {
-    		break;
-    	}
+        bool need_skip = false;
+        uint32_t sector_addr = __rm_mod(
+            ((uint32_t*)route->tx_ptr)[route->cnt],
+            W25Q_SECTOR_SIZE
+        );
+        for (unsigned j = route->cnt; j < route->len; j++) {
+            uint32_t addr = ((uint32_t*)route->tx_ptr)[j];
+            if (sector_addr + i == addr) {
+                need_skip = true;
+                break;
+            }
+        }
+        if (need_skip) {
+            continue;
+        }
+        for (unsigned j = 0; j < W25Q_PAGE_SIZE; j++) {
+            if (route->rx_ptr[i+j] != 0xFF) {
+                addr_in_sector = __rm_mod(i + j, W25Q_PAGE_SIZE);
+                found = true;
+                break;
+            }
+        }
+        if (found) {
+            break;
+        }
     }
 
     if (!found) {
@@ -1836,17 +1806,17 @@ void _erase_repair_iter_a(void)
     route->idx = addr_in_sector + W25Q_PAGE_SIZE;
 
     w25q_route_t repair = {
-    	.status = W25Q_DMA_WRITE,
-		.addr   = __rm_mod(
-			((uint32_t*)route->tx_ptr)[route->cnt],
-			W25Q_SECTOR_SIZE
-		) + addr_in_sector,
-		.len    = W25Q_PAGE_SIZE,
-		.rx_ptr = w25q.buffer + ((uint32_t*)route->tx_ptr)[route->cnt] % W25Q_SECTOR_SIZE,
-		.tx_ptr = w25q.buffer + addr_in_sector,
-		.cnt    = 0,
+        .status = W25Q_DMA_WRITE,
+        .addr   = __rm_mod(
+            ((uint32_t*)route->tx_ptr)[route->cnt],
+            W25Q_SECTOR_SIZE
+        ) + addr_in_sector,
+        .len    = W25Q_PAGE_SIZE,
+        .rx_ptr = w25q.buffer + ((uint32_t*)route->tx_ptr)[route->cnt] % W25Q_SECTOR_SIZE,
+        .tx_ptr = w25q.buffer + addr_in_sector,
+        .cnt    = 0,
     };
-    _w25q_route(repair);
+    _w25q_route(&repair);
 }
 
 void _erase_repair_s(void)
