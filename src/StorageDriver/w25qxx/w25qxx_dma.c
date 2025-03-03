@@ -131,7 +131,6 @@ FSM_GC_CREATE_EVENT(timeout_e,   2)
 FSM_GC_CREATE_EVENT(error_e,     3)
 
 FSM_GC_CREATE_STATE(init_s,      _init_s)
-FSM_GC_CREATE_STATE(idle_s,      _idle_s)
 FSM_GC_CREATE_STATE(router_s,    _router_s)
 FSM_GC_CREATE_STATE(free_s,      _free_s)
 FSM_GC_CREATE_STATE(unblock_s,   _unblock_s)
@@ -141,7 +140,6 @@ FSM_GC_CREATE_STATE(read_s,      _read_s)
 FSM_GC_CREATE_STATE(write_s,     _write_s)
 FSM_GC_CREATE_STATE(erase_s,     _erase_s)
 
-FSM_GC_CREATE_ACTION(idle_a,      _idle_a)
 FSM_GC_CREATE_ACTION(router_a,    _router_a)
 FSM_GC_CREATE_ACTION(free_a,      _free_a)
 FSM_GC_CREATE_ACTION(unblock_a,   _unblock_a)
@@ -154,9 +152,7 @@ FSM_GC_CREATE_ACTION(callback_a,  _callback_a)
 
 FSM_GC_CREATE_TABLE(
     w25qxx_fsm_table,
-    {&init_s,      &done_e,      &idle_s,      &idle_a},
-
-    {&idle_s,      &router_e,    &router_s,    &router_a},
+    {&init_s,      &done_e,      &router_s,    &router_a},
 
     {&router_s,    &read_e,      &read_s,      &read_a},
     {&router_s,    &write_e,     &write_s,     &write_a},
@@ -165,27 +161,27 @@ FSM_GC_CREATE_TABLE(
     {&router_s,    &unblock_e,   &unblock_s,   &unblock_a},
     {&router_s,    &write_on_e,  &write_on_s,  &write_on_a},
     {&router_s,    &write_off_e, &write_off_s, &write_off_a},
-    {&router_s,    &error_e,     &idle_s,      &idle_a},
+    {&router_s,    &error_e,     &router_s,    &router_a},
 
-    {&free_s,      &done_e,      &idle_s,      &callback_a},
+    {&free_s,      &done_e,      &router_s,    &callback_a},
     {&free_s,      &router_e,    &router_s,    &router_a},
 
-    {&unblock_s,   &done_e,      &idle_s,      &callback_a},
+    {&unblock_s,   &done_e,      &router_s,    &callback_a},
     {&unblock_s,   &router_e,    &router_s,    &router_a},
 
-    {&write_on_s,  &done_e,      &idle_s,      &callback_a},
+    {&write_on_s,  &done_e,      &router_s,    &callback_a},
     {&write_on_s,  &router_e,    &router_s,    &router_a},
 
-    {&write_off_s, &done_e,      &idle_s,      &callback_a},
+    {&write_off_s, &done_e,      &router_s,    &callback_a},
     {&write_off_s, &router_e,    &router_s,    &router_a},
 
-    {&read_s,      &done_e   ,   &idle_s,      &callback_a},
+    {&read_s,      &done_e   ,   &router_s,    &callback_a},
     {&read_s,      &router_e,    &router_s,    &router_a},
 
-    {&write_s,     &done_e,      &idle_s,      &callback_a},
+    {&write_s,     &done_e,      &router_s,    &callback_a},
     {&write_s,     &router_e,    &router_s,    &router_a},
 
-    {&erase_s,     &done_e,      &idle_s,      &callback_a},
+    {&erase_s,     &done_e,      &router_s,    &callback_a},
     {&erase_s,     &router_e,    &router_s,    &router_a},
 )
 
@@ -577,15 +573,6 @@ void _init_s(void)
 {
     if (w25qxx_init() == FLASH_OK) {
         fsm_gc_push_event(&w25qxx_fsm, &done_e);
-    }
-}
-
-void _idle_a(void) {}
-
-void _idle_s(void)
-{
-    if (!circle_buf_gc_empty(&w25q.queue)) {
-        fsm_gc_push_event(&w25qxx_fsm, &router_e);
     }
 }
 
