@@ -522,7 +522,8 @@ bool set_clock_ready()
 	return true;
 #else
 	HAL_PWR_EnableBkUpAccess();
-	HAL_RTCEx_BKUPWrite(&hrtc, RTC_BKP_DR1, BEDAC0DE);
+	HAL_RTCEx_BKUPWrite(&hrtc, RTC_BKP_DR1, (uint16_t)BEDAC0DE);
+	HAL_RTCEx_BKUPWrite(&hrtc, RTC_BKP_DR2, (uint16_t)(BEDAC0DE >> 16U));
 	HAL_PWR_DisableBkUpAccess();
 	return is_clock_ready();
 #endif
@@ -544,7 +545,9 @@ bool is_clock_ready()
 	return value == BEDAC0DE;
 #else
 	HAL_PWR_EnableBkUpAccess();
-	uint32_t value = HAL_RTCEx_BKUPRead(&hrtc, RTC_BKP_DR1);
+	uint32_t value =
+		HAL_RTCEx_BKUPRead(&hrtc, RTC_BKP_DR1) |
+		HAL_RTCEx_BKUPRead(&hrtc, RTC_BKP_DR2) << 16U;
 	HAL_PWR_DisableBkUpAccess();
 	return value == BEDAC0DE;
 #endif
@@ -558,13 +561,13 @@ bool get_clock_ram(const uint8_t idx, uint8_t* data)
 	}
 	return DS1307_GetRegByte(DS1307_REG_RAM_BEGIN + sizeof(BEDAC0DE) + idx, data) == DS1307_OK;
 #else
-	if (RTC_BKP_DR2 + (idx / 4U) > RTC_BKP_NUMBER) {
+	if (RTC_BKP_DR3 + (idx / 2U) > RTC_BKP_NUMBER) {
 		return false;
 	}
 	HAL_PWR_EnableBkUpAccess();
-	uint32_t value = HAL_RTCEx_BKUPRead(&hrtc, RTC_BKP_DR1 + idx / 4U);
+	uint32_t value = HAL_RTCEx_BKUPRead(&hrtc, RTC_BKP_DR3 + idx / 2U);
 	HAL_PWR_DisableBkUpAccess();
-	*data = ((uint8_t*)&value)[idx % 4U];
+	*data = ((uint8_t*)&value)[idx % 2U];
 	return true;
 #endif
 }
@@ -577,14 +580,14 @@ bool set_clock_ram(const uint8_t idx, uint8_t data)
 	}
 	return DS1307_SetRegByte(DS1307_REG_RAM_BEGIN + sizeof(BEDAC0DE) + idx, data) == DS1307_OK;
 #else
-	if (RTC_BKP_DR2 + (idx / 4U) > RTC_BKP_NUMBER) {
+	if (RTC_BKP_DR3 + (idx / 4U) > RTC_BKP_NUMBER) {
 		return false;
 	}
 
 	HAL_PWR_EnableBkUpAccess();
-	uint32_t value = HAL_RTCEx_BKUPRead(&hrtc, RTC_BKP_DR1 + idx / 4U);
-	((uint8_t*)&value)[idx % 4U] = data;
-	HAL_RTCEx_BKUPWrite(&hrtc, RTC_BKP_DR1 + idx / 4U, value);
+	uint32_t value = HAL_RTCEx_BKUPRead(&hrtc, RTC_BKP_DR3 + idx / 2U);
+	((uint8_t*)&value)[idx % 2U] = data;
+	HAL_RTCEx_BKUPWrite(&hrtc, RTC_BKP_DR3 + idx / 2U, value);
 	HAL_PWR_DisableBkUpAccess();
 
 	uint8_t check = 0;

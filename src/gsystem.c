@@ -461,7 +461,8 @@ void system_error_handler(SOUL_STATUS error)
 	}
 #endif
 
-#if !defined(GSYSTEM_NO_RTC_W) && defined(GSYSTEM_DS1307_CLOCK)
+#if !defined(GSYSTEM_NO_RTC_W)
+#   if defined(GSYSTEM_DS1307_CLOCK)
 	if (!is_clock_started()) {
 		GSYSTEM_CLOCK_I2C.Instance = GSYSTEM_CLOCK_I2C_BASE;
 		GSYSTEM_CLOCK_I2C.Init.ClockSpeed = 100000;
@@ -477,6 +478,7 @@ void system_error_handler(SOUL_STATUS error)
 		}
 		clock_begin();
 	}
+#   endif
 	if (!is_clock_ready()) {
 		set_clock_ready();
 	}
