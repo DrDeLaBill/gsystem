@@ -19,11 +19,11 @@ extern bool _w25q_initialized();
 #include "circle_buf_gc.h"
 
 
-#define W25Q_SPI_TIMEOUT_MS       ((uint32_t)100)
-#define W25Q_SPI_ERASE_TIMEOUT_MS ((uint32_t)SECOND_MS)
-#define W25Q_SPI_WRITE_TIMEOUT_MS ((uint32_t)SECOND_MS)
+#define W25Q_SPI_TIMEOUT_MS       ((uint32_t)4)
+#define W25Q_SPI_ERASE_TIMEOUT_MS ((uint32_t)4)
+#define W25Q_SPI_WRITE_TIMEOUT_MS ((uint32_t)4)
 #define W25Q_SPI_COMMAND_SIZE_MAX ((uint8_t)10)
-#define W25Q_SPI_ATTEMPTS_CNT     (15)
+#define W25Q_SPI_ATTEMPTS_CNT     (100)
 
 
 typedef enum _dma_status_t {
@@ -398,6 +398,9 @@ __attribute__((weak)) void w25qxx_erase_event(const flash_status_t status)
 
 void w25qxx_tx_dma_callback()
 {
+	if (circle_buf_gc_empty(&w25q.queue)) {
+		return;
+	}
     switch (*(dma_status_t*)circle_buf_gc_back(&w25q.queue))
     {
     case W25Q_DMA_READ:
@@ -430,6 +433,9 @@ void w25qxx_tx_dma_callback()
 
 void w25qxx_rx_dma_callback()
 {
+	if (circle_buf_gc_empty(&w25q.queue)) {
+		return;
+	}
     switch (*(dma_status_t*)circle_buf_gc_back(&w25q.queue))
     {
     case W25Q_DMA_READ:
@@ -462,6 +468,9 @@ void w25qxx_rx_dma_callback()
 
 void w25qxx_error_dma_callback()
 {
+	if (circle_buf_gc_empty(&w25q.queue)) {
+		return;
+	}
     switch (*(dma_status_t*)circle_buf_gc_back(&w25q.queue))
     {
     case W25Q_DMA_READ:
