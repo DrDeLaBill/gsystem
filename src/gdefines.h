@@ -39,7 +39,11 @@ extern "C" {
 #   define BUILD_VERSION             "v0.0.0"
 #endif
 
-#define GSYSTEM_BEDUG (defined(DEBUG) || defined(GBEDUG_FORCE))
+#ifdef DEBUG
+#   define GSYSTEM_BEDUG 1
+#elif defined(GBEDUG_FORCE)
+#   define GSYSTEM_BEDUG 1
+#endif
 #if GSYSTEM_BEDUG
 extern const char SYSTEM_TAG[];
 #endif
