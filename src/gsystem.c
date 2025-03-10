@@ -37,6 +37,7 @@ static void _fill_ram();
 
 
 static const uint32_t TIMER_VERIF_WORD = 0xBEDAC1DE;
+static const uint32_t TIMER_FREQ_MUL   = 2;
 
 #if GSYSTEM_BUTTONS_COUNT
 unsigned buttons_count = 0;
@@ -447,6 +448,11 @@ void system_error_handler(SOUL_STATUS error)
 	}
 	set_status(SYSTEM_ERROR_HANDLER_CALLED);
 
+	bool need_error_timer = is_status(SYS_TICK_FAULT) || is_error(HARD_FAULT);
+	if (need_error_timer) {
+		__disable_irq();
+	}
+
 	set_error(error);
 
 	if (!has_errors()) {
@@ -492,7 +498,6 @@ void system_error_handler(SOUL_STATUS error)
 	uint32_t delay_ms = GSYSTEM_RESET_TIMEOUT_MS;
 	gtimer_t timer = {0};
 	system_timer_t s_timer = {0};
-	bool need_error_timer = is_status(SYS_TICK_FAULT) || is_error(HARD_FAULT);
 	if (need_error_timer) {
 		system_timer_start(&s_timer, GSYSTEM_TIMER, delay_ms);
 	} else {
@@ -559,42 +564,59 @@ void system_timer_start(system_timer_t* timer, TIM_TypeDef* fw_tim, uint32_t del
 	timer->end = delay_ms / SECOND_MS;
 	memset((void*)fw_tim, 0, sizeof(TIM_TypeDef));
 
+	uint32_t count = 0;
 	switch ((uint32_t)fw_tim) {
 	case TIM1_BASE:
 		__TIM1_CLK_ENABLE();
+		count = HAL_RCC_GetPCLK2Freq();
 		break;
 	case TIM2_BASE:
 		__TIM2_CLK_ENABLE();
+		count = HAL_RCC_GetPCLK1Freq();
 		break;
 	case TIM3_BASE:
 		__TIM3_CLK_ENABLE();
+		count = HAL_RCC_GetPCLK1Freq();
 		break;
 	case TIM4_BASE:
 		__TIM4_CLK_ENABLE();
+		count = HAL_RCC_GetPCLK1Freq();
 		break;
 	default:
 		BEDUG_ASSERT(false, "GSYSTEM TIM WAS NOT SELECTED");
 		return;
 	}
-	uint32_t count_cnt = SECOND_MS;
+	if (count) {
+		count *= TIMER_FREQ_MUL;
+		count /= SECOND_MS;
+	}
+	uint32_t presc = SECOND_MS;
 	if (delay_ms < SECOND_MS) {
 		timer->end = 1;
-		count_cnt  = delay_ms;
+		presc      = delay_ms;
 	}
-	uint32_t presc = HAL_RCC_GetSysClockFreq() / SECOND_MS;
-	while (presc > 0xFFFF) {
-		count_cnt *= 2;
-		presc     /= 2;
+	while (count > 0xFFFF) {
+		presc *= 2;
+		count /= 2;
 	}
 	// TODO: add interrupt with new VTOR
-	if (count_cnt > 0xFFFF) {
-		count_cnt = 0xFFFF;
+	if (presc > 0xFFFF) {
+		presc = 0xFFFF;
 	}
-	timer->tim->SR   = 0;
+	if (presc == 1) {
+		count /= TIMER_FREQ_MUL;
+	}
+
 	timer->tim->PSC  = presc - 1;
-	timer->tim->ARR  = count_cnt - 1;
+	timer->tim->ARR  = count - 1;
+	timer->tim->CR1  = 0;
+
+	timer->tim->EGR  = TIM_EGR_UG;
+	timer->tim->CR1 |= TIM_CR1_UDIS;
+
 	timer->tim->CNT  = 0;
-	timer->tim->CR1 &= ~(TIM_CR1_DIR); // count up
+	timer->tim->SR   = 0;
+	timer->tim->CR1 &= ~(TIM_CR1_DIR);
 	timer->tim->CR1 |= TIM_CR1_OPM;
 	timer->tim->CR1 |= TIM_CR1_CEN;
 
