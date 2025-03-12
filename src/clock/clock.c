@@ -236,6 +236,10 @@ bool save_clock_date(const clock_date_t* save_date)
 {
 	clock_date_t date = {0};
 	memcpy((uint8_t*)&date, (uint8_t*)save_date, sizeof(date));
+	if (!save_date->Date || !save_date->Month) {
+		BEDUG_ASSERT(false, "Bad date");
+		return false;
+	}
 	if (date.Date > DAYS_PER_MONTH_MAX) {
 		date.Date = DAYS_PER_MONTH_MAX;
 	}

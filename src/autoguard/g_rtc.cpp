@@ -175,6 +175,7 @@ extern "C" void rtc_watchdog_check()
 	if (!get_clock_rtc_time(&dumpTime)) {
 		goto do_error;
 	}
+   	_print_OK();
 
 #   if GSYSTEM_BEDUG
 	printPretty("Save date test:    ");
@@ -191,6 +192,7 @@ extern "C" void rtc_watchdog_check()
 		goto do_error;
 	}
     _print_OK();
+
 #   if GSYSTEM_BEDUG
 	printPretty("Check date test:   ");
 #   endif
@@ -260,7 +262,7 @@ extern "C" void rtc_watchdog_check()
 
 	for (unsigned i = 0; i < __arr_len(seconds); i++) {
 #   if GSYSTEM_BEDUG
-		printPretty("[%02u]:            ", i);
+		printPretty("[%02u]:              ", i);
 #   endif
 
 		memset((uint8_t*)&tmpDate, 0, sizeof(tmpDate));
