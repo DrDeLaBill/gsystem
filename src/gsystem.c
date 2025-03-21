@@ -448,12 +448,12 @@ void system_error_handler(SOUL_STATUS error)
 	}
 	set_status(SYSTEM_ERROR_HANDLER_CALLED);
 
+	set_error(error);
+
 	bool need_error_timer = is_status(SYS_TICK_FAULT) || is_error(HARD_FAULT);
 	if (need_error_timer) {
 		__disable_irq();
 	}
-
-	set_error(error);
 
 	if (!has_errors()) {
 		error = INTERNAL_ERROR;
@@ -520,7 +520,7 @@ void system_error_handler(SOUL_STATUS error)
 
 #if GSYSTEM_BEDUG
 	system_timer_start(&s_timer, GSYSTEM_TIMER, SECOND_MS);
-	SYSTEM_BEDUG("GSystem reset");
+	SYSTEM_BEDUG("GSystem reset"); // TODO: change printf to work with registers when need_error_timer is true
 	while(system_timer_wait(&s_timer));
 	system_timer_stop(&s_timer);
 #endif
