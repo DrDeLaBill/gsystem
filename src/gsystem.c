@@ -12,7 +12,6 @@
 #include "gconfig.h"
 #include "gdefines.h"
 #include "hal_defs.h"
-#include "gversion.h"
 
 #if defined(GSYSTEM_DS1307_CLOCK)
 #   include "ds1307.h"
@@ -26,10 +25,7 @@
 const char SYSTEM_TAG[] = "GSYS";
 #endif
 
-#define SYSTEM_WATCHDOG_MIN_DELAY_MS (20)
 
-
-static void _system_watchdog_check(void);
 static void _system_restart_check(void);
 #ifndef GSYSTEM_NO_RAM_W
 static void _fill_ram();
@@ -44,18 +40,8 @@ unsigned buttons_count = 0;
 button_t buttons[GSYSTEM_BUTTONS_COUNT] = {0};
 #endif
 
-static const uint32_t err_delay_ms = 30 * MINUTE_MS;
-
-static bool sys_timeout_enabled = false;
-static uint32_t sys_timeout_ms = 0;
-
 #ifndef GSYSTEM_NO_SYS_TICK_W
 static bool system_hsi_initialized = false;
-#endif
-static gtimer_t err_timer = {0};
-
-#if defined(DEBUG)
-static unsigned kTPScounter = 0;
 #endif
 
 #ifndef GSYSTEM_NO_ADC_W
@@ -65,78 +51,6 @@ uint16_t SYSTEM_ADC_VOLTAGE[GSYSTEM_ADC_VOLTAGE_COUNT] = {0};
 #ifndef GSYSTEM_TIMER
 #   define GSYSTEM_TIMER (TIM1)
 #endif
-
-gversion_t build_ver = {0};
-
-typedef struct _autoguard_t {
-	void     (*action)(void);
-	uint32_t delay_ms;
-	gtimer_t timer;
-} autoguard_t;
-
-
-#ifndef GSYSTEM_NO_SYS_TICK_W
-extern void sys_clock_watchdog_check();
-#endif
-#ifndef GSYSTEM_NO_RAM_W
-extern void ram_watchdog_check();
-#endif
-#ifndef GSYSTEM_NO_ADC_W
-extern void adc_watchdog_check();
-#endif
-#if defined(STM32F1) && !defined(GSYSTEM_NO_I2C_W)
-extern void i2c_watchdog_check();
-#endif
-#if !defined(GSYSTEM_NO_POWER_W) && !defined(GSYSTEM_NO_ADC_W)
-extern void power_watchdog_check();
-#endif
-#ifndef GSYSTEM_NO_RTC_W
-extern void rtc_watchdog_check();
-#endif
-#ifndef GSYSTEM_NO_MEMORY_W
-extern void memory_watchdog_check();
-#endif
-#if GSYSTEM_BUTTONS_COUNT
-extern void btn_watchdog_check();
-#endif
-autoguard_t autoguards[] = {
-	{_system_watchdog_check,   SYSTEM_WATCHDOG_MIN_DELAY_MS, {0,0}},
-#ifndef GSYSTEM_NO_SYS_TICK_W
-	{sys_clock_watchdog_check, SECOND_MS / 10,               {0,0}},
-#endif
-#ifndef GSYSTEM_NO_RAM_W
-	{ram_watchdog_check,       5 * SECOND_MS,                {0,0}},
-#endif
-#ifndef GSYSTEM_NO_ADC_W
-	{adc_watchdog_check,       SECOND_MS / 10,               {0,0}},
-#endif
-#if defined(STM32F1) && !defined(GSYSTEM_NO_I2C_W)
-	{i2c_watchdog_check,       5 * SECOND_MS,                {0,0}},
-#endif
-#ifndef GSYSTEM_NO_RTC_W
-	{rtc_watchdog_check,       SECOND_MS,                    {0,0}},
-#endif
-#if !defined(GSYSTEM_NO_POWER_W) && !defined(GSYSTEM_NO_ADC_W)
-	{power_watchdog_check,     SECOND_MS,                    {0,0}},
-#endif
-#ifndef GSYSTEM_NO_MEMORY_W
-	{memory_watchdog_check,    5 * SECOND_MS,                {0,0}},
-#endif
-#if GSYSTEM_BUTTONS_COUNT
-	{btn_watchdog_check,       5,                            {0,0}},
-#endif
-};
-
-
-typedef struct _process_t {
-	void (*action) (void);
-	gtimer_t timer;
-	uint32_t delay_ms;
-	bool work_with_error;
-} process_t;
-
-static unsigned  processes_cnt = 0;
-static process_t processes[GSYSTEM_POCESSES_COUNT] = { 0 };
 
 
 void system_init(void)
@@ -247,13 +161,13 @@ void system_init(void)
 	while (system_timer_wait(&timer));
 	system_timer_stop(&timer);
 
-	memset((uint8_t*)&processes, 0, sizeof(GSYSTEM_POCESSES_COUNT));
-
-	gtimer_start(&err_timer, err_delay_ms);
-
 	set_status(SYSTEM_HARDWARE_STARTED);
 }
 
+#ifndef GSYSTEM_NO_ADC_W
+extern void adc_watchdog_check();
+#endif
+extern void sys_proc_init();
 void system_post_load(void)
 {
 	set_status(SYSTEM_SOFTWARE_STARTED);
@@ -320,29 +234,7 @@ void system_post_load(void)
 	HAL_PWR_DisableBkUpAccess();
 #endif
 
-	if (!gversion_from_string(BUILD_VERSION, strlen(BUILD_VERSION), &build_ver)) {
-		memset((void*)&build_ver, 0, sizeof(build_ver));
-	}
-
-	printTagLog(SYSTEM_TAG, "BUILD VERSION=%s", gversion_to_string(&build_ver));
-}
-
-void system_register(void (*process) (void), uint32_t delay_ms, bool work_with_error)
-{
-	if (processes_cnt >= __arr_len(processes)) {
-		BEDUG_ASSERT(false, "GSystem processes count is out of range");
-		return;
-	}
-	processes[processes_cnt].action          = process;
-	processes[processes_cnt].delay_ms        = delay_ms;
-	processes[processes_cnt].work_with_error = work_with_error;
-	processes_cnt++;
-}
-
-void set_system_timeout(uint32_t timeout_ms)
-{
-	sys_timeout_enabled = true;
-	sys_timeout_ms      = timeout_ms;
+	sys_proc_init();
 }
 
 void system_start(void)
@@ -356,79 +248,15 @@ void system_start(void)
 
 	SYSTEM_BEDUG("GSystem loaded");
 
-	gtimer_t err_timer = {0};
-	gtimer_start(&err_timer, sys_timeout_ms);
 	while (1) {
 		system_tick();
-
-		if (!gtimer_wait(&err_timer) && sys_timeout_enabled) {
-			system_error_handler(has_errors() ? get_first_error() : LOAD_ERROR);
-		}
-
-		if (!is_system_ready() && sys_timeout_enabled) {
-			continue;
-		}
-
-		gtimer_start(&err_timer, sys_timeout_ms);
 	}
 }
 
-void system_tick()
+extern void sys_proc_tick();
+void system_tick(void)
 {
-	static unsigned index_w = 0;
-	static unsigned index_p = 0;
-
-#if defined(DEBUG)
-	kTPScounter++;
-#endif
-
-	static bool work_w = true;
-	bool tmp_work_w = work_w;
-	work_w = !work_w;
-	if (tmp_work_w) {
-		if (!__arr_len(autoguards)) {
-			return;
-		}
-
-		if (index_w >= __arr_len(autoguards)) {
-			index_w = 0;
-		}
-
-		if (is_status(SYS_TICK_FAULT) || !gtimer_wait(&autoguards[index_w].timer)) {
-			gtimer_start(&autoguards[index_w].timer, autoguards[index_w].delay_ms);
-			autoguards[index_w].action();
-		}
-
-		index_w++;
-	} else {
-		if (!processes_cnt) {
-			return;
-		}
-
-		if (is_status(SYSTEM_ERROR_HANDLER_CALLED) && is_error(HARD_FAULT)) {
-			return;
-		}
-
-		if (index_p >= processes_cnt) {
-			index_p = 0;
-		}
-
-		if (!gtimer_wait(&processes[index_p].timer) &&
-			(
-				!is_status(SYSTEM_ERROR_HANDLER_CALLED) ||
-				(
-					is_status(SYSTEM_ERROR_HANDLER_CALLED) &&
-					processes[index_p].work_with_error
-				)
-			) &&
-			processes[index_p].action
-		) {
-			gtimer_start(&processes[index_p].timer, processes[index_p].delay_ms);
-			processes[index_p].action();
-		}
-
-		index_p++;
-	}
+	sys_proc_tick();
 }
 
 bool is_system_ready()
@@ -539,6 +367,7 @@ void system_error_handler(SOUL_STATUS error)
 
 void system_timer_start(system_timer_t* timer, TIM_TypeDef* fw_tim, uint32_t delay_ms)
 {
+	// TODO: timers after system_timer_start don't work
 	memset(timer, 0, sizeof(system_timer_t));
 	switch ((uint32_t)fw_tim) {
 	case TIM1_BASE:
@@ -669,6 +498,7 @@ void system_timer_stop(system_timer_t* timer)
 			BEDUG_ASSERT(false, "GSYSTEM TIM WAS NOT SELECTED");
 			return;
 		}
+		memset((void*)timer->tim, 0, sizeof(TIM_TypeDef));
 	}
 
 	timer->verif = 0;
@@ -1110,73 +940,6 @@ bool set_system_bckp(const uint8_t idx, const uint8_t data)
 	return set_clock_ram(idx + sizeof(SOUL_STATUS), data);
 }
 #endif
-
-void _system_watchdog_check(void)
-{
-#if GSYSTEM_BEDUG
-	static gtimer_t kTPSTimer = {0,(10 * SECOND_MS)};
-#endif
-
-	if (!gtimer_wait(&err_timer)) {
-		system_error_handler(
-			get_first_error() != NO_ERROR ? get_first_error() : INTERNAL_ERROR
-		);
-	}
-	if (!has_errors()) {
-		gtimer_start(&err_timer, err_delay_ms);
-	}
-
-#if GSYSTEM_BEDUG && !defined(GSYSTEM_NO_STATUS_PRINT)
-	if (!gtimer_wait(&kTPSTimer)) {
-		printTagLog(
-			SYSTEM_TAG,
-			"firmware: v%s",
-			gversion_to_string(&build_ver)
-		);
-		printTagLog(
-			SYSTEM_TAG,
-			"kTPS    : %lu.%lu",
-			kTPScounter / (10 * SECOND_MS),
-			(kTPScounter / SECOND_MS) % 10
-		);
-#   ifndef GSYSTEM_NO_ADC_W
-		uint32_t power = get_system_power();
-		printTagLog(
-			SYSTEM_TAG,
-			"power   : %lu.%lu V",
-			power / 10,
-			power % 10
-		);
-#   endif
-		kTPScounter = 0;
-		gtimer_start(&kTPSTimer, (10 * SECOND_MS));
-	}
-	if (has_new_status_data()) {
-		show_statuses();
-	}
-	if (has_new_error_data()) {
-		show_errors();
-	}
-#endif
-
-	if (!is_error(STACK_ERROR) &&
-		!is_error(SYS_TICK_ERROR)
-	) {
-		set_status(SYSTEM_HARDWARE_READY);
-	} else {
-		reset_status(SYSTEM_HARDWARE_READY);
-	}
-
-	if (is_software_ready()) {
-		set_status(SYSTEM_SOFTWARE_READY);
-	} else {
-		reset_status(SYSTEM_SOFTWARE_READY);
-	}
-
-	if (!is_status(SYSTEM_HARDWARE_READY)) {
-		reset_status(SYSTEM_SOFTWARE_READY);
-	}
-}
 
 void _system_restart_check(void)
 {

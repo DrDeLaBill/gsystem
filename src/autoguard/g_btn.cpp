@@ -17,12 +17,9 @@ extern "C" void btn_watchdog_check()
 		return;
 	}
 
-	static unsigned counter = 0;
-	if (counter >= buttons_count) {
-		counter = 0;
+	for (unsigned i = 0; i < buttons_count; i++) {
+		button_tick(&buttons[i]);
 	}
-
-	button_tick(&buttons[counter++]);
 }
 
 #endif
