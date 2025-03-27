@@ -53,7 +53,7 @@ static process_t sys_proc[] = {
 	{ram_watchdog_check,       5 * SECOND_MS,  {0,0}, true},
 #endif
 #ifndef GSYSTEM_NO_ADC_W
-	{adc_watchdog_check,       SECOND_MS / 10, {0,0}, true},
+	{adc_watchdog_check,       50,             {0,0}, true},
 #endif
 #if defined(STM32F1) && !defined(GSYSTEM_NO_I2C_W)
 	{i2c_watchdog_check,       5 * SECOND_MS,  {0,0}, true},
@@ -80,11 +80,11 @@ static utl::GQueue<16, process_t> queue;
 static unsigned kTPScounter = 0;
 #endif
 
-static gtimer_t err_timer = {0};
+static gtimer_t err_timer = {};
 
 static const uint32_t err_delay_ms = 30 * MINUTE_MS;
 
-static gversion_t build_ver = {0};
+static gversion_t build_ver = {};
 
 static bool sys_timeout_enabled = false;
 
@@ -116,7 +116,9 @@ extern "C" void sys_proc_init()
 	if (!gversion_from_string(BUILD_VERSION, strlen(BUILD_VERSION), &build_ver)) {
 		memset((void*)&build_ver, 0, sizeof(build_ver));
 	}
+#ifdef GSYSTEM_BEDUG
 	printTagLog(SYSTEM_TAG, "BUILD VERSION=%s", gversion_to_string(&build_ver));
+#endif
 }
 
 extern "C" void sys_proc_tick()
@@ -124,7 +126,7 @@ extern "C" void sys_proc_tick()
 #if defined(DEBUG)
 	kTPScounter++;
 #endif
-	static gtimer_t err_timer = {0};
+	static gtimer_t err_timer = {};
 
 	if (queue.count()) {
 		queue.pop().action();

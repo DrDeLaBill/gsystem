@@ -793,7 +793,7 @@ flash_status_t w25qxx_erase_sector(const uint32_t addr)
 #endif
 		return FLASH_ERROR;
 	}
-	uint32_t addrs[W25Q_SECTOR_SIZE / W25Q_PAGE_SIZE] = {};
+	uint32_t addrs[W25Q_SECTOR_SIZE / W25Q_PAGE_SIZE] = {0};
 	for (unsigned i = 0; i < W25Q_SECTOR_SIZE; i+=W25Q_PAGE_SIZE) {
 		addrs[i / W25Q_PAGE_SIZE] = addr + i;
 	}

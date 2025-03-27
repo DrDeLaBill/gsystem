@@ -19,8 +19,8 @@
 #include "hal_defs.h"
 
 
-#if defined(GSYSTEM_DS1307_CLOCK)
-#   include "ds1307.h"
+#if defined(GSYSTEM_DS130X_CLOCK)
+#   include "ds130x.h"
 #else
 extern RTC_HandleTypeDef hrtc;
 #endif
@@ -52,8 +52,8 @@ uint8_t _get_days_in_month(uint16_t year, Months month);
 
 void clock_begin()
 {
-#if defined(GSYSTEM_DS1307_CLOCK)
-	clock_started = DS1307_Init() == DS1307_OK;
+#if defined(GSYSTEM_DS130X_CLOCK)
+	clock_started = DS130X_Init() == DS130X_OK;
 #else
 	clock_started = true;
 #endif
@@ -66,9 +66,9 @@ bool is_clock_started()
 
 uint16_t get_clock_year()
 {
-#if defined(GSYSTEM_DS1307_CLOCK)
+#if defined(GSYSTEM_DS130X_CLOCK)
 	uint16_t year = 0;
-	if (DS1307_GetYear(&year) != DS1307_OK) {
+	if (DS130X_GetYear(&year) != DS130X_OK) {
 		year = 0;
 	}
 	return year;
@@ -84,9 +84,9 @@ uint16_t get_clock_year()
 
 uint8_t get_clock_month()
 {
-#if defined(GSYSTEM_DS1307_CLOCK)
+#if defined(GSYSTEM_DS130X_CLOCK)
 	uint8_t month = 0;
-	if (DS1307_GetMonth(&month) != DS1307_OK) {
+	if (DS130X_GetMonth(&month) != DS130X_OK) {
 		month = 0;
 	}
 	return month;
@@ -102,9 +102,9 @@ uint8_t get_clock_month()
 
 uint8_t get_clock_date()
 {
-#if defined(GSYSTEM_DS1307_CLOCK)
+#if defined(GSYSTEM_DS130X_CLOCK)
 	uint8_t date = 0;
-	if (DS1307_GetDate(&date) != DS1307_OK) {
+	if (DS130X_GetDate(&date) != DS130X_OK) {
 		date = 0;
 	}
 	return date;
@@ -120,9 +120,9 @@ uint8_t get_clock_date()
 
 uint8_t get_clock_hour()
 {
-#if defined(GSYSTEM_DS1307_CLOCK)
+#if defined(GSYSTEM_DS130X_CLOCK)
 	uint8_t hour = 0;
-	if (DS1307_GetHour(&hour) != DS1307_OK) {
+	if (DS130X_GetHour(&hour) != DS130X_OK) {
 		hour = 0;
 	}
 	return hour;
@@ -138,9 +138,9 @@ uint8_t get_clock_hour()
 
 uint8_t get_clock_minute()
 {
-#if defined(GSYSTEM_DS1307_CLOCK)
+#if defined(GSYSTEM_DS130X_CLOCK)
 	uint8_t minute = 0;
-	if (DS1307_GetMinute(&minute) != DS1307_OK) {
+	if (DS130X_GetMinute(&minute) != DS130X_OK) {
 		minute = 0;
 	}
 	return minute;
@@ -156,9 +156,9 @@ uint8_t get_clock_minute()
 
 uint8_t get_clock_second()
 {
-#if defined(GSYSTEM_DS1307_CLOCK)
+#if defined(GSYSTEM_DS130X_CLOCK)
 	uint8_t second = 0;
-	if (DS1307_GetSecond(&second) != DS1307_OK) {
+	if (DS130X_GetSecond(&second) != DS130X_OK) {
 		second = 0;
 	}
 	return second;
@@ -185,14 +185,14 @@ bool save_clock_time(const clock_time_t* save_time)
     if (time.Hours   >= HOURS_PER_DAY) {
     	time.Hours   = 0;
     }
-#if defined(GSYSTEM_DS1307_CLOCK)
-	if (DS1307_SetHour(time.Hours) != DS1307_OK) {
+#if defined(GSYSTEM_DS130X_CLOCK)
+	if (DS130X_SetHour(time.Hours) != DS130X_OK) {
 		return false;
 	}
-	if (DS1307_SetMinute(time.Minutes) != DS1307_OK) {
+	if (DS130X_SetMinute(time.Minutes) != DS130X_OK) {
 		return false;
 	}
-	if (DS1307_SetSecond(time.Seconds) != DS1307_OK) {
+	if (DS130X_SetSecond(time.Seconds) != DS130X_OK) {
 		return false;
 	}
 
@@ -246,14 +246,14 @@ bool save_clock_date(const clock_date_t* save_date)
 	if (date.Month > MONTHS_PER_YEAR) {
 		date.Month = MONTHS_PER_YEAR;
 	}
-#if defined(GSYSTEM_DS1307_CLOCK)
-	if (DS1307_SetYear((uint16_t)date.Year) != DS1307_OK) {
+#if defined(GSYSTEM_DS130X_CLOCK)
+	if (DS130X_SetYear((uint16_t)date.Year) != DS130X_OK) {
 		return false;
 	}
-	if (DS1307_SetMonth(date.Month) != DS1307_OK) {
+	if (DS130X_SetMonth(date.Month) != DS130X_OK) {
 		return false;
 	}
-	if (DS1307_SetDate(date.Date) != DS1307_OK) {
+	if (DS130X_SetDate(date.Date) != DS130X_OK) {
 		return false;
 	}
 	return true;
@@ -299,14 +299,14 @@ bool save_clock_date(const clock_date_t* save_date)
 
 bool get_clock_rtc_time(clock_time_t* time)
 {
-#if defined(GSYSTEM_DS1307_CLOCK)
-	if (DS1307_GetHour(&time->Hours) != DS1307_OK) {
+#if defined(GSYSTEM_DS130X_CLOCK)
+	if (DS130X_GetHour(&time->Hours) != DS130X_OK) {
 		return false;
 	}
-	if (DS1307_GetMinute(&time->Minutes) != DS1307_OK) {
+	if (DS130X_GetMinute(&time->Minutes) != DS130X_OK) {
 		return false;
 	}
-	if (DS1307_GetSecond(&time->Seconds) != DS1307_OK) {
+	if (DS130X_GetSecond(&time->Seconds) != DS130X_OK) {
 		return false;
 	}
 	return true;
@@ -324,14 +324,14 @@ bool get_clock_rtc_time(clock_time_t* time)
 
 bool get_clock_rtc_date(clock_date_t* date)
 {
-#if defined(GSYSTEM_DS1307_CLOCK)
-	if (DS1307_GetYear(&date->Year) != DS1307_OK) {
+#if defined(GSYSTEM_DS130X_CLOCK)
+	if (DS130X_GetYear(&date->Year) != DS130X_OK) {
 		return false;
 	}
-	if (DS1307_GetMonth(&date->Month) != DS1307_OK) {
+	if (DS130X_GetMonth(&date->Month) != DS130X_OK) {
 		return false;
 	}
-	if (DS1307_GetDate(&date->Date) != DS1307_OK) {
+	if (DS130X_GetDate(&date->Date) != DS130X_OK) {
 		return false;
 	}
 	return true;
@@ -403,7 +403,7 @@ void get_clock_seconds_to_datetime(const uint64_t seconds, clock_date_t* date, c
 	time->Hours = (uint8_t)(hours % HOURS_PER_DAY);
 	uint64_t days = 1 + hours / HOURS_PER_DAY;
 
-#if !defined(GSYSTEM_DS1307_CLOCK)
+#if !defined(GSYSTEM_DS130X_CLOCK)
 	date->WeekDay = (uint8_t)((RTC_WEEKDAY_THURSDAY + days) % (DAYS_PER_WEEK)) + 1;
 	if (date->WeekDay == DAYS_PER_WEEK) {
 		date->WeekDay = 0;
@@ -498,15 +498,15 @@ char* get_clock_time_format_by_sec(uint64_t seconds)
 
 bool set_clock_ready()
 {
-#if defined(GSYSTEM_DS1307_CLOCK)
+#if defined(GSYSTEM_DS130X_CLOCK)
 	bool need_erase = !is_clock_ready();
 	printTagLog("CLCK", "Update clock %s", (need_erase ? "(erase)" : ""));
 	uint32_t value = BEDAC0DE;
 	for (uint8_t i = 0; i < sizeof(BEDAC0DE); i++) {
-		if (DS1307_SetRegByte(
-				(uint8_t)DS1307_REG_RAM_BEGIN + i,
+		if (DS130X_SetRegByte(
+				(uint8_t)DS130X_REG_RAM_BEGIN + i,
 				((uint8_t*)&value)[i]
-			) != DS1307_OK
+			) != DS130X_OK
 		) {
 			return false;
 		}
@@ -515,11 +515,11 @@ bool set_clock_ready()
 		return true;
 	}
 	for (
-		unsigned i = DS1307_REG_RAM_BEGIN + sizeof(BEDAC0DE);
-		i <= DS1307_REG_RAM_END;
+		unsigned i = DS130X_REG_RAM_BEGIN + sizeof(BEDAC0DE);
+		i <= DS130X_REG_RAM_END;
 		i++
 	)  {
-		if (DS1307_SetRegByte((uint8_t)i, 0xFF) != DS1307_OK) {
+		if (DS130X_SetRegByte((uint8_t)i, 0xFF) != DS130X_OK) {
 			return false;
 		}
 	}
@@ -535,13 +535,13 @@ bool set_clock_ready()
 
 bool is_clock_ready()
 {
-#if defined(GSYSTEM_DS1307_CLOCK)
+#if defined(GSYSTEM_DS130X_CLOCK)
 	uint32_t value = 0;
 	for (uint8_t i = 0; i < sizeof(BEDAC0DE); i++) {
-		if (DS1307_GetRegByte(
-				(uint8_t)DS1307_REG_RAM_BEGIN + i,
+		if (DS130X_GetRegByte(
+				(uint8_t)DS130X_REG_RAM_BEGIN + i,
 				&((uint8_t*)&value)[i]
-			) != DS1307_OK
+			) != DS130X_OK
 		) {
 			return false;
 		}
@@ -559,39 +559,39 @@ bool is_clock_ready()
 
 bool get_clock_ram(const uint8_t idx, uint8_t* data)
 {
-#if defined(GSYSTEM_DS1307_CLOCK)
-	if (DS1307_REG_RAM_BEGIN + sizeof(BEDAC0DE) + idx > DS1307_REG_RAM_END) {
+#if defined(GSYSTEM_DS130X_CLOCK)
+	if (DS130X_REG_RAM_BEGIN + sizeof(BEDAC0DE) + idx > DS130X_REG_RAM_END) {
 		return false;
 	}
-	return DS1307_GetRegByte(DS1307_REG_RAM_BEGIN + sizeof(BEDAC0DE) + idx, data) == DS1307_OK;
+	return DS130X_GetRegByte(DS130X_REG_RAM_BEGIN + sizeof(BEDAC0DE) + idx, data) == DS130X_OK;
 #else
-	if (RTC_BKP_DR3 + (idx / 2U) > RTC_BKP_NUMBER) {
+	if (RTC_BKP_DR3 + (idx / STM_BCKP_REG_SIZE) > RTC_BKP_NUMBER) {
 		return false;
 	}
 	HAL_PWR_EnableBkUpAccess();
-	uint32_t value = HAL_RTCEx_BKUPRead(&hrtc, RTC_BKP_DR3 + idx / 2U);
+	uint32_t value = HAL_RTCEx_BKUPRead(&hrtc, RTC_BKP_DR3 + idx / STM_BCKP_REG_SIZE);
 	HAL_PWR_DisableBkUpAccess();
-	*data = ((uint8_t*)&value)[idx % 2U];
+	*data = ((uint8_t*)&value)[idx % STM_BCKP_REG_SIZE];
 	return true;
 #endif
 }
 
 bool set_clock_ram(const uint8_t idx, uint8_t data)
 {
-#if defined(GSYSTEM_DS1307_CLOCK)
-	if (DS1307_REG_RAM_BEGIN + sizeof(BEDAC0DE) + idx > DS1307_REG_RAM_END) {
+#if defined(GSYSTEM_DS130X_CLOCK)
+	if (DS130X_REG_RAM_BEGIN + sizeof(BEDAC0DE) + idx > DS130X_REG_RAM_END) {
 		return false;
 	}
-	return DS1307_SetRegByte(DS1307_REG_RAM_BEGIN + sizeof(BEDAC0DE) + idx, data) == DS1307_OK;
+	return DS130X_SetRegByte(DS130X_REG_RAM_BEGIN + sizeof(BEDAC0DE) + idx, data) == DS130X_OK;
 #else
-	if (RTC_BKP_DR3 + (idx / 4U) > RTC_BKP_NUMBER) {
+	if (RTC_BKP_DR3 + (idx / STM_BCKP_REG_SIZE) > RTC_BKP_NUMBER) {
 		return false;
 	}
 
 	HAL_PWR_EnableBkUpAccess();
-	uint32_t value = HAL_RTCEx_BKUPRead(&hrtc, RTC_BKP_DR3 + idx / 2U);
-	((uint8_t*)&value)[idx % 2U] = data;
-	HAL_RTCEx_BKUPWrite(&hrtc, RTC_BKP_DR3 + idx / 2U, value);
+	uint32_t value = HAL_RTCEx_BKUPRead(&hrtc, RTC_BKP_DR3 + idx / STM_BCKP_REG_SIZE);
+	((uint8_t*)&value)[idx % STM_BCKP_REG_SIZE] = data;
+	HAL_RTCEx_BKUPWrite(&hrtc, RTC_BKP_DR3 + idx / STM_BCKP_REG_SIZE, value);
 	HAL_PWR_DisableBkUpAccess();
 
 	uint8_t check = 0;

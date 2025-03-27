@@ -36,6 +36,8 @@ extern "C" {
 #define DAYS_PER_LEAP_YEAR (366)
 #define LEAP_YEAR_PERIOD   ((uint32_t)4)
 
+#define STM_BCKP_REG_SIZE  (4)
+
 
 typedef struct _clock_date_t {
 	uint8_t  WeekDay;

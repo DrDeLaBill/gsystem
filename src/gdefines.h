@@ -44,6 +44,9 @@ extern "C" {
 #elif defined(GBEDUG_FORCE)
 #   define GSYSTEM_BEDUG 1
 #endif
+#ifdef GSYSTEM_NO_BEDUG
+#   undef GSYSTEM_BEDUG
+#endif
 #if GSYSTEM_BEDUG
 extern const char SYSTEM_TAG[];
 #endif
@@ -65,8 +68,8 @@ extern const char SYSTEM_TAG[];
 #   undef GSYSTEM_BEDUG_UART
 #endif
 
-#if defined(GSYSTEM_DS1307_CLOCK)
-#   define SYSTEM_BKUP_SIZE (DS1307_REG_RAM_END - DS1307_REG_RAM_BEGIN - sizeof(SOUL_STATUS))
+#if defined(GSYSTEM_DS130X_CLOCK)
+#   define SYSTEM_BKUP_SIZE (DS130X_REG_RAM_END - DS130X_REG_RAM_BEGIN - sizeof(SOUL_STATUS))
 #elif !defined(GSYSTEM_NO_RTC_W)
 #   define SYSTEM_BKUP_SIZE (RTC_BKP_NUMBER - RTC_BKP_DR2 - sizeof(SOUL_STATUS))
 #endif

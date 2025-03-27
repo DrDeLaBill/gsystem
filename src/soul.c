@@ -5,11 +5,14 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+#include "gdefines.h"
+#include "gconfig.h"
+
 #include "glog.h"
 #include "bmacro.h"
 
 
-#if defined(DEBUG) || defined(GBEDUG_FORCE)
+#if !defined(GSYSTEM_NO_STATUS_PRINT) && (defined(DEBUG) || defined(GBEDUG_FORCE))
 static const char TAG[] = "SOUL";
 #endif
 
@@ -63,7 +66,7 @@ bool is_internal_error(SOUL_STATUS error)
 void set_internal_error(SOUL_STATUS error)
 {
 	if (error > ERRORS_START && error < ERRORS_END) {
-#if defined(DEBUG) || defined(GBEDUG_FORCE)
+#if !defined(GSYSTEM_NO_STATUS_PRINT) && (defined(DEBUG) || defined(GBEDUG_FORCE))
 		if (!_is_status(error)) {
 			soul.has_new_error_data = true;
 		}
@@ -75,7 +78,7 @@ void set_internal_error(SOUL_STATUS error)
 void reset_internal_error(SOUL_STATUS error)
 {
 	if (error > ERRORS_START && error < ERRORS_END) {
-#if defined(DEBUG) || defined(GBEDUG_FORCE)
+#if !defined(GSYSTEM_NO_STATUS_PRINT) && (defined(DEBUG) || defined(GBEDUG_FORCE))
 		if (_is_status(error)) {
 			soul.has_new_error_data = true;
 		}
@@ -105,7 +108,7 @@ bool is_internal_status(SOUL_STATUS status)
 void set_internal_status(SOUL_STATUS status)
 {
 	if (status > STATUSES_START && status < STATUSES_END) {
-#if defined(DEBUG) || defined(GBEDUG_FORCE)
+#if !defined(GSYSTEM_NO_STATUS_PRINT) && (defined(DEBUG) || defined(GBEDUG_FORCE))
 		if (!_is_status(status)) {
 			soul.has_new_status_data = true;
 		}
@@ -157,9 +160,10 @@ void _reset_status(SOUL_STATUS status)
 									 break;
 char* get_status_name(SOUL_STATUS status)
 {
+	(void)status;
 	static char name[35] = { 0 };
 	memset(name, 0, sizeof(name));
-
+#if !defined(GSYSTEM_NO_STATUS_PRINT) && (defined(DEBUG) || defined(GBEDUG_FORCE))
 	switch (status) {
 	CASE_STATUS(SYSTEM_ERROR_HANDLER_CALLED)
 	CASE_STATUS(SYSTEM_HARDWARE_STARTED)
@@ -176,6 +180,7 @@ char* get_status_name(SOUL_STATUS status)
 	CASE_STATUS(SETTINGS_INITIALIZED)
 	CASE_STATUS(NEED_LOAD_SETTINGS)
 	CASE_STATUS(NEED_SAVE_SETTINGS)
+	CASE_STATUS(GSYS_ADC_READY)
 	CASE_STATUS(MODBUS_FAULT)
 	CASE_STATUS(PUMP_FAULT)
 	CASE_STATUS(RTC_FAULT)
@@ -211,7 +216,7 @@ char* get_status_name(SOUL_STATUS status)
 		snprintf(name, sizeof(name) - 1, "[%03u] %s", status, get_custom_status_name(status));
 		break;
 	}
-
+#endif
 	return name;
 }
 
@@ -222,7 +227,7 @@ __attribute__((weak)) char* get_custom_status_name(SOUL_STATUS status)
 }
 #undef CASE_STATUS
 
-#if defined(DEBUG) || defined(GBEDUG_FORCE)
+#if !defined(GSYSTEM_NO_STATUS_PRINT) && (defined(DEBUG) || defined(GBEDUG_FORCE))
 
 bool has_new_error_data()
 {

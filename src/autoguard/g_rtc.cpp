@@ -32,7 +32,7 @@ extern "C" void rtc_watchdog_check()
 	clock_time_t dumpTime  = {0,0,0};
 	uint64_t dumpMs        = getMillis();
 
-#   if defined(GSYSTEM_DS1307_CLOCK)
+#   if defined(GSYSTEM_DS130X_CLOCK)
 	clock_date_t saveDate  = {0, 04, 28, 24};
 #   else
 	clock_date_t saveDate  = {RTC_WEEKDAY_SUNDAY, 04, 28, 24};
@@ -45,7 +45,7 @@ extern "C" void rtc_watchdog_check()
 	uint64_t res_seconds   = 0;
 
 	const clock_date_t dates[] = {
-#   if defined(GSYSTEM_DS1307_CLOCK)
+#   if defined(GSYSTEM_DS130X_CLOCK)
 		{0, 01, 01, 00},
 		{0, 01, 02, 00},
 		{0, 04, 27, 24},
@@ -269,7 +269,7 @@ extern "C" void rtc_watchdog_check()
 		memset((uint8_t*)&tmpTime, 0, sizeof(tmpTime));
 		get_clock_seconds_to_datetime(seconds[i], &tmpDate, &tmpTime);
 		if (!is_same_date(&tmpDate, &dates[i])
-#   if !defined(GSYSTEM_DS1307_CLOCK)
+#   if !defined(GSYSTEM_DS130X_CLOCK)
 			&& tmpDate.WeekDay == dates[i].WeekDay
 #   endif
 		) {
@@ -333,7 +333,7 @@ do_error:
 	gprint("error\n");
 #   endif
 
-#   ifdef GSYSTEM_DS1307_CLOCK
+#   ifdef GSYSTEM_DS130X_CLOCK
 	system_reset_i2c_errata();
 	set_error(RTC_ERROR);
 	return;

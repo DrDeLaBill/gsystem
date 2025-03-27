@@ -8,17 +8,21 @@
 
 #ifndef GSYSTEM_NO_ADC_W
 
-#   define SYSTEM_ADC_DELAY_MS ((uint32_t)100)
+#define GSYSTEM_ADC_DELAY_MS   ((uint32_t)100)
+#define GSYSTEM_ADC_TIMEOUT_MS ((uint32_t)SECOND_MS)
 
-static gtimer_t adc_timer = {};
-static bool adc_started = false;
+static gtimer_t adc_timer   = {};
+static gtimer_t adc_timeout = {};
+static bool adc_started     = false;
 
 
 void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc)
 {
 	(void)hadc;
 	adc_started = false;
-	gtimer_start(&adc_timer, SYSTEM_ADC_DELAY_MS);
+	gtimer_start(&adc_timer, GSYSTEM_ADC_DELAY_MS);
+	gtimer_start(&adc_timeout, GSYSTEM_ADC_TIMEOUT_MS);
+	set_status(GSYS_ADC_READY);
 }
 
 extern "C" void adc_watchdog_check()
@@ -27,8 +31,8 @@ extern "C" void adc_watchdog_check()
 		return;
 	}
 
-	if (gtimer_wait(&adc_timer)) {
-		return;
+	if (!gtimer_wait(&adc_timeout)) {
+		reset_status(GSYS_ADC_READY);
 	}
 
 	if (adc_started) {
