@@ -126,7 +126,6 @@ extern "C" void sys_proc_tick()
 #if defined(DEBUG)
 	kTPScounter++;
 #endif
-	static gtimer_t err_timer = {};
 
 	if (queue.count()) {
 		queue.pop().action();
