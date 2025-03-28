@@ -15,6 +15,13 @@ extern "C" {
 #include "gdefines.h"
 
 
+#define GSYS_CALL_HARD_FAULT() { \
+	volatile int _gsys_val1 = 1, _gsys_val2 = 1; \
+	while(--_gsys_val1) _gsys_val2++; \
+	volatile int _gsys_res = _gsys_val2 / _gsys_val1; \
+}
+
+
 void system_init(void);
 void system_register(void (*process) (void), uint32_t delay_ms, bool work_with_error);
 void set_system_timeout(uint32_t timeout_ms);

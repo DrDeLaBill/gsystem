@@ -150,34 +150,12 @@ extern "C" void sys_proc_tick()
 			gtimer_start(&sys_proc[i].timer, sys_proc[i].delay_ms);
 		}
 	}
-
-	if (!sys_timeout_enabled) {
-		return;
-	}
-
-	if (is_system_ready()) {
-		gtimer_start(&err_timer, sys_timeout_ms);
-	} else if (!gtimer_wait(&err_timer)) {
-		system_error_handler(has_errors() ? get_first_error() : LOAD_ERROR);
-	}
 }
 
 void _sys_watchdog_check(void)
 {
-#if GSYSTEM_BEDUG
-	static gtimer_t kTPSTimer = {0,(10 * SECOND_MS)};
-#endif
-
-	if (!gtimer_wait(&err_timer)) {
-		system_error_handler(
-			get_first_error() != NO_ERROR ? get_first_error() : INTERNAL_ERROR
-		);
-	}
-	if (!has_errors()) {
-		gtimer_start(&err_timer, err_delay_ms);
-	}
-
 #if GSYSTEM_BEDUG && !defined(GSYSTEM_NO_STATUS_PRINT)
+	static gtimer_t kTPSTimer = {0,(10 * SECOND_MS)};
 	if (!gtimer_wait(&kTPSTimer)) {
 		printTagLog(
 			SYSTEM_TAG,
@@ -226,5 +204,15 @@ void _sys_watchdog_check(void)
 
 	if (!is_status(SYSTEM_HARDWARE_READY)) {
 		reset_status(SYSTEM_SOFTWARE_READY);
+	}
+
+	if (!sys_timeout_enabled || is_status(SYSTEM_ERROR_HANDLER_CALLED)) {
+		return;
+	}
+
+	if (is_system_ready()) {
+		gtimer_start(&err_timer, sys_timeout_ms);
+	} else if (!gtimer_wait(&err_timer)) {
+		system_error_handler(has_errors() ? get_first_error() : LOAD_ERROR);
 	}
 }

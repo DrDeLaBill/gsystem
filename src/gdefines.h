@@ -68,6 +68,9 @@ extern const char SYSTEM_TAG[];
 #   undef GSYSTEM_BEDUG_UART
 #endif
 
+#if defined(GSYSTEM_DS1302_CLOCK) || defined(GSYSTEM_DS1307_CLOCK)
+#   define GSYSTEM_DS130X_CLOCK
+#endif
 #if defined(GSYSTEM_DS130X_CLOCK)
 #   define SYSTEM_BKUP_SIZE (DS130X_REG_RAM_END - DS130X_REG_RAM_BEGIN - sizeof(SOUL_STATUS))
 #elif !defined(GSYSTEM_NO_RTC_W)

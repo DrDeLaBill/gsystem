@@ -25,6 +25,7 @@ extern "C" {
 //#define GSYSTEM_NO_MEMORY_W
 //#define GSYSTEM_NO_PLL_CHECK_W
 //#define GSYSTEM_NO_STATUS_PRINT
+//#define GSYSTEM_NO_VTOR_REWRITE
 
 //#define GSYSTEM_NO_PRINTF
 
@@ -34,7 +35,13 @@ extern "C" {
 //#define GSYSTEM_FLASH_MODE
 //#define GSYSTEM_EEPROM_MODE
 
-//#define GSYSTEM_DS130X_CLOCK
+//#define GSYSTEM_DS1302_CLOCK
+//#define GSYSTEM_CLOCK_CLK         CLOCK_CLK_GPIO_Port,CLOCK_CLK_Pin
+//#define GSYSTEM_CLOCK_IO          CLOCK_IO_GPIO_Port,CLOCK_IO_Pin
+//#define GSYSTEM_CLOCK_CE          CLOCK_CE_GPIO_Port,CLOCK_CE_Pin
+//#define GSYSTEM_DS1307_CLOCK
+//#define GSYSTEM_CLOCK_I2C         (hi2c1)
+//#define GSYSTEM_CLOCK_I2C_BASE    I2C1
 
 //#define GSYSTEM_TIMER             (TIM1)
 

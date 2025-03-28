@@ -53,17 +53,14 @@ uint16_t SYSTEM_ADC_VOLTAGE[GSYSTEM_ADC_VOLTAGE_COUNT] = {0};
 #endif
 
 
+extern void sys_isr_register();
 void system_init(void)
 {
+    sys_isr_register();
+
 #ifndef GSYSTEM_NO_RAM_W
     _fill_ram();
 #endif
-
-    if (!MCUcheck()) {
-        set_error(MCU_ERROR);
-        system_error_handler(get_first_error());
-        while(1) {}
-    }
 
     system_timer_t timer = {0};
 #ifndef GSYSTEM_NO_SYS_TICK_W
@@ -295,7 +292,7 @@ void system_error_handler(SOUL_STATUS error)
 #endif
 
 #if !defined(GSYSTEM_NO_RTC_W)
-#   if defined(GSYSTEM_DS130X_CLOCK)
+#   if defined(GSYSTEM_DS1307_CLOCK)
     if (!is_clock_started()) {
         GSYSTEM_CLOCK_I2C.Instance = GSYSTEM_CLOCK_I2C_BASE;
         GSYSTEM_CLOCK_I2C.Init.ClockSpeed = 100000;
@@ -731,7 +728,7 @@ __attribute__((weak)) void system_error_loop(void) {}
 
 void system_reset_i2c_errata(void)
 {
-#if defined(GSYSTEM_EEPROM_MODE) || defined(GSYSTEM_I2C) || (defined(GSYSTEM_DS130X_CLOCK) && defined(GSYSTEM_NO_RTC_W))
+#if defined(GSYSTEM_EEPROM_MODE) || defined(GSYSTEM_I2C) || (defined(GSYSTEM_DS1307_CLOCK) && defined(GSYSTEM_NO_RTC_W))
     SYSTEM_BEDUG("RESET I2C (ERRATA)");
 
     extern I2C_HandleTypeDef GSYSTEM_I2C;

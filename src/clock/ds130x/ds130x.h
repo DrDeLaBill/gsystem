@@ -43,7 +43,6 @@ typedef enum _DS130X_STATUS {
 #define DS130X_REG_RAM_END      0x3F
 #define DS130X_TIMEOUT		    100
 /*----------------------------------------------------------------------------*/
-extern I2C_HandleTypeDef *_ds130x_ui2c;
 
 typedef enum DS130X_Rate{
 	DS130X_1HZ, DS130X_4096HZ, DS130X_8192HZ, DS130X_32768HZ

@@ -9,7 +9,9 @@
 #if defined(GSYSTEM_DS130X_CLOCK)
 
 
-#ifdef GSYSTEM_CLOCK_CE
+#ifdef GSYSTEM_DS1302_CLOCK
+static util_port_pin_t pin_clk = {GSYSTEM_CLOCK_CLK};
+static util_port_pin_t pin_io = {GSYSTEM_CLOCK_IO};
 static util_port_pin_t pin_ce = {GSYSTEM_CLOCK_CE};
 #endif
 
@@ -18,8 +20,25 @@ static util_port_pin_t pin_ce = {GSYSTEM_CLOCK_CE};
  * @param hi2c User I2C handle pointer.
  */
 DS130X_STATUS DS130X_Init() {
-#ifdef GSYSTEM_CLOCK_CE
+#ifdef GSYSTEM_DS1302_CLOCK
+    GPIO_InitTypeDef GPIO_InitStruct = {0};
+    GPIO_InitStruct.Pin  = pin_ce.pin;
+	GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+	GPIO_InitStruct.Pull = GPIO_NOPULL;
+    HAL_GPIO_Init(pin_ce.port, &GPIO_InitStruct);
+    memset((void*)&GPIO_InitStruct, 0, sizeof(GPIO_InitStruct));
+    GPIO_InitStruct.Pin  = pin_clk.pin;
+	GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+	GPIO_InitStruct.Pull = GPIO_NOPULL;
+    HAL_GPIO_Init(pin_clk.port, &GPIO_InitStruct);
+    memset((void*)&GPIO_InitStruct, 0, sizeof(GPIO_InitStruct));
+    GPIO_InitStruct.Pin  = pin_io.pin;
+	GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+	GPIO_InitStruct.Pull = GPIO_NOPULL;
+    HAL_GPIO_Init(pin_io.port, &GPIO_InitStruct);
 	HAL_GPIO_WritePin(pin_ce.port, pin_ce.pin, GPIO_PIN_RESET);
+	HAL_GPIO_WritePin(pin_clk.port, pin_clk.pin, GPIO_PIN_RESET);
+	HAL_GPIO_WritePin(pin_io.port, pin_io.pin, GPIO_PIN_RESET);
 #endif
 	if (DS130X_SetClockHalt(0) != DS130X_OK) {
 		return DS130X_ERROR;
@@ -60,20 +79,73 @@ DS130X_STATUS DS130X_GetClockHalt(uint8_t* res) {
 	return DS130X_OK;
 }
 
+
+#ifdef GSYSTEM_DS1302_CLOCK
+static void DS1302_WriteBit(uint8_t bit)
+{
+	HAL_GPIO_WritePin(pin_io.port, pin_io.pin, bit ? GPIO_PIN_SET : GPIO_PIN_RESET);
+	HAL_GPIO_WritePin(pin_clk.port, pin_clk.pin, GPIO_PIN_SET);
+	HAL_Delay(1);
+	HAL_GPIO_WritePin(pin_clk.port, pin_clk.pin, GPIO_PIN_RESET);
+	HAL_Delay(1);
+}
+static void DS1302_WriteByte(uint8_t data)
+{
+    GPIO_InitTypeDef GPIO_InitStruct = {0};
+    GPIO_InitStruct.Pin   = pin_io.pin;
+    GPIO_InitStruct.Mode  = GPIO_MODE_OUTPUT_PP;
+    GPIO_InitStruct.Pull  = GPIO_NOPULL;
+    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+    HAL_GPIO_Init(pin_io.port, &GPIO_InitStruct);
+    for(uint8_t i = 0; i < 8; i++) {
+        DS1302_WriteBit(data & 0x01);
+        data >>= 1;
+    }
+}
+static uint8_t DS1302_ReadBit(void)
+{
+    uint8_t bit = (HAL_GPIO_ReadPin(pin_io.port, pin_io.pin) == GPIO_PIN_SET);
+    HAL_GPIO_WritePin(pin_clk.port, pin_clk.pin, GPIO_PIN_SET);
+    HAL_Delay(1);
+    HAL_GPIO_WritePin(pin_clk.port, pin_clk.pin, GPIO_PIN_RESET);
+    HAL_Delay(1);
+    return bit;
+}
+static uint8_t DS1302_ReadByte(void)
+{
+    uint8_t data = 0;
+    GPIO_InitTypeDef GPIO_InitStruct = {0};
+    GPIO_InitStruct.Pin  = pin_io.pin;
+	GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+	GPIO_InitStruct.Pull = GPIO_NOPULL;
+    HAL_GPIO_Init(pin_io.port, &GPIO_InitStruct);
+    for(uint8_t i = 0; i < 8; i++) {
+        data |= (DS1302_ReadBit() << i);
+    }
+    return data;
+}
+#endif
 /**
  * @brief Sets the byte in the designated DS130X register to value.
  * @param regAddr Register address to write.
  * @param val Value to set, 0 to 255.
  */
 DS130X_STATUS DS130X_SetRegByte(uint8_t regAddr, uint8_t val) {
-	uint8_t bytes[2] = { regAddr, val };
-#ifdef GSYSTEM_CLOCK_CE
+	DS130X_STATUS status = DS130X_OK;
+#ifdef GSYSTEM_DS1302_CLOCK
 	HAL_GPIO_WritePin(pin_ce.port, pin_ce.pin, GPIO_PIN_SET);
-#endif
-	DS130X_STATUS status = HAL_I2C_Master_Transmit(&GSYSTEM_CLOCK_I2C, DS130X_I2C_ADDR << 1, bytes, 2, DS130X_TIMEOUT) == HAL_OK ?
-			DS130X_OK : DS130X_ERROR;
-#ifdef GSYSTEM_CLOCK_CE
+    DS1302_WriteByte(regAddr & 0xFE);
+    DS1302_WriteByte(val);
 	HAL_GPIO_WritePin(pin_ce.port, pin_ce.pin, GPIO_PIN_RESET);
+#elif defined(GSYSTEM_DS1307_CLOCK)
+	uint8_t bytes[2] = { regAddr, val };
+	status = HAL_I2C_Master_Transmit(
+		&GSYSTEM_CLOCK_I2C,
+		DS130X_I2C_ADDR << 1,
+		bytes,
+		2,
+		DS130X_TIMEOUT
+	) == HAL_OK ? DS130X_OK : DS130X_ERROR;
 #endif
 	return status;
 }
@@ -87,9 +159,13 @@ DS130X_STATUS DS130X_GetRegByte(uint8_t regAddr, uint8_t* res) {
 	*res = 0;
 	DS130X_STATUS status = DS130X_OK;
 	uint8_t val = 0;
-#ifdef GSYSTEM_CLOCK_CE
+#ifdef GSYSTEM_DS1302_CLOCK
 	HAL_GPIO_WritePin(pin_ce.port, pin_ce.pin, GPIO_PIN_SET);
-#endif
+    DS1302_WriteByte(regAddr | 0x01);
+    val = DS1302_ReadByte();
+    HAL_GPIO_WritePin(pin_ce.port, pin_ce.pin, GPIO_PIN_RESET);
+	goto do_success;
+#elif defined(GSYSTEM_DS1307_CLOCK)
 	if (HAL_I2C_Master_Transmit(&GSYSTEM_CLOCK_I2C, DS130X_I2C_ADDR << 1, &regAddr, 1, DS130X_TIMEOUT) != HAL_OK) {
 		goto do_error;
 	}
@@ -100,12 +176,11 @@ DS130X_STATUS DS130X_GetRegByte(uint8_t regAddr, uint8_t* res) {
 do_error:
 	status = DS130X_ERROR;
 	goto do_end;
+#endif
 do_success:
 	*res = val;
+	goto do_end;
 do_end:
-#ifdef GSYSTEM_CLOCK_CE
-	HAL_GPIO_WritePin(pin_ce.port, pin_ce.pin, GPIO_PIN_RESET);
-#endif
 	return status;
 }
 

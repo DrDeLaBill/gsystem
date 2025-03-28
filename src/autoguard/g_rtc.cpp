@@ -333,7 +333,7 @@ do_error:
 	gprint("error\n");
 #   endif
 
-#   ifdef GSYSTEM_DS130X_CLOCK
+#   ifdef GSYSTEM_DS1307_CLOCK
 	system_reset_i2c_errata();
 	set_error(RTC_ERROR);
 	return;
