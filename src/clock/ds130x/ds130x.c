@@ -12,7 +12,7 @@
 
 
 #ifdef GSYSTEM_DS1302_CLOCK
-#   define CLOCK_DELAY_US (10)
+#   define CLOCK_DELAY_US (2)
 
 static util_port_pin_t pin_clk = {GSYSTEM_CLOCK_CLK};
 static util_port_pin_t pin_io = {GSYSTEM_CLOCK_IO};
@@ -64,10 +64,10 @@ DS130X_STATUS DS130X_Init() {
 DS130X_STATUS DS130X_SetClockHalt(uint8_t halt) {
 	uint8_t ch = (halt ? 1 << 7 : 0);
 	uint8_t val = 0;
-	if (DS130X_GetRegByte((uint8_t)DS130X_REG_SECOND, &val) != DS130X_OK) {
+	if (DS130X_GetReg((uint8_t)DS130X_REG_SECOND, &val) != DS130X_OK) {
 		return DS130X_ERROR;
 	}
-	if (DS130X_SetRegByte((uint8_t)DS130X_REG_SECOND, ch | (val & 0x7f)) != DS130X_OK) {
+	if (DS130X_SetReg((uint8_t)DS130X_REG_SECOND, ch | (val & 0x7f)) != DS130X_OK) {
 		return DS130X_ERROR;
 	}
 	return DS130X_OK;
@@ -80,7 +80,7 @@ DS130X_STATUS DS130X_SetClockHalt(uint8_t halt) {
 DS130X_STATUS DS130X_GetClockHalt(uint8_t* res) {
 	*res = 0;
 	uint8_t val = 0;
-	if (DS130X_GetRegByte(DS130X_REG_SECOND, &val) != DS130X_OK) {
+	if (DS130X_GetReg(DS130X_REG_SECOND, &val) != DS130X_OK) {
 		return DS130X_ERROR;
 	}
 	*res = (val & 0x80) >> 7;
@@ -91,11 +91,11 @@ DS130X_STATUS DS130X_GetClockHalt(uint8_t* res) {
 #ifdef GSYSTEM_DS1302_CLOCK
 static void DS1302_WriteBit(uint8_t bit)
 {
+	HAL_GPIO_WritePin(pin_clk.port, pin_clk.pin, GPIO_PIN_RESET);
+	system_delay_us(CLOCK_DELAY_US);
 	HAL_GPIO_WritePin(pin_io.port, pin_io.pin, bit ? GPIO_PIN_SET : GPIO_PIN_RESET);
 	system_delay_us(CLOCK_DELAY_US);
 	HAL_GPIO_WritePin(pin_clk.port, pin_clk.pin, GPIO_PIN_SET);
-	system_delay_us(CLOCK_DELAY_US);
-	HAL_GPIO_WritePin(pin_clk.port, pin_clk.pin, GPIO_PIN_RESET);
 	system_delay_us(CLOCK_DELAY_US);
 }
 static void DS1302_WriteByte(uint8_t data)
@@ -107,17 +107,18 @@ static void DS1302_WriteByte(uint8_t data)
     GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
     HAL_GPIO_Init(pin_io.port, &GPIO_InitStruct);
     for(uint8_t i = 0; i < 8; i++) {
-        DS1302_WriteBit((data >> 7) & 0x01);
-        data <<= 1;
+        DS1302_WriteBit(data & 0x01);
+        data >>= 1;
     }
+	system_delay_us(CLOCK_DELAY_US);
 }
 static uint8_t DS1302_ReadBit(void)
 {
+    HAL_GPIO_WritePin(pin_clk.port, pin_clk.pin, GPIO_PIN_RESET);
 	system_delay_us(CLOCK_DELAY_US);
     uint8_t bit = (HAL_GPIO_ReadPin(pin_io.port, pin_io.pin) == GPIO_PIN_SET);
-    HAL_GPIO_WritePin(pin_clk.port, pin_clk.pin, GPIO_PIN_SET);
 	system_delay_us(CLOCK_DELAY_US);
-    HAL_GPIO_WritePin(pin_clk.port, pin_clk.pin, GPIO_PIN_RESET);
+    HAL_GPIO_WritePin(pin_clk.port, pin_clk.pin, GPIO_PIN_SET);
 	system_delay_us(CLOCK_DELAY_US);
     return bit;
 }
@@ -127,13 +128,43 @@ static uint8_t DS1302_ReadByte(void)
     GPIO_InitTypeDef GPIO_InitStruct = {0};
     GPIO_InitStruct.Pin  = pin_io.pin;
     GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
-    GPIO_InitStruct.Pull = GPIO_PULLUP;
+    GPIO_InitStruct.Pull = GPIO_NOPULL;
     HAL_GPIO_Init(pin_io.port, &GPIO_InitStruct);
     for(uint8_t i = 0; i < 8; i++) {
-        data <<= 1;
-        data |= DS1302_ReadBit();
+        if (DS1302_ReadBit()) {
+        	data |= (0x01 << i);
+        }
     }
+	system_delay_us(CLOCK_DELAY_US);
     return data;
+}
+static void DS130X_SetRegByte(uint8_t regAddr, uint8_t val)
+{
+	HAL_GPIO_WritePin(pin_ce.port, pin_ce.pin, GPIO_PIN_RESET);
+	HAL_GPIO_WritePin(pin_clk.port, pin_clk.pin, GPIO_PIN_RESET);
+	system_delay_us(CLOCK_DELAY_US);
+
+	HAL_GPIO_WritePin(pin_ce.port, pin_ce.pin, GPIO_PIN_SET);
+
+	DS1302_WriteByte(regAddr & 0xFE);
+	DS1302_WriteByte(val);
+
+	HAL_GPIO_WritePin(pin_clk.port, pin_clk.pin, GPIO_PIN_SET);
+	HAL_GPIO_WritePin(pin_ce.port, pin_ce.pin, GPIO_PIN_RESET);
+}
+static void DS130X_GetRegByte(uint8_t regAddr, uint8_t* val)
+{
+	HAL_GPIO_WritePin(pin_ce.port, pin_ce.pin, GPIO_PIN_RESET);
+	HAL_GPIO_WritePin(pin_clk.port, pin_clk.pin, GPIO_PIN_RESET);
+	system_delay_us(CLOCK_DELAY_US);
+
+	HAL_GPIO_WritePin(pin_ce.port, pin_ce.pin, GPIO_PIN_SET);
+
+	DS1302_WriteByte(regAddr | 0x01);
+	*val = DS1302_ReadByte();
+
+	HAL_GPIO_WritePin(pin_clk.port, pin_clk.pin, GPIO_PIN_SET);
+	HAL_GPIO_WritePin(pin_ce.port, pin_ce.pin, GPIO_PIN_RESET);
 }
 #endif
 /**
@@ -141,21 +172,12 @@ static uint8_t DS1302_ReadByte(void)
  * @param regAddr Register address to write.
  * @param val Value to set, 0 to 255.
  */
-DS130X_STATUS DS130X_SetRegByte(uint8_t regAddr, uint8_t val) {
+DS130X_STATUS DS130X_SetReg(uint8_t regAddr, uint8_t val) {
 	DS130X_STATUS status = DS130X_OK;
 #ifdef GSYSTEM_DS1302_CLOCK
-	HAL_GPIO_WritePin(pin_ce.port, pin_ce.pin, GPIO_PIN_SET);
-    DS1302_WriteByte(DS130X_REG_WP & 0xFE);
-    DS1302_WriteByte(0x00);
-	HAL_GPIO_WritePin(pin_ce.port, pin_ce.pin, GPIO_PIN_RESET);
-	HAL_GPIO_WritePin(pin_ce.port, pin_ce.pin, GPIO_PIN_SET);
-    DS1302_WriteByte(regAddr & 0xFE);
-    DS1302_WriteByte(val);
-	HAL_GPIO_WritePin(pin_ce.port, pin_ce.pin, GPIO_PIN_RESET);
-	HAL_GPIO_WritePin(pin_ce.port, pin_ce.pin, GPIO_PIN_SET);
-    DS1302_WriteByte(DS130X_REG_WP & 0xFE);
-    DS1302_WriteByte(0x80);
-	HAL_GPIO_WritePin(pin_ce.port, pin_ce.pin, GPIO_PIN_RESET);
+	DS130X_SetRegByte(DS130X_REG_WP, 0x00);
+	DS130X_SetRegByte(regAddr, val);
+	DS130X_SetRegByte(DS130X_REG_WP, 0x80);
 #elif defined(GSYSTEM_DS1307_CLOCK)
 	uint8_t bytes[2] = { regAddr, val };
 	status = HAL_I2C_Master_Transmit(
@@ -174,15 +196,12 @@ DS130X_STATUS DS130X_SetRegByte(uint8_t regAddr, uint8_t val) {
  * @param regAddr Register address to read.
  * @return Value stored in the register, 0 to 255.
  */
-DS130X_STATUS DS130X_GetRegByte(uint8_t regAddr, uint8_t* res) {
+DS130X_STATUS DS130X_GetReg(uint8_t regAddr, uint8_t* res) {
 	*res = 0;
 	DS130X_STATUS status = DS130X_OK;
 	uint8_t val = 0;
 #ifdef GSYSTEM_DS1302_CLOCK
-	HAL_GPIO_WritePin(pin_ce.port, pin_ce.pin, GPIO_PIN_SET);
-    DS1302_WriteByte(regAddr | 0x01);
-    val = DS1302_ReadByte();
-    HAL_GPIO_WritePin(pin_ce.port, pin_ce.pin, GPIO_PIN_RESET);
+	DS130X_GetRegByte(regAddr, &val);
 	goto do_success;
 #elif defined(GSYSTEM_DS1307_CLOCK)
 	if (HAL_I2C_Master_Transmit(&GSYSTEM_CLOCK_I2C, DS130X_I2C_ADDR << 1, &regAddr, 1, DS130X_TIMEOUT) != HAL_OK) {
@@ -203,6 +222,26 @@ do_end:
 	return status;
 }
 
+DS130X_STATUS DS130X_SetRAM(uint8_t index, uint8_t val) {
+#ifdef GSYSTEM_DS1302_CLOCK
+	index *= 2;
+#endif
+	if (index > DS130X_REG_RAM_END) {
+		return DS130X_ERROR;
+	}
+	return DS130X_SetReg(DS130X_REG_RAM_BEGIN + index, val);
+}
+
+DS130X_STATUS DS130X_GetRAM(uint8_t index, uint8_t* val) {
+#ifdef GSYSTEM_DS1302_CLOCK
+	index *= 2;
+#endif
+	if (index > DS130X_REG_RAM_END) {
+		return DS130X_ERROR;
+	}
+	return DS130X_GetReg(DS130X_REG_RAM_BEGIN + index, val);
+}
+
 #ifdef GSYSTEM_DS1307_CLOCK
 /**
  * @brief Toggle square wave output on pin 7.
@@ -210,11 +249,11 @@ do_end:
  */
 DS130X_STATUS DS130X_SetEnableSquareWave(DS130X_SquareWaveEnable mode){
 	uint8_t controlReg = 0;
-	if (DS130X_GetRegByte(DS130X_REG_CONTROL, &controlReg) != DS130X_OK) {
+	if (DS130X_GetReg(DS130X_REG_CONTROL, &controlReg) != DS130X_OK) {
 		return DS130X_ERROR;
 	}
 	uint8_t newControlReg = (uint8_t)(controlReg & ~(1 << 4)) | ((mode & 1) << 4);
-	if (DS130X_SetRegByte((uint8_t)DS130X_REG_CONTROL, newControlReg) != DS130X_OK) {
+	if (DS130X_SetReg((uint8_t)DS130X_REG_CONTROL, newControlReg) != DS130X_OK) {
 		return DS130X_ERROR;
 	}
 	return DS130X_OK;
@@ -226,11 +265,11 @@ DS130X_STATUS DS130X_SetEnableSquareWave(DS130X_SquareWaveEnable mode){
  */
 DS130X_STATUS DS130X_SetInterruptRate(DS130X_Rate rate){
 	uint8_t controlReg = 0;
-	if (DS130X_GetRegByte((uint8_t)DS130X_REG_CONTROL, &controlReg) != DS130X_OK) {
+	if (DS130X_GetReg((uint8_t)DS130X_REG_CONTROL, &controlReg) != DS130X_OK) {
 		return DS130X_ERROR;
 	}
 	uint8_t newControlReg = (uint8_t)(controlReg & ~0x03) | rate;
-	if (DS130X_SetRegByte((uint8_t)DS130X_REG_CONTROL, newControlReg) != DS130X_OK) {
+	if (DS130X_SetReg((uint8_t)DS130X_REG_CONTROL, newControlReg) != DS130X_OK) {
 		return DS130X_ERROR;
 	}
 	return DS130X_OK;
@@ -244,7 +283,7 @@ DS130X_STATUS DS130X_SetInterruptRate(DS130X_Rate rate){
 DS130X_STATUS DS130X_GetDayOfWeek(uint8_t* res) {
 	*res = 0;
 	uint8_t val = 0;
-	if (DS130X_GetRegByte((uint8_t)DS130X_REG_DOW, &val) != DS130X_OK) {
+	if (DS130X_GetReg((uint8_t)DS130X_REG_DOW, &val) != DS130X_OK) {
 		return DS130X_ERROR;
 	}
 #ifdef GSYSTEM_DS1302_CLOCK
@@ -261,7 +300,7 @@ DS130X_STATUS DS130X_GetDayOfWeek(uint8_t* res) {
 DS130X_STATUS DS130X_GetDate(uint8_t* res) {
 	*res = 0;
 	uint8_t val = 0;
-	if (DS130X_GetRegByte((uint8_t)DS130X_REG_DATE, &val) != DS130X_OK) {
+	if (DS130X_GetReg((uint8_t)DS130X_REG_DATE, &val) != DS130X_OK) {
 		return DS130X_ERROR;
 	}
 	*res = DS130X_DecodeBCD(val);
@@ -275,7 +314,7 @@ DS130X_STATUS DS130X_GetDate(uint8_t* res) {
 DS130X_STATUS DS130X_GetMonth(uint8_t* res) {
 	*res = 0;
 	uint8_t val = 0;
-	if (DS130X_GetRegByte((uint8_t)DS130X_REG_MONTH, &val) != DS130X_OK) {
+	if (DS130X_GetReg((uint8_t)DS130X_REG_MONTH, &val) != DS130X_OK) {
 		return DS130X_ERROR;
 	}
 	*res = DS130X_DecodeBCD(val);
@@ -290,13 +329,13 @@ DS130X_STATUS DS130X_GetYear(uint16_t* res) {
 	*res = 0;
 	uint8_t val = 0;
 #ifdef GSYSTEM_DS1307_CLOCK
-	if (DS130X_GetRegByte((uint8_t)DS130X_REG_RAM_CENT, &val) != DS130X_OK) {
+	if (DS130X_GetReg((uint8_t)DS130X_REG_RAM_CENT, &val) != DS130X_OK) {
 		return DS130X_ERROR;
 	}
 	uint16_t cen = (uint16_t)val * 100;
 #endif
 	val = 0;
-	if (DS130X_GetRegByte((uint8_t)DS130X_REG_YEAR, &val) != DS130X_OK) {
+	if (DS130X_GetReg((uint8_t)DS130X_REG_YEAR, &val) != DS130X_OK) {
 		return DS130X_ERROR;
 	}
 #ifdef GSYSTEM_DS1307_CLOCK
@@ -314,7 +353,7 @@ DS130X_STATUS DS130X_GetYear(uint16_t* res) {
 DS130X_STATUS DS130X_GetHour(uint8_t* res) {
 	*res = 0;
 	uint8_t val = 0;
-	if (DS130X_GetRegByte((uint8_t)DS130X_REG_HOUR, &val) != DS130X_OK) {
+	if (DS130X_GetReg((uint8_t)DS130X_REG_HOUR, &val) != DS130X_OK) {
 		return DS130X_ERROR;
 	}
 	*res = DS130X_DecodeBCD(val & 0x3f);
@@ -328,7 +367,7 @@ DS130X_STATUS DS130X_GetHour(uint8_t* res) {
 DS130X_STATUS DS130X_GetMinute(uint8_t* res) {
 	*res = 0;
 	uint8_t val = 0;
-	if (DS130X_GetRegByte((uint8_t)DS130X_REG_MINUTE, &val) != DS130X_OK) {
+	if (DS130X_GetReg((uint8_t)DS130X_REG_MINUTE, &val) != DS130X_OK) {
 		return DS130X_ERROR;
 	}
 	*res = DS130X_DecodeBCD(val);
@@ -342,7 +381,7 @@ DS130X_STATUS DS130X_GetMinute(uint8_t* res) {
 DS130X_STATUS DS130X_GetSecond(uint8_t* res) {
 	*res = 0;
 	uint8_t val = 0;
-	if (DS130X_GetRegByte((uint8_t)DS130X_REG_SECOND, &val) != DS130X_OK) {
+	if (DS130X_GetReg((uint8_t)DS130X_REG_SECOND, &val) != DS130X_OK) {
 		return DS130X_ERROR;
 	}
 	*res = DS130X_DecodeBCD(val & 0x7f);
@@ -358,7 +397,7 @@ DS130X_STATUS DS130X_GetSecond(uint8_t* res) {
 DS130X_STATUS DS130X_GetTimeZoneHour(int8_t* res) {
 	*res = 0;
 	uint8_t val = 0;
-	if (DS130X_GetRegByte((uint8_t)DS130X_REG_RAM_UTC_HR, &val) != DS130X_OK) {
+	if (DS130X_GetReg((uint8_t)DS130X_REG_RAM_UTC_HR, &val) != DS130X_OK) {
 		return DS130X_ERROR;
 	}
 	*res = (int8_t)val;
@@ -373,7 +412,7 @@ DS130X_STATUS DS130X_GetTimeZoneHour(int8_t* res) {
 DS130X_STATUS DS130X_GetTimeZoneMin(int8_t* res) {
 	*res = 0;
 	uint8_t val = 0;
-	if (DS130X_GetRegByte((uint8_t)DS130X_REG_RAM_UTC_MIN, &val) != DS130X_OK) {
+	if (DS130X_GetReg((uint8_t)DS130X_REG_RAM_UTC_MIN, &val) != DS130X_OK) {
 		return DS130X_ERROR;
 	}
 	*res = (int8_t)val;
@@ -386,7 +425,7 @@ DS130X_STATUS DS130X_GetTimeZoneMin(int8_t* res) {
  * @param dayOfWeek Days since last Sunday, 0 to 6.
  */
 DS130X_STATUS DS130X_SetDayOfWeek(uint8_t dayOfWeek) {
-	if (DS130X_SetRegByte((uint8_t)DS130X_REG_DOW, DS130X_EncodeBCD(dayOfWeek)) != DS130X_OK) {
+	if (DS130X_SetReg((uint8_t)DS130X_REG_DOW, DS130X_EncodeBCD(dayOfWeek)) != DS130X_OK) {
 		return DS130X_ERROR;
 	}
 	return DS130X_OK;
@@ -397,7 +436,7 @@ DS130X_STATUS DS130X_SetDayOfWeek(uint8_t dayOfWeek) {
  * @param date Day of month, 1 to 31.
  */
 DS130X_STATUS DS130X_SetDate(uint8_t date) {
-	if (DS130X_SetRegByte((uint8_t)DS130X_REG_DATE, DS130X_EncodeBCD(date)) != DS130X_OK) {
+	if (DS130X_SetReg((uint8_t)DS130X_REG_DATE, DS130X_EncodeBCD(date)) != DS130X_OK) {
 		return DS130X_ERROR;
 	}
 	return DS130X_OK;
@@ -408,7 +447,7 @@ DS130X_STATUS DS130X_SetDate(uint8_t date) {
  * @param month Month, 1 to 12.
  */
 DS130X_STATUS DS130X_SetMonth(uint8_t month) {
-	if (DS130X_SetRegByte((uint8_t)DS130X_REG_MONTH, DS130X_EncodeBCD(month)) != DS130X_OK) {
+	if (DS130X_SetReg((uint8_t)DS130X_REG_MONTH, DS130X_EncodeBCD(month)) != DS130X_OK) {
 		return DS130X_ERROR;
 	}
 	return DS130X_OK;
@@ -420,11 +459,11 @@ DS130X_STATUS DS130X_SetMonth(uint8_t month) {
  */
 DS130X_STATUS DS130X_SetYear(uint16_t year) {
 #ifdef GSYSTEM_DS1307_CLOCK
-	if (DS130X_SetRegByte((uint8_t)DS130X_REG_RAM_CENT, (uint8_t)(year / 100)) != DS130X_OK) {
+	if (DS130X_SetReg((uint8_t)DS130X_REG_RAM_CENT, (uint8_t)(year / 100)) != DS130X_OK) {
 		return DS130X_ERROR;
 	}
 #endif
-	if (DS130X_SetRegByte((uint8_t)DS130X_REG_YEAR, DS130X_EncodeBCD((uint8_t)(year % 100))) != DS130X_OK) {
+	if (DS130X_SetReg((uint8_t)DS130X_REG_YEAR, DS130X_EncodeBCD((uint8_t)(year % 100))) != DS130X_OK) {
 		return DS130X_ERROR;
 	}
 	return DS130X_OK;
@@ -435,7 +474,7 @@ DS130X_STATUS DS130X_SetYear(uint16_t year) {
  * @param hour_24mode Hour in 24h format, 0 to 23.
  */
 DS130X_STATUS DS130X_SetHour(uint8_t hour_24mode) {
-	if (DS130X_SetRegByte((uint8_t)DS130X_REG_HOUR, DS130X_EncodeBCD((uint8_t)hour_24mode & 0x3f)) != DS130X_OK) {
+	if (DS130X_SetReg((uint8_t)DS130X_REG_HOUR, DS130X_EncodeBCD((uint8_t)hour_24mode & 0x3f)) != DS130X_OK) {
 		return DS130X_ERROR;
 	}
 	return DS130X_OK;
@@ -446,7 +485,7 @@ DS130X_STATUS DS130X_SetHour(uint8_t hour_24mode) {
  * @param minute Minute, 0 to 59.
  */
 DS130X_STATUS DS130X_SetMinute(uint8_t minute) {
-	if (DS130X_SetRegByte((uint8_t)DS130X_REG_MINUTE, DS130X_EncodeBCD((uint8_t)minute)) != DS130X_OK) {
+	if (DS130X_SetReg((uint8_t)DS130X_REG_MINUTE, DS130X_EncodeBCD((uint8_t)minute)) != DS130X_OK) {
 		return DS130X_ERROR;
 	}
 	return DS130X_OK;
@@ -461,7 +500,7 @@ DS130X_STATUS DS130X_SetSecond(uint8_t second) {
 	if (DS130X_GetClockHalt(&ch) != DS130X_OK) {
 		return DS130X_ERROR;
 	}
-	if (DS130X_SetRegByte((uint8_t)DS130X_REG_SECOND, DS130X_EncodeBCD(second | ch)) != DS130X_OK) {
+	if (DS130X_SetReg((uint8_t)DS130X_REG_SECOND, DS130X_EncodeBCD(second | ch)) != DS130X_OK) {
 		return DS130X_ERROR;
 	}
 	return DS130X_OK;
@@ -475,10 +514,10 @@ DS130X_STATUS DS130X_SetSecond(uint8_t second) {
  * @param min UTC minute offset, 0 to 59.
  */
 DS130X_STATUS DS130X_SetTimeZone(int8_t hr, uint8_t min) {
-	if (DS130X_SetRegByte((uint8_t)DS130X_REG_RAM_UTC_HR, (uint8_t)hr) != DS130X_OK) {
+	if (DS130X_SetReg((uint8_t)DS130X_REG_RAM_UTC_HR, (uint8_t)hr) != DS130X_OK) {
 		return DS130X_ERROR;
 	}
-	if (DS130X_SetRegByte((uint8_t)DS130X_REG_RAM_UTC_MIN, (uint8_t)min) != DS130X_OK) {
+	if (DS130X_SetReg((uint8_t)DS130X_REG_RAM_UTC_MIN, (uint8_t)min) != DS130X_OK) {
 		return DS130X_ERROR;
 	}
 	return DS130X_OK;

@@ -75,8 +75,11 @@ DS130X_STATUS DS130X_SetClockHalt(uint8_t halt);
 DS130X_STATUS DS130X_GetClockHalt(uint8_t* res);
 
 
-DS130X_STATUS DS130X_SetRegByte(uint8_t regAddr, uint8_t val);
-DS130X_STATUS DS130X_GetRegByte(uint8_t regAddr, uint8_t* res);
+DS130X_STATUS DS130X_SetReg(uint8_t regAddr, uint8_t val);
+DS130X_STATUS DS130X_GetReg(uint8_t regAddr, uint8_t* res);
+
+DS130X_STATUS DS130X_SetRAM(uint8_t index, uint8_t val);
+DS130X_STATUS DS130X_GetRAM(uint8_t index, uint8_t* val);
 
 #ifdef GSYSTEM_DS1307_CLOCK
 DS130X_STATUS DS130X_SetEnableSquareWave(DS130X_SquareWaveEnable mode);

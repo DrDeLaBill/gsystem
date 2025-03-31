@@ -503,23 +503,15 @@ bool set_clock_ready()
 	printTagLog("CLCK", "Update clock %s", (need_erase ? "(erase)" : ""));
 	uint32_t value = BEDAC0DE;
 	for (uint8_t i = 0; i < sizeof(BEDAC0DE); i++) {
-		if (DS130X_SetRegByte(
-				(uint8_t)DS130X_REG_RAM_BEGIN + i,
-				((uint8_t*)&value)[i]
-			) != DS130X_OK
-		) {
+		if (DS130X_SetRAM(i, ((uint8_t*)&value)[i]) != DS130X_OK) {
 			return false;
 		}
 	}
 	if (!need_erase) {
 		return true;
 	}
-	for (
-		unsigned i = DS130X_REG_RAM_BEGIN + sizeof(BEDAC0DE);
-		i <= DS130X_REG_RAM_END;
-		i++
-	)  {
-		if (DS130X_SetRegByte((uint8_t)i, 0xFF) != DS130X_OK) {
+	for (unsigned i = sizeof(BEDAC0DE); i <= DS130X_REG_RAM_END; i++) {
+		if (DS130X_SetRAM(i, 0xFF) != DS130X_OK) {
 			return false;
 		}
 	}
@@ -538,11 +530,7 @@ bool is_clock_ready()
 #if defined(GSYSTEM_DS130X_CLOCK)
 	uint32_t value = 0;
 	for (uint8_t i = 0; i < sizeof(BEDAC0DE); i++) {
-		if (DS130X_GetRegByte(
-				(uint8_t)DS130X_REG_RAM_BEGIN + i,
-				&((uint8_t*)&value)[i]
-			) != DS130X_OK
-		) {
+		if (DS130X_GetRAM(i, &((uint8_t*)&value)[i]) != DS130X_OK) {
 			return false;
 		}
 	}
@@ -560,10 +548,7 @@ bool is_clock_ready()
 bool get_clock_ram(const uint8_t idx, uint8_t* data)
 {
 #if defined(GSYSTEM_DS130X_CLOCK)
-	if (DS130X_REG_RAM_BEGIN + sizeof(BEDAC0DE) + idx > DS130X_REG_RAM_END) {
-		return false;
-	}
-	return DS130X_GetRegByte(DS130X_REG_RAM_BEGIN + sizeof(BEDAC0DE) + idx, data) == DS130X_OK;
+	return DS130X_GetRAM(sizeof(BEDAC0DE) + idx, data) == DS130X_OK;
 #else
 	if (RTC_BKP_DR3 + (idx / STM_BCKP_REG_SIZE) > RTC_BKP_NUMBER) {
 		return false;
@@ -579,10 +564,7 @@ bool get_clock_ram(const uint8_t idx, uint8_t* data)
 bool set_clock_ram(const uint8_t idx, uint8_t data)
 {
 #if defined(GSYSTEM_DS130X_CLOCK)
-	if (DS130X_REG_RAM_BEGIN + sizeof(BEDAC0DE) + idx > DS130X_REG_RAM_END) {
-		return false;
-	}
-	return DS130X_SetRegByte(DS130X_REG_RAM_BEGIN + sizeof(BEDAC0DE) + idx, data) == DS130X_OK;
+	return DS130X_SetRAM(sizeof(BEDAC0DE) + idx, data) == DS130X_OK;
 #else
 	if (RTC_BKP_DR3 + (idx / STM_BCKP_REG_SIZE) > RTC_BKP_NUMBER) {
 		return false;
