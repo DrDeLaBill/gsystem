@@ -24,9 +24,9 @@ extern "C" {
 //#define GSYSTEM_NO_POWER_W
 //#define GSYSTEM_NO_MEMORY_W
 //#define GSYSTEM_NO_PLL_CHECK_W
+
 //#define GSYSTEM_NO_STATUS_PRINT
 //#define GSYSTEM_NO_VTOR_REWRITE
-
 //#define GSYSTEM_NO_PRINTF
 
 #define GSYSTEM_ADC_VOLTAGE_COUNT (1)

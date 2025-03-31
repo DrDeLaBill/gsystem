@@ -152,8 +152,16 @@ extern "C" void sys_proc_tick()
 	}
 }
 
+static uint32_t sys_cpu_freq = 0;
+extern "C" uint32_t get_system_freq(void)
+{
+	return sys_cpu_freq;
+}
+
 void _sys_watchdog_check(void)
 {
+    sys_cpu_freq = HAL_RCC_GetSysClockFreq();
+
 #if GSYSTEM_BEDUG && !defined(GSYSTEM_NO_STATUS_PRINT)
 	static gtimer_t kTPSTimer = {0,(10 * SECOND_MS)};
 	if (!gtimer_wait(&kTPSTimer)) {

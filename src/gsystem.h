@@ -81,6 +81,9 @@ bool get_system_bckp(const uint8_t idx, uint8_t* data);
 bool set_system_bckp(const uint8_t idx, const uint8_t data);
 #endif
 
+uint32_t get_system_freq(void);
+void system_delay_us(uint32_t us);
+
 #ifndef GSYSTEM_NO_PRINTF
 int _write(int line, uint8_t *ptr, int len);
 #endif

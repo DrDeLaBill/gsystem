@@ -3,13 +3,17 @@
 
 #include "gdefines.h"
 #include "gconfig.h"
+
 #include "gutils.h"
+#include "gsystem.h"
 
 
 #if defined(GSYSTEM_DS130X_CLOCK)
 
 
 #ifdef GSYSTEM_DS1302_CLOCK
+#   define CLOCK_DELAY_US (10)
+
 static util_port_pin_t pin_clk = {GSYSTEM_CLOCK_CLK};
 static util_port_pin_t pin_io = {GSYSTEM_CLOCK_IO};
 static util_port_pin_t pin_ce = {GSYSTEM_CLOCK_CE};
@@ -22,14 +26,16 @@ static util_port_pin_t pin_ce = {GSYSTEM_CLOCK_CE};
 DS130X_STATUS DS130X_Init() {
 #ifdef GSYSTEM_DS1302_CLOCK
     GPIO_InitTypeDef GPIO_InitStruct = {0};
-    GPIO_InitStruct.Pin  = pin_ce.pin;
-	GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
-	GPIO_InitStruct.Pull = GPIO_NOPULL;
+    GPIO_InitStruct.Pin   = pin_ce.pin;
+    GPIO_InitStruct.Mode  = GPIO_MODE_OUTPUT_PP;
+    GPIO_InitStruct.Pull  = GPIO_NOPULL;
+    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
     HAL_GPIO_Init(pin_ce.port, &GPIO_InitStruct);
     memset((void*)&GPIO_InitStruct, 0, sizeof(GPIO_InitStruct));
-    GPIO_InitStruct.Pin  = pin_clk.pin;
-	GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
-	GPIO_InitStruct.Pull = GPIO_NOPULL;
+    GPIO_InitStruct.Pin   = pin_clk.pin;
+    GPIO_InitStruct.Mode  = GPIO_MODE_OUTPUT_PP;
+    GPIO_InitStruct.Pull  = GPIO_NOPULL;
+    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
     HAL_GPIO_Init(pin_clk.port, &GPIO_InitStruct);
     memset((void*)&GPIO_InitStruct, 0, sizeof(GPIO_InitStruct));
     GPIO_InitStruct.Pin  = pin_io.pin;
@@ -43,9 +49,11 @@ DS130X_STATUS DS130X_Init() {
 	if (DS130X_SetClockHalt(0) != DS130X_OK) {
 		return DS130X_ERROR;
 	}
+#ifdef GSYSTEM_DS1307_CLOCK
 	if (DS130X_SetTimeZone(+0, 00) != DS130X_OK) {
 		return DS130X_ERROR;
 	}
+#endif
 	return DS130X_OK;
 }
 
@@ -84,10 +92,11 @@ DS130X_STATUS DS130X_GetClockHalt(uint8_t* res) {
 static void DS1302_WriteBit(uint8_t bit)
 {
 	HAL_GPIO_WritePin(pin_io.port, pin_io.pin, bit ? GPIO_PIN_SET : GPIO_PIN_RESET);
+	system_delay_us(CLOCK_DELAY_US);
 	HAL_GPIO_WritePin(pin_clk.port, pin_clk.pin, GPIO_PIN_SET);
-	HAL_Delay(1);
+	system_delay_us(CLOCK_DELAY_US);
 	HAL_GPIO_WritePin(pin_clk.port, pin_clk.pin, GPIO_PIN_RESET);
-	HAL_Delay(1);
+	system_delay_us(CLOCK_DELAY_US);
 }
 static void DS1302_WriteByte(uint8_t data)
 {
@@ -98,17 +107,18 @@ static void DS1302_WriteByte(uint8_t data)
     GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
     HAL_GPIO_Init(pin_io.port, &GPIO_InitStruct);
     for(uint8_t i = 0; i < 8; i++) {
-        DS1302_WriteBit(data & 0x01);
-        data >>= 1;
+        DS1302_WriteBit((data >> 7) & 0x01);
+        data <<= 1;
     }
 }
 static uint8_t DS1302_ReadBit(void)
 {
+	system_delay_us(CLOCK_DELAY_US);
     uint8_t bit = (HAL_GPIO_ReadPin(pin_io.port, pin_io.pin) == GPIO_PIN_SET);
     HAL_GPIO_WritePin(pin_clk.port, pin_clk.pin, GPIO_PIN_SET);
-    HAL_Delay(1);
+	system_delay_us(CLOCK_DELAY_US);
     HAL_GPIO_WritePin(pin_clk.port, pin_clk.pin, GPIO_PIN_RESET);
-    HAL_Delay(1);
+	system_delay_us(CLOCK_DELAY_US);
     return bit;
 }
 static uint8_t DS1302_ReadByte(void)
@@ -116,11 +126,12 @@ static uint8_t DS1302_ReadByte(void)
     uint8_t data = 0;
     GPIO_InitTypeDef GPIO_InitStruct = {0};
     GPIO_InitStruct.Pin  = pin_io.pin;
-	GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
-	GPIO_InitStruct.Pull = GPIO_NOPULL;
+    GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+    GPIO_InitStruct.Pull = GPIO_PULLUP;
     HAL_GPIO_Init(pin_io.port, &GPIO_InitStruct);
     for(uint8_t i = 0; i < 8; i++) {
-        data |= (DS1302_ReadBit() << i);
+        data <<= 1;
+        data |= DS1302_ReadBit();
     }
     return data;
 }
@@ -134,8 +145,16 @@ DS130X_STATUS DS130X_SetRegByte(uint8_t regAddr, uint8_t val) {
 	DS130X_STATUS status = DS130X_OK;
 #ifdef GSYSTEM_DS1302_CLOCK
 	HAL_GPIO_WritePin(pin_ce.port, pin_ce.pin, GPIO_PIN_SET);
+    DS1302_WriteByte(DS130X_REG_WP & 0xFE);
+    DS1302_WriteByte(0x00);
+	HAL_GPIO_WritePin(pin_ce.port, pin_ce.pin, GPIO_PIN_RESET);
+	HAL_GPIO_WritePin(pin_ce.port, pin_ce.pin, GPIO_PIN_SET);
     DS1302_WriteByte(regAddr & 0xFE);
     DS1302_WriteByte(val);
+	HAL_GPIO_WritePin(pin_ce.port, pin_ce.pin, GPIO_PIN_RESET);
+	HAL_GPIO_WritePin(pin_ce.port, pin_ce.pin, GPIO_PIN_SET);
+    DS1302_WriteByte(DS130X_REG_WP & 0xFE);
+    DS1302_WriteByte(0x80);
 	HAL_GPIO_WritePin(pin_ce.port, pin_ce.pin, GPIO_PIN_RESET);
 #elif defined(GSYSTEM_DS1307_CLOCK)
 	uint8_t bytes[2] = { regAddr, val };
@@ -184,6 +203,7 @@ do_end:
 	return status;
 }
 
+#ifdef GSYSTEM_DS1307_CLOCK
 /**
  * @brief Toggle square wave output on pin 7.
  * @param mode DS130X_ENABLED (1) or DS130X_DISABLED (0);
@@ -215,6 +235,7 @@ DS130X_STATUS DS130X_SetInterruptRate(DS130X_Rate rate){
 	}
 	return DS130X_OK;
 }
+#endif
 
 /**
  * @brief Gets the current day of week.
@@ -226,6 +247,9 @@ DS130X_STATUS DS130X_GetDayOfWeek(uint8_t* res) {
 	if (DS130X_GetRegByte((uint8_t)DS130X_REG_DOW, &val) != DS130X_OK) {
 		return DS130X_ERROR;
 	}
+#ifdef GSYSTEM_DS1302_CLOCK
+	val &= 0x07;
+#endif
 	*res = DS130X_DecodeBCD(val);
 	return DS130X_OK;
 }
@@ -265,15 +289,21 @@ DS130X_STATUS DS130X_GetMonth(uint8_t* res) {
 DS130X_STATUS DS130X_GetYear(uint16_t* res) {
 	*res = 0;
 	uint8_t val = 0;
+#ifdef GSYSTEM_DS1307_CLOCK
 	if (DS130X_GetRegByte((uint8_t)DS130X_REG_RAM_CENT, &val) != DS130X_OK) {
 		return DS130X_ERROR;
 	}
 	uint16_t cen = (uint16_t)val * 100;
+#endif
 	val = 0;
 	if (DS130X_GetRegByte((uint8_t)DS130X_REG_YEAR, &val) != DS130X_OK) {
 		return DS130X_ERROR;
 	}
+#ifdef GSYSTEM_DS1307_CLOCK
 	*res = (uint16_t)DS130X_DecodeBCD(val) + cen;
+#else
+	*res = (uint16_t)DS130X_DecodeBCD(val);
+#endif
 	return DS130X_OK;
 }
 
@@ -319,6 +349,7 @@ DS130X_STATUS DS130X_GetSecond(uint8_t* res) {
 	return DS130X_OK;
 }
 
+#ifdef GSYSTEM_DS1307_CLOCK
 /**
  * @brief Gets the stored UTC hour offset.
  * @note  UTC offset is not updated automatically.
@@ -348,6 +379,7 @@ DS130X_STATUS DS130X_GetTimeZoneMin(int8_t* res) {
 	*res = (int8_t)val;
 	return DS130X_OK;
 }
+#endif
 
 /**
  * @brief Sets the current day of week.
@@ -387,9 +419,11 @@ DS130X_STATUS DS130X_SetMonth(uint8_t month) {
  * @param year Year, 2000 to 2099.
  */
 DS130X_STATUS DS130X_SetYear(uint16_t year) {
+#ifdef GSYSTEM_DS1307_CLOCK
 	if (DS130X_SetRegByte((uint8_t)DS130X_REG_RAM_CENT, (uint8_t)(year / 100)) != DS130X_OK) {
 		return DS130X_ERROR;
 	}
+#endif
 	if (DS130X_SetRegByte((uint8_t)DS130X_REG_YEAR, DS130X_EncodeBCD((uint8_t)(year % 100))) != DS130X_OK) {
 		return DS130X_ERROR;
 	}
@@ -433,6 +467,7 @@ DS130X_STATUS DS130X_SetSecond(uint8_t second) {
 	return DS130X_OK;
 }
 
+#ifdef GSYSTEM_DS1307_CLOCK
 /**
  * @brief Sets UTC offset.
  * @note  UTC offset is not updated automatically.
@@ -448,6 +483,7 @@ DS130X_STATUS DS130X_SetTimeZone(int8_t hr, uint8_t min) {
 	}
 	return DS130X_OK;
 }
+#endif
 
 /**
  * @brief Decodes the raw binary value stored in registers to decimal format.
