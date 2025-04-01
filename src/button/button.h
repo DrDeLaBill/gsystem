@@ -45,7 +45,7 @@ void button_create(
 	bool             inverse,
 	uint32_t         hold_ms
 );
-
+void button_reset(button_t* button);
 void button_tick(button_t* button);
 
 bool button_one_click(button_t* button);

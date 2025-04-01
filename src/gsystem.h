@@ -60,6 +60,7 @@ void system_add_button(GPIO_TypeDef* port, uint16_t pin, bool inverse);
 bool system_button_clicked(GPIO_TypeDef* port, uint16_t pin);
 bool system_button_pressed(GPIO_TypeDef* port, uint16_t pin);
 bool system_button_holded(GPIO_TypeDef* port, uint16_t pin);
+void system_buttons_reset();
 #endif
 
 #ifndef GSYSTEM_NO_ADC_W

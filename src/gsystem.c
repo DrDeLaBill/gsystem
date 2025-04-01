@@ -506,56 +506,6 @@ void system_timer_stop(system_timer_t* timer)
     timer->tim = NULL;
 }
 
-#if GSYSTEM_BUTTONS_COUNT
-void system_add_button(GPIO_TypeDef* port, uint16_t pin, bool inverse)
-{
-    if (buttons_count >= __arr_len(buttons)) {
-        return;
-    }
-    util_port_pin_t tmp_pin = {port, pin};
-    button_create(&buttons[buttons_count++], &tmp_pin, inverse, DEFAULT_HOLD_TIME_MS);
-}
-
-button_t* _find_button(GPIO_TypeDef* port, uint16_t pin)
-{
-    button_t* btn = NULL;
-    for (unsigned i = 0; i < buttons_count; i++) {
-        if (buttons[i]._pin.port == port && buttons[i]._pin.pin == pin) {
-            btn = &buttons[i];
-            break;
-        }
-    }
-    return btn;
-}
-
-bool system_button_clicked(GPIO_TypeDef* port, uint16_t pin)
-{
-    button_t* btn = _find_button(port, pin);
-    if (!btn) {
-        return false;
-    }
-    return button_one_click(btn);
-}
-
-bool system_button_pressed(GPIO_TypeDef* port, uint16_t pin)
-{
-    button_t* btn = _find_button(port, pin);
-    if (!btn) {
-        return false;
-    }
-    return button_pressed(btn);
-}
-
-bool system_button_holded(GPIO_TypeDef* port, uint16_t pin)
-{
-    button_t* btn = _find_button(port, pin);
-    if (!btn) {
-        return false;
-    }
-    return button_holded(btn);
-}
-#endif
-
 #ifndef GSYSTEM_NO_ADC_W
 uint32_t get_system_power(void)
 {

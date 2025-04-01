@@ -74,6 +74,15 @@ void button_tick(button_t* button)
 	}
 }
 
+void button_reset(button_t* button)
+{
+	button->_clicked = false;
+	button->_holded  = false;
+	button->_pressed = false;
+	gtimer_reset(&button->_debounce);
+	gtimer_reset(&button->_hold);
+}
+
 bool button_one_click(button_t* button)
 {
 	if (!button) {
