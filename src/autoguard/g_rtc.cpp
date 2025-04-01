@@ -293,7 +293,7 @@ extern "C" void rtc_watchdog_check()
 
 	memset(ram_bckp, 0, sizeof(ram_bckp));
 #   if GSYSTEM_BEDUG
-	printPretty("RTC RAM test: ");
+	printPretty("RTC RAM test:      ");
 #   endif
 	for (uint8_t i = 0; i < __arr_len(ram_bckp); i++) {
 		if (!get_clock_ram(i, &ram_bckp[i])) {

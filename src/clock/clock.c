@@ -458,7 +458,11 @@ char* get_clock_time_format()
 	snprintf(
 		format_time,
 		sizeof(format_time) - 1,
+#ifdef GSYSTEM_DS1302_CLOCK
+		"20%02u-%02u-%02uT%02u:%02u:%02u",
+#else
 		"%u-%02u-%02uT%02u:%02u:%02u",
+#endif
 		date.Year,
 		date.Month,
 		date.Date,
@@ -510,7 +514,7 @@ bool set_clock_ready()
 	if (!need_erase) {
 		return true;
 	}
-	for (unsigned i = sizeof(BEDAC0DE); i <= DS130X_REG_RAM_END; i++) {
+	for (uint8_t i = sizeof(BEDAC0DE); i <= DS130X_REG_RAM_END; i++) {
 		if (DS130X_SetRAM(i, 0xFF) != DS130X_OK) {
 			return false;
 		}
