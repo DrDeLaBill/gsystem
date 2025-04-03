@@ -514,7 +514,12 @@ bool set_clock_ready()
 	if (!need_erase) {
 		return true;
 	}
-	for (uint8_t i = sizeof(BEDAC0DE); i <= DS130X_REG_RAM_END; i++) {
+#ifdef GSYSTEM_DS1307_CLOCK
+	uint32_t end = DS130X_REG_RAM_END - DS130X_REG_RAM_BEGIN;
+#elif defined(GSYSTEM_DS1302_CLOCK)
+	uint32_t end = (DS130X_REG_RAM_END - DS130X_REG_RAM_BEGIN) / 2;
+#endif
+	for (uint8_t i = sizeof(BEDAC0DE); i <= end; i++) {
 		if (DS130X_SetRAM(i, 0xFF) != DS130X_OK) {
 			return false;
 		}

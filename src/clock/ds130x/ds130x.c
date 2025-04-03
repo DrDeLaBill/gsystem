@@ -341,7 +341,7 @@ DS130X_STATUS DS130X_GetYear(uint16_t* res) {
 #ifdef GSYSTEM_DS1307_CLOCK
 	*res = (uint16_t)DS130X_DecodeBCD(val) + cen;
 #else
-	*res = (uint16_t)DS130X_DecodeBCD(val);
+	*res = ((uint16_t)DS130X_DecodeBCD(val)) % 100;
 #endif
 	return DS130X_OK;
 }
