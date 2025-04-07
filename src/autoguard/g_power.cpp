@@ -10,7 +10,7 @@
 #if !defined(GSYSTEM_NO_POWER_W) && !defined(GSYSTEM_NO_ADC_W)
 extern "C" void power_watchdog_check()
 {
-	if (!is_system_ready()) {
+	if (!is_status(SYSTEM_HARDWARE_READY)) {
 		return;
 	}
 
