@@ -14,7 +14,11 @@
 #include "fsm_gc.h"
 
 
-#define BUTTON_DEBOUNCE_MS (60)
+#ifdef GSYSTEM_BUTTON_DEBOUNCE_MS
+#   define BUTTON_DEBOUNCE_MS (GSYSTEM_BUTTON_DEBOUNCE_MS)
+#else
+#   define BUTTON_DEBOUNCE_MS (60)
+#endif
 
 
 const uint32_t DEFAULT_HOLD_TIME_MS = 1000;

@@ -12,7 +12,7 @@ extern "C" {
 #endif
 
 
-//#define GSYSTEM_RESET_TIMEOUT_MS  (30000)
+//#define GSYSTEM_RESET_TIMEOUT_MS    (30000)
 
 //#define GSYSTEM_NO_RESTART_W
 //#define GSYSTEM_NO_RTC_W
@@ -29,35 +29,36 @@ extern "C" {
 //#define GSYSTEM_NO_VTOR_REWRITE
 //#define GSYSTEM_NO_PRINTF
 
-#define GSYSTEM_ADC_VOLTAGE_COUNT (1)
+#define GSYSTEM_ADC_VOLTAGE_COUNT  (1)
 
 //#define GSYSTEM_MEMORY_DMA
 //#define GSYSTEM_FLASH_MODE
 //#define GSYSTEM_EEPROM_MODE
 
 //#define GSYSTEM_DS1302_CLOCK
-//#define GSYSTEM_CLOCK_CLK         CLOCK_CLK_GPIO_Port,CLOCK_CLK_Pin
-//#define GSYSTEM_CLOCK_IO          CLOCK_IO_GPIO_Port,CLOCK_IO_Pin
-//#define GSYSTEM_CLOCK_CE          CLOCK_CE_GPIO_Port,CLOCK_CE_Pin
+//#define GSYSTEM_CLOCK_CLK          CLOCK_CLK_GPIO_Port,CLOCK_CLK_Pin
+//#define GSYSTEM_CLOCK_IO           CLOCK_IO_GPIO_Port,CLOCK_IO_Pin
+//#define GSYSTEM_CLOCK_CE           CLOCK_CE_GPIO_Port,CLOCK_CE_Pin
 //#define GSYSTEM_DS1307_CLOCK
-//#define GSYSTEM_CLOCK_I2C         (hi2c1)
-//#define GSYSTEM_CLOCK_I2C_BASE    I2C1
+//#define GSYSTEM_CLOCK_I2C          (hi2c1)
+//#define GSYSTEM_CLOCK_I2C_BASE     I2C1
 
-//#define GSYSTEM_TIMER             (TIM1)
+//#define GSYSTEM_TIMER              (TIM1)
 
-//#define GSYSTEM_BEDUG_UART        (huart2)
+//#define GSYSTEM_BEDUG_UART         (huart2)
 
-//#define GSYSTEM_I2C               (hi2c2)
-//#define GSYSTEM_EEPROM_I2C        (hi2c2)
-//#define GSYSTEM_CLOCK_I2C         (hi2c1)
-//#define GSYSTEM_CLOCK_I2C_BASE    I2C1
-//#define GSYSTEM_CLOCK_CE          CLOCK_CE_GPIO_Port,CLOCK_CE_Pin
+//#define GSYSTEM_I2C                (hi2c2)
+//#define GSYSTEM_EEPROM_I2C         (hi2c2)
+//#define GSYSTEM_CLOCK_I2C          (hi2c1)
+//#define GSYSTEM_CLOCK_I2C_BASE     I2C1
+//#define GSYSTEM_CLOCK_CE           CLOCK_CE_GPIO_Port,CLOCK_CE_Pin
 
-//#define GSYSTEM_FLASH_SPI         (hspi1)
-//#define GSYSTEM_FLASH_CS_PORT     (FLASH1_CS_GPIO_Port)
-//#define GSYSTEM_FLASH_CS_PIN      (FLASH1_CS_Pin)
+//#define GSYSTEM_FLASH_SPI          (hspi1)
+//#define GSYSTEM_FLASH_CS_PORT      (FLASH1_CS_GPIO_Port)
+//#define GSYSTEM_FLASH_CS_PIN       (FLASH1_CS_Pin)
 
-#define GSYSTEM_BUTTONS_COUNT     (0)
+#define GSYSTEM_BUTTONS_COUNT      (0)
+//#define GSYSTEM_BUTTON_DEBOUNCE_MS (60)
 
 //#define GSYSTEM_NO_TAMPER_RESET
 
