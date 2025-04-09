@@ -347,6 +347,8 @@ void system_error_handler(SOUL_STATUS error)
         system_timer_stop(&s_timer);
     }
 
+    system_before_reset();
+
 #if GSYSTEM_BEDUG
     system_timer_start(&s_timer, GSYSTEM_TIMER, SECOND_MS);
     SYSTEM_BEDUG("GSystem reset"); // TODO: change printf to work with registers when need_error_timer is true
@@ -365,6 +367,8 @@ void system_error_handler(SOUL_STATUS error)
 
     NVIC_SystemReset();
 }
+
+__attribute__((weak)) void system_before_reset(void) {}
 
 void system_timer_start(system_timer_t* timer, TIM_TypeDef* fw_tim, uint32_t delay_ms)
 {

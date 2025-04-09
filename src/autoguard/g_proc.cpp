@@ -204,13 +204,9 @@ void _sys_watchdog_check(void)
 		reset_status(SYSTEM_HARDWARE_READY);
 	}
 
-	if (is_software_ready()) {
+	if (is_software_ready() && is_status(SYSTEM_HARDWARE_READY)) {
 		set_status(SYSTEM_SOFTWARE_READY);
 	} else {
-		reset_status(SYSTEM_SOFTWARE_READY);
-	}
-
-	if (!is_status(SYSTEM_HARDWARE_READY)) {
 		reset_status(SYSTEM_SOFTWARE_READY);
 	}
 

@@ -34,6 +34,7 @@ bool is_system_ready(void);
 bool is_software_ready(void);
 
 void system_error_handler(SOUL_STATUS error);
+void system_before_reset(void);
 
 void system_reset_i2c_errata(void);
 
