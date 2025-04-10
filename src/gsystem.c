@@ -154,11 +154,6 @@ void system_init(void)
 
 #endif
 
-    // us delay initialize
-    CoreDebug->DEMCR |= CoreDebug_DEMCR_TRCENA_Msk;
-    DWT->CYCCNT = 0;
-    DWT->CTRL |= DWT_CTRL_CYCCNTENA_Msk;
-
     system_timer_start(&timer, GSYSTEM_TIMER, 20);
     while (system_timer_wait(&timer));
     system_timer_stop(&timer);
@@ -898,6 +893,9 @@ bool set_system_bckp(const uint8_t idx, const uint8_t data)
 
 void system_delay_us(uint32_t us)
 {
+    CoreDebug->DEMCR |= CoreDebug_DEMCR_TRCENA_Msk;
+    DWT->CYCCNT = 0;
+    DWT->CTRL |= DWT_CTRL_CYCCNTENA_Msk;
     uint32_t ticks = us * (get_system_freq() / 1000000);
     uint32_t start = DWT->CYCCNT;
     while (DWT->CYCCNT - start < ticks);
