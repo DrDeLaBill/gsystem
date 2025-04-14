@@ -13,6 +13,7 @@ extern "C" {
 
 
 //#define GSYSTEM_RESET_TIMEOUT_MS    (30000)
+//#define GSYSTEM_POCESSES_COUNT      (32)
 
 //#define GSYSTEM_NO_RESTART_W
 //#define GSYSTEM_NO_RTC_W
