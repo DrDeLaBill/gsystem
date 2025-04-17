@@ -932,7 +932,6 @@ void _system_restart_check(void)
 #if GSYSTEM_BEDUG
         printTagLog(SYSTEM_TAG, "DEVICE HAS BEEN REBOOTED");
 #endif
-        HAL_Delay(2500);
     }
 }
 
