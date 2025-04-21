@@ -102,6 +102,13 @@ bool MCUcheck(void);
 #define BITS_IN_BYTE                 (8)
 
 
+
+typedef struct _port_pin_t {
+    GPIO_TypeDef* port;
+    uint16_t      pin;
+} port_pin_t;
+
+
 #ifdef __cplusplus
 }
 #endif

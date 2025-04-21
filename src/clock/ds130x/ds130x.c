@@ -4,8 +4,8 @@
 #include "gdefines.h"
 #include "gconfig.h"
 
-#include "gutils.h"
 #include "gsystem.h"
+#include "hal_defs.h"
 
 
 #if defined(GSYSTEM_DS130X_CLOCK)
@@ -14,9 +14,9 @@
 #ifdef GSYSTEM_DS1302_CLOCK
 #   define CLOCK_DELAY_US (2)
 
-static util_port_pin_t pin_clk = {GSYSTEM_CLOCK_CLK};
-static util_port_pin_t pin_io = {GSYSTEM_CLOCK_IO};
-static util_port_pin_t pin_ce = {GSYSTEM_CLOCK_CE};
+static port_pin_t pin_clk = {GSYSTEM_CLOCK_CLK};
+static port_pin_t pin_io  = {GSYSTEM_CLOCK_IO};
+static port_pin_t pin_ce  = {GSYSTEM_CLOCK_CE};
 #endif
 
 /**

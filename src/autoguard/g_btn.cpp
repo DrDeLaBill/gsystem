@@ -25,7 +25,7 @@ extern "C" void system_add_button(GPIO_TypeDef* port, uint16_t pin, bool inverse
     if (buttons_count >= __arr_len(buttons)) {
         return;
     }
-    util_port_pin_t tmp_pin = {port, pin};
+    port_pin_t tmp_pin = {port, pin};
     button_create(&buttons[buttons_count++], &tmp_pin, inverse, DEFAULT_HOLD_TIME_MS);
 }
 
