@@ -65,7 +65,7 @@ void system_buttons_reset();
 #endif
 
 #ifndef GSYSTEM_NO_ADC_W
-uint32_t get_system_power(void);
+uint32_t get_system_power_v_x100(void);
 #endif
 
 #ifndef GSYSTEM_NO_SYS_TICK_W

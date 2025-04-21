@@ -62,7 +62,7 @@ static process_t sys_proc[] = {
 	{rtc_watchdog_check,       SECOND_MS,      {0,0}, true},
 #endif
 #if !defined(GSYSTEM_NO_POWER_W) && !defined(GSYSTEM_NO_ADC_W)
-	{power_watchdog_check,     SECOND_MS,      {0,0}, true},
+	{power_watchdog_check,     0,              {0,0}, true},
 #endif
 #ifndef GSYSTEM_NO_MEMORY_W
 	{memory_watchdog_check,    5 * SECOND_MS,  {0,0}, true},
@@ -177,12 +177,12 @@ void _sys_watchdog_check(void)
 			(kTPScounter / SECOND_MS) % 10
 		);
 #   ifndef GSYSTEM_NO_ADC_W
-		uint32_t power = get_system_power();
+		uint32_t voltage = get_system_power_v_x100();
 		printTagLog(
 			SYSTEM_TAG,
-			"power   : %lu.%lu V",
-			power / 10,
-			power % 10
+			"power   : %lu.%02lu V",
+			voltage / 100,
+			voltage % 100
 		);
 #   endif
 		kTPScounter = 0;

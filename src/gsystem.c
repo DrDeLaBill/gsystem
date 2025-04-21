@@ -186,8 +186,8 @@ void system_post_load(void)
     while (1) {
         adc_watchdog_check();
 
-        uint32_t voltage = get_system_power();
-        if (STM_MIN_VOLTAGEx10 <= voltage && voltage <= STM_MAX_VOLTAGEx10) {
+        uint32_t voltage = get_system_power_v_x100();
+        if (STM_MIN_VOLTAGEx100 <= voltage && voltage <= STM_MAX_VOLTAGEx100) {
             break;
         }
 
@@ -506,12 +506,12 @@ void system_timer_stop(system_timer_t* timer)
 }
 
 #ifndef GSYSTEM_NO_ADC_W
-uint32_t get_system_power(void)
+uint32_t get_system_power_v_x100(void)
 {
     if (!SYSTEM_ADC_VOLTAGE[0]) {
         return 0;
     }
-    return (STM_ADC_MAX * STM_REF_VOLTAGEx10) / SYSTEM_ADC_VOLTAGE[0];
+    return (STM_ADC_MAX * STM_REF_VOLTAGEx100) / SYSTEM_ADC_VOLTAGE[0];
 }
 #endif
 
