@@ -15,7 +15,7 @@ extern bool _w25q_initialized();
 
 #include "glog.h"
 #include "fsm_gc.h"
-#include "hal_defs.h"
+#include "g_hal.h"
 #include "circle_buf_gc.h"
 
 
@@ -197,7 +197,7 @@ void w24qxx_tick()
     fsm_gc_process(&w25qxx_fsm);
 }
 
-flash_status_t w25qxx_read_dma(const uint32_t addr, uint8_t* data, const uint16_t len)
+flash_status_t w25qxx_read_dma(const uint32_t addr, uint8_t* data, const uint32_t len)
 {
     if (!_w25q_ready()) {
 #if W25Q_DMA_BEDUG
@@ -242,7 +242,7 @@ flash_status_t w25qxx_read_dma(const uint32_t addr, uint8_t* data, const uint16_
     return FLASH_OK;
 }
 
-flash_status_t w25qxx_write_dma(const uint32_t addr, const uint8_t* data, const uint16_t len)
+flash_status_t w25qxx_write_dma(const uint32_t addr, const uint8_t* data, const uint32_t len)
 {
     if (!_w25q_ready()) {
 #if W25Q_DMA_BEDUG

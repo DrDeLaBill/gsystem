@@ -108,7 +108,7 @@ flash_status_t w25qxx_read(const uint32_t addr, uint8_t* data, const uint32_t le
  *  @param len Data buffer length.
  *  @return Result status.
  */
-flash_status_t w25qxx_read_dma(const uint32_t addr, uint8_t* data, const uint16_t len);
+flash_status_t w25qxx_read_dma(const uint32_t addr, uint8_t* data, const uint32_t len);
 
 /**
  *  Writes data to the W25Q memory.
@@ -126,7 +126,7 @@ flash_status_t w25qxx_write(const uint32_t addr, const uint8_t* data, const uint
  *  @param len Data buffer length (256 units maximum).
  *  @return Result status.
  */
-flash_status_t w25qxx_write_dma(const uint32_t addr, const uint8_t* data, const uint16_t len);
+flash_status_t w25qxx_write_dma(const uint32_t addr, const uint8_t* data, const uint32_t len);
 
 /**
  *  Erases addresses in the W25Q memory.

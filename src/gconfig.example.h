@@ -25,14 +25,15 @@ extern "C" {
 //#define GSYSTEM_NO_POWER_W
 //#define GSYSTEM_NO_MEMORY_W
 //#define GSYSTEM_NO_PLL_CHECK_W
+//#define GSYSTEM_NO_STORAGE_AT
 
 //#define GSYSTEM_NO_STATUS_PRINT
 //#define GSYSTEM_NO_VTOR_REWRITE
 //#define GSYSTEM_NO_PRINTF
+//#define GSYSTEM_NO_CPU_INFO
 
 #define GSYSTEM_ADC_VOLTAGE_COUNT  (1)
 
-//#define GSYSTEM_MEMORY_DMA
 //#define GSYSTEM_FLASH_MODE
 //#define GSYSTEM_EEPROM_MODE
 
@@ -57,6 +58,9 @@ extern "C" {
 //#define GSYSTEM_FLASH_SPI          (hspi1)
 //#define GSYSTEM_FLASH_CS_PORT      (FLASH1_CS_GPIO_Port)
 //#define GSYSTEM_FLASH_CS_PIN       (FLASH1_CS_Pin)
+//#define GSYSTEM_MEMORY_DMA
+//#define GSYSTEM_MEMORY_STREAM_TX  (3)
+//#define GSYSTEM_MEMORY_STREAM_RX  (2)
 
 #define GSYSTEM_BUTTONS_COUNT      (0)
 //#define GSYSTEM_BUTTON_DEBOUNCE_MS (60)

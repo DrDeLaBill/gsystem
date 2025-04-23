@@ -4,7 +4,7 @@
 #include "gconfig.h"
 
 #include "gsystem.h"
-#include "hal_defs.h"
+#include "g_hal.h"
 
 
 #if !defined(GSYSTEM_NO_POWER_W) && !defined(GSYSTEM_NO_ADC_W)

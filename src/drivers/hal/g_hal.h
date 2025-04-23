@@ -1,7 +1,7 @@
-/* Copyright © 2023 Georgy E. All rights reserved. */
+/* Copyright © 2025 Georgy E. All rights reserved. */
 
-#ifndef _HAL_DEFS_H_
-#define _HAL_DEFS_H_
+#ifndef _G_HAL_H_
+#define _G_HAL_H_
 
 
 #ifdef __cplusplus

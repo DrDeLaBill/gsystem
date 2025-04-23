@@ -8,10 +8,10 @@
 #include "main.h"
 #include "glog.h"
 #include "clock.h"
+#include "g_hal.h"
 #include "bmacro.h"
 #include "gconfig.h"
 #include "gdefines.h"
-#include "hal_defs.h"
 
 #if defined(GSYSTEM_DS130X_CLOCK)
 #   include "ds130x.h"

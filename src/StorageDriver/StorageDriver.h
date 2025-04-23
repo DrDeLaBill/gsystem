@@ -49,6 +49,10 @@ public:
     StorageStatus read(const uint32_t address, uint8_t *data, const uint32_t len) override;
     StorageStatus write(const uint32_t address, const uint8_t *data, const uint32_t len) override;
     StorageStatus erase(const uint32_t*, const uint32_t) override;
+    
+	StorageStatus asyncRead(const uint32_t, uint8_t*, const uint32_t) override;
+	StorageStatus asyncWrite(const uint32_t, const uint8_t*, const uint32_t) override;
+	StorageStatus asyncErase(const uint32_t*, const uint32_t) override;
 };
 
 #endif

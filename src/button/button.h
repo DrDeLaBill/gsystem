@@ -15,7 +15,7 @@ extern "C" {
 
 #include <stdint.h>
 
-#include "hal_defs.h"
+#include "g_hal.h"
 
 
 extern const uint32_t DEFAULT_HOLD_TIME_MS;

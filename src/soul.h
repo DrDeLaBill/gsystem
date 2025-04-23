@@ -12,7 +12,7 @@ extern "C" {
 #include <stdbool.h>
 
 #include "gutils.h"
-#include "hal_defs.h"
+#include "g_hal.h"
 
 
 typedef enum _SOUK_STATUS {

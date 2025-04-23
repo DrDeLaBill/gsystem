@@ -1,9 +1,13 @@
-#include "hal_defs.h"
+/* Copyright © 2025 Georgy E. All rights reserved. */
+
+#include "g_hal.h"
 
 #ifdef USE_HAL_DRIVER
 
 
 #include "glog.h"
+
+#include "gdefines.h"
 
 
 void COREInfo(void);
@@ -11,14 +15,14 @@ void FPUInfo(void);
 void IDCODEInfo(void);
 
 
-#if defined(DEBUG) && !defined(NO_CPU_INFO)
+#if defined(DEBUG) && !defined(GSYSTEM_NO_CPU_INFO)
 static const char CORE_TAG[] = "CORE";
 #endif
 
 
 void SystemInfo(void)
 {
-#ifndef NO_CPU_INFO
+#ifndef GSYSTEM_NO_CPU_INFO
 	printTagLog(CORE_TAG, "Core=%lu, %lu MHz", SystemCoreClock, SystemCoreClock / 1000000);
 	COREInfo();
 	IDCODEInfo();
@@ -45,7 +49,7 @@ bool MCUcheck(void)
 
 void COREInfo(void)
 {
-#ifndef NO_CPU_INFO
+#ifndef GSYSTEM_NO_CPU_INFO
 #   if defined(_DEBUG) || defined(DEBUG) || defined(GBEDUG_FORCE)
 	uint32_t cpuid = SCB->CPUID;
 
@@ -91,7 +95,7 @@ void COREInfo(void)
 
 void FPUInfo(void)
 {
-#ifndef NO_CPU_INFO
+#ifndef GSYSTEM_NO_CPU_INFO
 	uint32_t mvfr0 = *(volatile uint32_t *)0xE000EF40;
 
 	if (mvfr0) {
@@ -128,7 +132,7 @@ void FPUInfo(void)
 
 void IDCODEInfo(void)
 {
-#ifndef NO_CPU_INFO
+#ifndef GSYSTEM_NO_CPU_INFO
 	uint32_t idcode = DBGMCU->IDCODE & 0xFFF;
 
 	printPretty("");

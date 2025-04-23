@@ -10,30 +10,71 @@
 
 #   include "glog.h"
 #   include "gsystem.h"
-#   include "StorageAT.h"
-#   include "StorageDriver.h"
+#   if defined(GSYSTEM_FLASH_MODE)
+#       include "w25qxx.h"
+#   elif defined(GSYSTEM_EEPROM_MODE)
+#       include "at24cm01.h"
+#   endif
+
+#   ifndef GSYSTEM_NO_STORAGE_AT
+
+#       if defined(GSYSTEM_MEMORY_DMA) && !defined(GSYSTEM_NO_STORAGE_AT)
+#           define USE_STORAGE_AT_ASYNC
+#       endif
+
+#       include "StorageDriver.h"
+#       include "StorageAT.h"
 
 StorageDriver storageDriver;
 StorageAT storage(
-#   if defined(GSYSTEM_EEPROM_MODE)
+#       if defined(GSYSTEM_EEPROM_MODE)
 	EEPROM_PAGES_COUNT,
-#   elif defined(GSYSTEM_FLASH_MODE)
+#       elif defined(GSYSTEM_FLASH_MODE)
 	0,
-#   else
+#       else
 #       error "Memory mode is not selected"
 	0,
-#   endif
+#       endif
 
 	&storageDriver,
 
-#   if defined(GSYSTEM_EEPROM_MODE)
+#       if defined(GSYSTEM_EEPROM_MODE)
 	EEPROM_PAGE_SIZE
-#   elif defined(GSYSTEM_FLASH_MODE)
+#       elif defined(GSYSTEM_FLASH_MODE)
 	W25Q_SECTOR_SIZE
-#   else
+#       else
 	0
-#   endif
+#       endif
 );
+
+#       if defined(USE_STORAGE_AT_ASYNC) && defined(GSYSTEM_FLASH_MODE)
+void w25qxx_read_event(const flash_status_t status)
+{
+	if (status == STORAGE_OK) {
+		storage.callback(STORAGE_OK);
+	} else {
+		storage.callback(STORAGE_ERROR);
+	}
+}
+void w25qxx_write_event(const flash_status_t status)
+{
+	if (status == STORAGE_OK) {
+		storage.callback(STORAGE_OK);
+	} else {
+		storage.callback(STORAGE_ERROR);
+	}
+}
+void w25qxx_erase_event(const flash_status_t status)
+{
+	if (status == STORAGE_OK) {
+		storage.callback(STORAGE_OK);
+	} else {
+		storage.callback(STORAGE_ERROR);
+	}
+}
+#       endif
+
+#   endif
 
 extern "C" void memory_watchdog_check()
 {
@@ -66,7 +107,9 @@ extern "C" void memory_watchdog_check()
 	if (!is_status(MEMORY_INITIALIZED)) {
 		if (w25qxx_init() == FLASH_OK) {
 			set_status(MEMORY_INITIALIZED);
+#   ifndef GSYSTEM_NO_STORAGE_AT
 			storage.setPagesCount(w25qxx_get_pages_count());
+#   endif
 #   ifdef GSYSTEM_BEDUG
 			printTagLog(SYSTEM_TAG, "flash init success (%lu pages)", w25qxx_get_pages_count());
 #   endif
@@ -79,6 +122,13 @@ extern "C" void memory_watchdog_check()
 	}
 #else
 	set_status(MEMORY_INITIALIZED);
+#endif
+
+#if defined(GSYSTEM_FLASH_MODE)
+	w24qxx_tick();
+#endif
+#ifdef USE_STORAGE_AT_ASYNC
+	storage.tick();
 #endif
 
 	if (is_status(MEMORY_READ_FAULT) ||

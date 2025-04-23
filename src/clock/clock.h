@@ -19,7 +19,7 @@ extern "C" {
 #include <stdint.h>
 #include <stdbool.h>
 
-#include "hal_defs.h"
+#include "g_hal.h"
 
 #ifdef DEBUG
 #   define CLOCK_BEDUG     (0)

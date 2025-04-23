@@ -17,7 +17,7 @@ extern "C"{
 
 
 #include <stdint.h>
-#include "hal_defs.h"
+#include "g_hal.h"
 
 
 typedef enum _DS130X_STATUS {

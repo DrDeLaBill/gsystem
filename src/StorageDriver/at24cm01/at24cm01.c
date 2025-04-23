@@ -11,7 +11,7 @@
 #include <stdbool.h>
 #include <string.h>
 
-#include "hal_defs.h"
+#include "g_hal.h"
 
 #include "glog.h"
 #include "main.h"

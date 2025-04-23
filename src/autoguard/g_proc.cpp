@@ -62,10 +62,10 @@ static process_t sys_proc[] = {
 	{rtc_watchdog_check,       SECOND_MS,      {0,0}, true},
 #endif
 #if !defined(GSYSTEM_NO_POWER_W) && !defined(GSYSTEM_NO_ADC_W)
-	{power_watchdog_check,     0,              {0,0}, true},
+	{power_watchdog_check,     1,              {0,0}, true},
 #endif
 #ifndef GSYSTEM_NO_MEMORY_W
-	{memory_watchdog_check,    5 * SECOND_MS,  {0,0}, true},
+	{memory_watchdog_check,    1,              {0,0}, true},
 #endif
 #if GSYSTEM_BUTTONS_COUNT
 	{btn_watchdog_check,       1,              {0,0}, true},

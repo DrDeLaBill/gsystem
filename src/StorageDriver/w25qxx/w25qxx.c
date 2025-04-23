@@ -16,9 +16,9 @@
 
 #include "glog.h"
 #include "main.h"
+#include "g_hal.h"
 #include "gutils.h"
 #include "gsystem.h"
-#include "hal_defs.h"
 
 
 typedef struct _w25q_t {

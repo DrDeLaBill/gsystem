@@ -3,7 +3,7 @@
 #include "gdefines.h"
 #include "gconfig.h"
 
-#include "hal_defs.h"
+#include "g_hal.h"
 
 
 #ifndef GSYSTEM_NO_ADC_W
