@@ -73,8 +73,8 @@ void system_init(void)
         }
     }
     if (!(RCC->CR & RCC_CR_HSERDY)) {
-        set_status(SYS_TICK_ERROR);
-        set_error(SYS_TICK_FAULT);
+    	set_error(SYS_TICK_ERROR);
+        set_status(SYS_TICK_FAULT);
     }
     system_timer_stop(&timer);
 
@@ -100,8 +100,8 @@ void system_init(void)
         }
     }
     if (__HAL_RCC_GET_FLAG(RCC_FLAG_PLLRDY) != RESET) {
-        set_status(SYS_TICK_ERROR);
-        set_error(SYS_TICK_FAULT);
+    	set_error(SYS_TICK_ERROR);
+        set_status(SYS_TICK_FAULT);
     }
     system_timer_stop(&timer);
 
@@ -124,8 +124,8 @@ void system_init(void)
         }
     }
     if (__HAL_RCC_GET_FLAG(RCC_FLAG_PLLRDY) == RESET) {
-        set_status(SYS_TICK_ERROR);
-        set_error(SYS_TICK_FAULT);
+    	set_error(SYS_TICK_ERROR);
+        set_status(SYS_TICK_FAULT);
     }
     system_timer_stop(&timer);
 
@@ -146,8 +146,8 @@ void system_init(void)
        (READ_BIT(pll_config, RCC_PLLCFGR_PLLQ)   != (PLL.PLLQ << RCC_PLLCFGR_PLLQ_Pos))
 #       endif
     ) {
-        set_status(SYS_TICK_ERROR);
-        set_error(SYS_TICK_FAULT);
+    	set_error(SYS_TICK_ERROR);
+        set_status(SYS_TICK_FAULT);
     }
 
 #   endif

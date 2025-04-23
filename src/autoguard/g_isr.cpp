@@ -61,7 +61,7 @@ void gsys_UsageFault_Handler(void)
 	system_error_handler(USAGE_FAULT);
 }
 
-#if defined(USE_FLASH_DMA) || defiend(USE_EEPROM_DMA)
+#if defined(USE_FLASH_DMA) || defined(USE_EEPROM_DMA)
 #   ifndef GSYSTEM_NO_STORAGE_AT
 #       include "StorageAT.h"
 #   endif
