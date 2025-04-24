@@ -10,6 +10,9 @@
 
 #   include "glog.h"
 #   include "gsystem.h"
+
+#   include "Timer.h"
+
 #   if defined(GSYSTEM_FLASH_MODE)
 #       include "w25qxx.h"
 #   elif defined(GSYSTEM_EEPROM_MODE)
