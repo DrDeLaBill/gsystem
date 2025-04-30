@@ -401,7 +401,7 @@ void w25qxx_tx_dma_callback()
 	if (circle_buf_gc_empty(&w25q.queue)) {
 		return;
 	}
-    switch (*(dma_status_t*)circle_buf_gc_back(&w25q.queue))
+    switch ((*(dma_status_t*)circle_buf_gc_back(&w25q.queue)).status)
     {
     case W25Q_DMA_READ:
         fsm_gc_push_event(&w25qxx_read_fsm, &transmit_e);
@@ -436,7 +436,7 @@ void w25qxx_rx_dma_callback()
 	if (circle_buf_gc_empty(&w25q.queue)) {
 		return;
 	}
-    switch (*(dma_status_t*)circle_buf_gc_back(&w25q.queue))
+    switch ((*(dma_status_t*)circle_buf_gc_back(&w25q.queue)).status)
     {
     case W25Q_DMA_READ:
         fsm_gc_push_event(&w25qxx_read_fsm, &receive_e);
