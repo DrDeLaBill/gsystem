@@ -558,10 +558,9 @@ StorageStatus StorageDriver::asyncErase(const uint32_t* addresses, const uint32_
 
 #else
 
-StorageStatus asyncTick() { return STORAGE_ERROR; }
-StorageStatus asyncRead(const uint32_t, uint8_t*, const uint32_t) { return STORAGE_ERROR; }
-StorageStatus asyncWrite(const uint32_t, const uint8_t*, const uint32_t) { return STORAGE_ERROR; }
-StorageStatus asyncErase(const uint32_t*, const uint32_t) { return STORAGE_ERROR; }
+//StorageStatus StorageDriver::asyncRead(const uint32_t, uint8_t*, const uint32_t) { return STORAGE_ERROR; }
+//StorageStatus StorageDriver::asyncWrite(const uint32_t, const uint8_t*, const uint32_t) { return STORAGE_ERROR; }
+//StorageStatus StorageDriver::asyncErase(const uint32_t*, const uint32_t) { return STORAGE_ERROR; }
 
 #endif
 

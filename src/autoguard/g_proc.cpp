@@ -53,7 +53,7 @@ static process_t sys_proc[] = {
 	{ram_watchdog_check,       5 * SECOND_MS,  {0,0}, true},
 #endif
 #ifndef GSYSTEM_NO_ADC_W
-	{adc_watchdog_check,       50,             {0,0}, true},
+	{adc_watchdog_check,       1,              {0,0}, true},
 #endif
 #if defined(STM32F1) && !defined(GSYSTEM_NO_I2C_W)
 	{i2c_watchdog_check,       5 * SECOND_MS,  {0,0}, true},

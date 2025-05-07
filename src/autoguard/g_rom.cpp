@@ -127,7 +127,7 @@ extern "C" void memory_watchdog_check()
 	set_status(MEMORY_INITIALIZED);
 #endif
 
-#if defined(GSYSTEM_FLASH_MODE)
+#if defined(GSYSTEM_FLASH_MODE) && defined(GSYSTEM_MEMORY_DMA)
 	w24qxx_tick();
 #endif
 #ifdef USE_STORAGE_AT_ASYNC
