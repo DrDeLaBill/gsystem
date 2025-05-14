@@ -3,7 +3,7 @@
 #include "gdefines.h"
 #include "gconfig.h"
 
-#include "g_hal.h"
+#include "drivers.h"
 
 
 #ifndef GSYSTEM_NO_ADC_W

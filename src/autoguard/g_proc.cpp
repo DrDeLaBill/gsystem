@@ -160,7 +160,7 @@ extern "C" uint32_t get_system_freq(void)
 
 void _sys_watchdog_check(void)
 {
-    sys_cpu_freq = HAL_RCC_GetSysClockFreq();
+    sys_cpu_freq = g_get_freq();
 
 #if GSYSTEM_BEDUG && !defined(GSYSTEM_NO_STATUS_PRINT)
 	static gtimer_t kTPSTimer = {0,(10 * SECOND_MS)};

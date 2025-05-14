@@ -159,8 +159,6 @@ extern "C" void rtc_watchdog_check()
 	printTagLog(SYSTEM_TAG, "RTC testing in progress...");
 #   endif
 
-#   ifndef GSYSTEM_NO_RTC_CALENDAR_W
-
 	uint8_t ram_dump = 0;
 	if (!get_clock_ram(0, &ram_dump)) {
 		goto do_error;
@@ -168,6 +166,8 @@ extern "C" void rtc_watchdog_check()
 	if (!set_clock_ram(0, 0)) {
 		goto do_error;
 	}
+
+#   ifndef GSYSTEM_NO_RTC_CALENDAR_W
 
 #   if GSYSTEM_BEDUG
 	printPretty("Dump date test:    ");

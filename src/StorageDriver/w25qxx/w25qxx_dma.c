@@ -15,7 +15,7 @@ extern bool _w25q_initialized();
 
 #include "glog.h"
 #include "fsm_gc.h"
-#include "g_hal.h"
+#include "drivers.h"
 #include "circle_buf_gc.h"
 
 

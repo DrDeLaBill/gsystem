@@ -5,7 +5,7 @@
 #include "gconfig.h"
 
 #include "gsystem.h"
-#include "g_hal.h"
+#include "drivers.h"
 
 
 #if defined(GSYSTEM_DS130X_CLOCK)

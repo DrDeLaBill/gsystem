@@ -15,7 +15,7 @@ extern "C" {
 
 #include <stdint.h>
 
-#include "g_hal.h"
+#include "drivers.h"
 
 
 extern const uint32_t DEFAULT_HOLD_TIME_MS;

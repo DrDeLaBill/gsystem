@@ -62,6 +62,8 @@ extern "C" {
 #		error "Please select the target STM32Fxxx used in your application"
 #	endif
 
+#   include "main.h"
+
 
 #   define STM_REF_VOLTAGEx100       (120)
 #   define STM_MIN_VOLTAGEx100       (200)
@@ -69,44 +71,21 @@ extern "C" {
 
 #   define STM_ADC_MAX               ((uint32_t)0xFFF)
 
+#   define hard_tim_t                TIM_TypeDef
 
-typedef struct _GPIO_PAIR {
-	GPIO_TypeDef* port;
-	uint16_t      pin;
-} GPIO_PAIR;
+#   define GSYS_DEFAULT_TIM          TIM1
 
 
 void SystemInfo(void);
 bool MCUcheck(void);
 
+#   ifndef GSYSTEM_NO_PRINTF
+int _write(int line, uint8_t *ptr, int len);
+#   endif
 
 #endif
 
 
-#define TIMESTAMP2000_01_01_00_00_00 (946670400)
-
-#define SECOND_MS                    ((uint32_t)(1000))
-
-#define MINUTE_S                     ((uint32_t)(60))
-#define MINUTE_MS                    ((uint32_t)(MINUTE_S * SECOND_MS))
-
-#define HOUR_MIN                     ((uint32_t)(60))
-#define HOUR_MS                      ((uint32_t)(HOUR_MIN * MINUTE_MS))
-
-#define DAY_H                        ((uint32_t)(24))
-#define DAY_MS                       ((uint32_t)(DAY_H * HOUR_MS))
-
-#define WEEK_D                       ((uint32_t)(7))
-#define WEEK_MS                      ((uint32_t)(WEEK_D * DAY_MS))
-
-#define BITS_IN_BYTE                 (8)
-
-
-
-typedef struct _port_pin_t {
-    GPIO_TypeDef* port;
-    uint16_t      pin;
-} port_pin_t;
 
 
 #ifdef __cplusplus

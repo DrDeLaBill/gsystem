@@ -40,13 +40,11 @@ extern "C" void ram_watchdog_check()
 			cur_counter = 0;
 		}
 	}
-
-	extern unsigned _sdata;
-	extern unsigned _estack;
+	
 	uint32_t freeRamBytes = last_counter * sizeof(SYSTEM_CANARY_WORD);
 	unsigned freePercent = (unsigned)__percent(
 		(uint32_t)last_counter,
-		(uint32_t)__abs_dif(&_sdata, &_estack)
+		(uint32_t)__abs_dif(g_heap_start(), g_stack_end())
 	);
 #if GSYSTEM_BEDUG
 	if (freeRamBytes && __abs_dif(lastFree, freeRamBytes)) {
@@ -74,4 +72,22 @@ extern "C" void ram_watchdog_check()
 		set_error(STACK_ERROR);
 	}
 }
+
+extern "C" void sys_fill_ram()
+{
+    volatile unsigned *top, *start;
+    __asm__ volatile ("mov %[top], sp" : [top] "=r" (top) : : );
+    unsigned *end_heap = (unsigned*)sbrk(0);
+    start = end_heap;
+    start++;
+    while (start < top) {
+        *(start++) = SYSTEM_CANARY_WORD;
+    }
+}
+#else
+
+extern "C" void ram_watchdog_check() {}
+
+extern "C" void sys_fill_ram() {}
+
 #endif

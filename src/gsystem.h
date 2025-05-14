@@ -22,10 +22,21 @@ extern "C" {
 }
 
 
+typedef struct _system_timer_t {
+    uint32_t    verif;
+    hard_tim_t* tim;
+    hard_tim_t  bkup_tim;
+    bool        enabled;
+    uint32_t    end;
+    uint32_t    count;
+} system_timer_t;
+
+
 void system_init(void);
 void system_register(void (*process) (void), uint32_t delay_ms, bool work_with_error);
 void set_system_timeout(uint32_t timeout_ms);
 void system_start(void);
+void system_reset(void);
 
 void system_post_load(void);
 void system_tick(void);
@@ -42,17 +53,7 @@ char* get_system_serial_str(void);
 
 void system_error_loop(void);
 
-
-typedef struct _system_timer_t {
-    uint32_t     verif;
-    TIM_TypeDef* tim;
-    TIM_TypeDef  bkup_tim;
-    bool         enabled;
-    uint32_t     end;
-    uint32_t     count;
-} system_timer_t;
-
-void system_timer_start(system_timer_t* timer, TIM_TypeDef* fw_tim, uint32_t delay_ms);
+void system_timer_start(system_timer_t* timer, hard_tim_t* fw_tim, uint32_t delay_ms);
 bool system_timer_wait(system_timer_t* timer);
 void system_timer_stop(system_timer_t* timer);
 
@@ -85,10 +86,6 @@ bool set_system_bckp(const uint8_t idx, const uint8_t data);
 
 uint32_t get_system_freq(void);
 void system_delay_us(uint32_t us);
-
-#ifndef GSYSTEM_NO_PRINTF
-int _write(int line, uint8_t *ptr, int len);
-#endif
 
 #ifdef __cplusplus
 }

@@ -7,7 +7,7 @@
 
 #include "gsystem.h"
 
-#include "g_hal.h"
+#include "drivers.h"
 
 
 #ifndef GSYSTEM_NO_VTOR_REWRITE
@@ -218,5 +218,8 @@ extern "C" void sys_isr_register()
 	__DSB();
 }
 
+#else
+
+extern "C" void sys_isr_register() {}
 
 #endif

@@ -16,7 +16,7 @@
 
 #include "glog.h"
 #include "bmacro.h"
-#include "g_hal.h"
+#include "drivers.h"
 
 
 #if defined(GSYSTEM_DS130X_CLOCK)

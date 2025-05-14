@@ -17,7 +17,7 @@ extern "C"{
 
 
 #include <stdint.h>
-#include "g_hal.h"
+#include "drivers.h"
 
 
 typedef enum _DS130X_STATUS {

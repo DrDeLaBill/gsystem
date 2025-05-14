@@ -5,13 +5,13 @@
 #include <unistd.h>
 #include <stdbool.h>
 
-#include "main.h"
 #include "glog.h"
 #include "clock.h"
-#include "g_hal.h"
 #include "bmacro.h"
 #include "gconfig.h"
+
 #include "gdefines.h"
+#include "drivers.h"
 
 #if defined(GSYSTEM_DS130X_CLOCK)
 #   include "ds130x.h"
@@ -28,12 +28,11 @@ const char SYSTEM_TAG[] = "GSYS";
 
 static void _system_restart_check(void);
 #ifndef GSYSTEM_NO_RAM_W
-static void _fill_ram();
+static void sys_fill_ram();
 #endif
 
 
 static const uint32_t TIMER_VERIF_WORD = 0xBEDAC1DE;
-static const uint32_t TIMER_FREQ_MUL   = 2;
 
 #if GSYSTEM_BUTTONS_COUNT
 unsigned buttons_count = 0;
@@ -49,18 +48,17 @@ uint16_t SYSTEM_ADC_VOLTAGE[GSYSTEM_ADC_VOLTAGE_COUNT] = {0};
 #endif
 
 #ifndef GSYSTEM_TIMER
-#   define GSYSTEM_TIMER (TIM1)
+#   define GSYSTEM_TIMER (GSYS_DEFAULT_TIM)
 #endif
 
 
 extern void sys_isr_register();
+extern void sys_fill_ram();
 void system_init(void)
 {
     sys_isr_register();
 
-#ifndef GSYSTEM_NO_RAM_W
-    _fill_ram();
-#endif
+    sys_fill_ram();
 
     system_timer_t timer = {0};
 #ifndef GSYSTEM_NO_SYS_TICK_W
@@ -169,7 +167,9 @@ void system_post_load(void)
 {
     set_status(SYSTEM_SOFTWARE_STARTED);
 
+#ifndef GSYSTEM_NO_CPU_INFO
     SystemInfo();
+#endif
 
     _system_restart_check();
 
@@ -247,6 +247,11 @@ void system_start(void)
     while (1) {
         system_tick();
     }
+}
+
+void system_reset(void)
+{
+    g_reboot();
 }
 
 extern void sys_proc_tick();
@@ -360,149 +365,39 @@ void system_error_handler(SOUL_STATUS error)
     }
 #endif
 
-    NVIC_SystemReset();
+    g_reboot();
 }
 
 __attribute__((weak)) void system_before_reset(void) {}
 
-void system_timer_start(system_timer_t* timer, TIM_TypeDef* fw_tim, uint32_t delay_ms)
+extern void g_timer_start(system_timer_t* timer, hard_tim_t* fw_tim, uint32_t delay_ms);
+void system_timer_start(system_timer_t* timer, hard_tim_t* fw_tim, uint32_t delay_ms)
 {
-    // TODO: timers after system_timer_start don't work
-    memset(timer, 0, sizeof(system_timer_t));
-    switch ((uint32_t)fw_tim) {
-    case TIM1_BASE:
-        timer->enabled = READ_BIT(RCC->APB2ENR, RCC_APB2ENR_TIM1EN);
-        break;
-    case TIM2_BASE:
-        timer->enabled = READ_BIT(RCC->APB1ENR, RCC_APB1ENR_TIM2EN);
-        break;
-    case TIM3_BASE:
-        timer->enabled = READ_BIT(RCC->APB1ENR, RCC_APB1ENR_TIM3EN);
-        break;
-    case TIM4_BASE:
-        timer->enabled = READ_BIT(RCC->APB1ENR, RCC_APB1ENR_TIM4EN);
-        break;
-    default:
-        BEDUG_ASSERT(false, "GSYSTEM TIM WAS NOT SELECTED");
+    if (!timer->tim || timer->verif != TIMER_VERIF_WORD) {
+        SYSTEM_BEDUG("System timer has not initialized");
         return;
     }
-    if (timer->enabled) {
-        memcpy((void*)&timer->bkup_tim, (void*)fw_tim, sizeof(TIM_TypeDef));
-    }
-    timer->tim = fw_tim;
-    timer->end = delay_ms / SECOND_MS;
-    memset((void*)fw_tim, 0, sizeof(TIM_TypeDef));
-
-    uint32_t count = 0;
-    switch ((uint32_t)fw_tim) {
-    case TIM1_BASE:
-        __TIM1_CLK_ENABLE();
-        count = HAL_RCC_GetPCLK2Freq();
-        break;
-    case TIM2_BASE:
-        __TIM2_CLK_ENABLE();
-        count = HAL_RCC_GetPCLK1Freq();
-        break;
-    case TIM3_BASE:
-        __TIM3_CLK_ENABLE();
-        count = HAL_RCC_GetPCLK1Freq();
-        break;
-    case TIM4_BASE:
-        __TIM4_CLK_ENABLE();
-        count = HAL_RCC_GetPCLK1Freq();
-        break;
-    default:
-        BEDUG_ASSERT(false, "GSYSTEM TIM WAS NOT SELECTED");
-        return;
-    }
-    if (count) {
-        count *= TIMER_FREQ_MUL;
-        count /= SECOND_MS;
-    }
-    uint32_t presc = SECOND_MS;
-    if (delay_ms < SECOND_MS) {
-        timer->end = 1;
-        presc      = delay_ms;
-    }
-    while (count > 0xFFFF) {
-        presc *= 2;
-        count /= 2;
-    }
-    // TODO: add interrupt with new VTOR
-    if (presc > 0xFFFF) {
-        presc = 0xFFFF;
-    }
-    if (presc == 1) {
-        count /= TIMER_FREQ_MUL;
-    }
-
-    timer->tim->PSC  = presc - 1;
-    timer->tim->ARR  = count - 1;
-    timer->tim->CR1  = 0;
-
-    timer->tim->EGR  = TIM_EGR_UG;
-    timer->tim->CR1 |= TIM_CR1_UDIS;
-
-    timer->tim->CNT  = 0;
-    timer->tim->SR   = 0;
-    timer->tim->CR1 &= ~(TIM_CR1_DIR);
-    timer->tim->CR1 |= TIM_CR1_OPM;
-    timer->tim->CR1 |= TIM_CR1_CEN;
-
-    timer->verif = TIMER_VERIF_WORD;
+    g_timer_start(timer, fw_tim, delay_ms);
 }
 
+extern bool g_timer_wait(system_timer_t* timer);
 bool system_timer_wait(system_timer_t* timer)
 {
     if (!timer->tim || timer->verif != TIMER_VERIF_WORD) {
         SYSTEM_BEDUG("System timer has not initialized");
         return false;
     }
-    if (timer->tim->SR & TIM_SR_CC1IF) {
-        timer->count++;
-        timer->tim->SR   = 0;
-        timer->tim->CNT  = 0;
-        timer->tim->CR1 |= TIM_CR1_CEN;
-    }
-    return timer->count < timer->end;
+    return g_timer_wait(timer);
 }
 
+extern void g_timer_stop(system_timer_t* timer);
 void system_timer_stop(system_timer_t* timer)
 {
     if (!timer->tim || timer->verif != TIMER_VERIF_WORD) {
         BEDUG_ASSERT(false, "GSYSTEM TIM WAS NOT SELECTED");
         return;
     }
-
-    timer->tim->SR &= ~(TIM_SR_UIF | TIM_SR_CC1IF);
-    timer->tim->CNT = 0;
-
-    if (timer->enabled) {
-        memcpy(timer->tim, &timer->bkup_tim, sizeof(TIM_TypeDef));
-    } else {
-        timer->tim->CR1 &= ~(TIM_CR1_CEN);
-        switch ((uint32_t)timer->tim) {
-        case TIM1_BASE:
-            __TIM1_CLK_DISABLE();
-            break;
-        case TIM2_BASE:
-            __TIM2_CLK_DISABLE();
-            break;
-        case TIM3_BASE:
-            __TIM3_CLK_DISABLE();
-            break;
-        case TIM4_BASE:
-            __TIM4_CLK_DISABLE();
-            break;
-        default:
-            BEDUG_ASSERT(false, "GSYSTEM TIM WAS NOT SELECTED");
-            return;
-        }
-        memset((void*)timer->tim, 0, sizeof(TIM_TypeDef));
-    }
-
-    timer->verif = 0;
-    timer->tim = NULL;
+    g_timer_stop(timer);
 }
 
 #ifndef GSYSTEM_NO_ADC_W
@@ -903,69 +798,5 @@ void system_delay_us(uint32_t us)
 
 void _system_restart_check(void)
 {
-    bool flag = false;
-    // IWDG check reboot
-    if (__HAL_RCC_GET_FLAG(RCC_FLAG_IWDGRST)) {
-#if GSYSTEM_BEDUG
-        printTagLog(SYSTEM_TAG, "IWDG just went off");
-#endif
-        flag = true;
-    }
-
-    // WWDG check reboot
-    if (__HAL_RCC_GET_FLAG(RCC_FLAG_WWDGRST)) {
-#if GSYSTEM_BEDUG
-        printTagLog(SYSTEM_TAG, "WWDG just went off");
-#endif
-        flag = true;
-    }
-
-    if (__HAL_RCC_GET_FLAG(RCC_FLAG_SFTRST)) {
-#if GSYSTEM_BEDUG
-        printTagLog(SYSTEM_TAG, "SOFT RESET");
-#endif
-        flag = true;
-    }
-
-    if (flag) {
-        __HAL_RCC_CLEAR_RESET_FLAGS();
-#if GSYSTEM_BEDUG
-        printTagLog(SYSTEM_TAG, "DEVICE HAS BEEN REBOOTED");
-#endif
-    }
+    g_restart_check();
 }
-
-#ifndef GSYSTEM_NO_RAM_W
-void _fill_ram()
-{
-    volatile unsigned *top, *start;
-    __asm__ volatile ("mov %[top], sp" : [top] "=r" (top) : : );
-    unsigned *end_heap = (unsigned*)sbrk(0);
-    start = end_heap;
-    start++;
-    while (start < top) {
-        *(start++) = SYSTEM_CANARY_WORD;
-    }
-}
-#endif
-
-#if !defined(GSYSTEM_NO_PRINTF) || defined(GSYSTEM_BEDUG_UART)
-int _write(int line, uint8_t *ptr, int len) {
-    (void)line;
-    (void)ptr;
-    (void)len;
-
-#   if defined(GSYSTEM_BEDUG_UART)
-    extern UART_HandleTypeDef GSYSTEM_BEDUG_UART;
-    HAL_UART_Transmit(&GSYSTEM_BEDUG_UART, (uint8_t*)ptr, (uint16_t)(len), 100);
-#   endif
-
-#   if !defined(GSYSTEM_NO_PRINTF)
-    for (int DataIdx = 0; DataIdx < len; DataIdx++) {
-        ITM_SendChar(*ptr++);
-    }
-#   endif
-
-    return len;
-}
-#endif

@@ -2,17 +2,234 @@
 
 #include "g_hal.h"
 
+
 #ifdef USE_HAL_DRIVER
 
 
-#include "glog.h"
+#   include "gdefines.h"
 
-#include "gdefines.h"
+#   include "glog.h"
+#   include "gsystem.h"
 
 
-void COREInfo(void);
-void FPUInfo(void);
-void IDCODEInfo(void);
+static void COREInfo(void);
+static void FPUInfo(void);
+static void IDCODEInfo(void);
+
+
+extern "C" {
+	extern uint32_t _sdata;
+	extern uint32_t _estack;
+}
+
+static const uint32_t TIMER_FREQ_MUL   = 2;
+
+
+void g_reboot()
+{
+    NVIC_SystemReset();
+}
+
+void g_timer_start(system_timer_t* timer, hard_tim_t* fw_tim, uint32_t delay_ms)
+{
+    // TODO: timers after system_timer_start don't work
+    memset(timer, 0, sizeof(system_timer_t));
+    switch ((uint32_t)fw_tim) {
+    case TIM1_BASE:
+        timer->enabled = READ_BIT(RCC->APB2ENR, RCC_APB2ENR_TIM1EN);
+        break;
+    case TIM2_BASE:
+        timer->enabled = READ_BIT(RCC->APB1ENR, RCC_APB1ENR_TIM2EN);
+        break;
+    case TIM3_BASE:
+        timer->enabled = READ_BIT(RCC->APB1ENR, RCC_APB1ENR_TIM3EN);
+        break;
+    case TIM4_BASE:
+        timer->enabled = READ_BIT(RCC->APB1ENR, RCC_APB1ENR_TIM4EN);
+        break;
+    default:
+        BEDUG_ASSERT(false, "GSYSTEM TIM WAS NOT SELECTED");
+        return;
+    }
+    if (timer->enabled) {
+        memcpy((void*)&timer->bkup_tim, (void*)fw_tim, sizeof(TIM_TypeDef));
+    }
+    timer->tim = fw_tim;
+    timer->end = delay_ms / SECOND_MS;
+    memset((void*)fw_tim, 0, sizeof(TIM_TypeDef));
+
+    uint32_t count = 0;
+    switch ((uint32_t)fw_tim) {
+    case TIM1_BASE:
+        __TIM1_CLK_ENABLE();
+        count = HAL_RCC_GetPCLK2Freq();
+        break;
+    case TIM2_BASE:
+        __TIM2_CLK_ENABLE();
+        count = HAL_RCC_GetPCLK1Freq();
+        break;
+    case TIM3_BASE:
+        __TIM3_CLK_ENABLE();
+        count = HAL_RCC_GetPCLK1Freq();
+        break;
+    case TIM4_BASE:
+        __TIM4_CLK_ENABLE();
+        count = HAL_RCC_GetPCLK1Freq();
+        break;
+    default:
+        BEDUG_ASSERT(false, "GSYSTEM TIM WAS NOT SELECTED");
+        return;
+    }
+    if (count) {
+        count *= TIMER_FREQ_MUL;
+        count /= SECOND_MS;
+    }
+    uint32_t presc = SECOND_MS;
+    if (delay_ms < SECOND_MS) {
+        timer->end = 1;
+        presc      = delay_ms;
+    }
+    while (count > 0xFFFF) {
+        presc *= 2;
+        count /= 2;
+    }
+    // TODO: add interrupt with new VTOR
+    if (presc > 0xFFFF) {
+        presc = 0xFFFF;
+    }
+    if (presc == 1) {
+        count /= TIMER_FREQ_MUL;
+    }
+
+    timer->tim->PSC  = presc - 1;
+    timer->tim->ARR  = count - 1;
+    timer->tim->CR1  = 0;
+
+    timer->tim->EGR  = TIM_EGR_UG;
+    timer->tim->CR1 |= TIM_CR1_UDIS;
+
+    timer->tim->CNT  = 0;
+    timer->tim->SR   = 0;
+    timer->tim->CR1 &= ~(TIM_CR1_DIR);
+    timer->tim->CR1 |= TIM_CR1_OPM;
+    timer->tim->CR1 |= TIM_CR1_CEN;
+
+    timer->verif = TIMER_VERIF_WORD;
+}
+
+bool g_timer_wait(system_timer_t* timer)
+{
+    if (timer->tim->SR & TIM_SR_CC1IF) {
+        timer->count++;
+        timer->tim->SR   = 0;
+        timer->tim->CNT  = 0;
+        timer->tim->CR1 |= TIM_CR1_CEN;
+    }
+    return timer->count < timer->end;
+}
+
+void g_timer_stop(system_timer_t* timer)
+{
+    timer->tim->SR &= ~(TIM_SR_UIF | TIM_SR_CC1IF);
+    timer->tim->CNT = 0;
+
+    if (timer->enabled) {
+        memcpy(timer->tim, &timer->bkup_tim, sizeof(TIM_TypeDef));
+    } else {
+        timer->tim->CR1 &= ~(TIM_CR1_CEN);
+        switch ((uint32_t)timer->tim) {
+        case TIM1_BASE:
+            __TIM1_CLK_DISABLE();
+            break;
+        case TIM2_BASE:
+            __TIM2_CLK_DISABLE();
+            break;
+        case TIM3_BASE:
+            __TIM3_CLK_DISABLE();
+            break;
+        case TIM4_BASE:
+            __TIM4_CLK_DISABLE();
+            break;
+        default:
+            BEDUG_ASSERT(false, "GSYSTEM TIM WAS NOT SELECTED");
+            return;
+        }
+        memset((void*)timer->tim, 0, sizeof(TIM_TypeDef));
+    }
+
+    timer->verif = 0;
+    timer->tim = NULL;
+}
+
+void g_restart_check() 
+{
+    bool flag = false;
+    // IWDG check reboot
+    if (__HAL_RCC_GET_FLAG(RCC_FLAG_IWDGRST)) {
+#if GSYSTEM_BEDUG
+        printTagLog(SYSTEM_TAG, "IWDG just went off");
+#endif
+        flag = true;
+    }
+
+    // WWDG check reboot
+    if (__HAL_RCC_GET_FLAG(RCC_FLAG_WWDGRST)) {
+#if GSYSTEM_BEDUG
+        printTagLog(SYSTEM_TAG, "WWDG just went off");
+#endif
+        flag = true;
+    }
+
+    if (__HAL_RCC_GET_FLAG(RCC_FLAG_SFTRST)) {
+#if GSYSTEM_BEDUG
+        printTagLog(SYSTEM_TAG, "SOFT RESET");
+#endif
+        flag = true;
+    }
+
+    if (flag) {
+        __HAL_RCC_CLEAR_RESET_FLAGS();
+#if GSYSTEM_BEDUG
+        printTagLog(SYSTEM_TAG, "DEVICE HAS BEEN REBOOTED");
+#endif
+    }
+}
+
+uint32_t g_get_freq()
+{
+	return HAL_RCC_GetSysClockFreq();
+}
+
+uint32_t* g_heap_start()
+{
+    return &_sdata;
+}
+
+uint32_t* g_stack_end()
+{
+    return &_estack;
+}
+
+#if !defined(GSYSTEM_NO_PRINTF) || defined(GSYSTEM_BEDUG_UART)
+int _write(int line, uint8_t *ptr, int len) {
+    (void)line;
+    (void)ptr;
+    (void)len;
+
+#   if defined(GSYSTEM_BEDUG_UART)
+    extern UART_HandleTypeDef GSYSTEM_BEDUG_UART;
+    HAL_UART_Transmit(&GSYSTEM_BEDUG_UART, (uint8_t*)ptr, (uint16_t)(len), 100);
+#   endif
+
+#   if !defined(GSYSTEM_NO_PRINTF)
+    for (int DataIdx = 0; DataIdx < len; DataIdx++) {
+        ITM_SendChar(*ptr++);
+    }
+#   endif
+
+    return len;
+}
+#endif
 
 
 #if defined(DEBUG) && !defined(GSYSTEM_NO_CPU_INFO)
