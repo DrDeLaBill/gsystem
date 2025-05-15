@@ -42,8 +42,8 @@ extern "C" {
 
 
 typedef struct _port_pin_t {
-    uint16_t* port;
-    uint16_t  pin;
+	hard_port_t* port;
+    uint16_t     pin;
 } port_pin_t;
 
 

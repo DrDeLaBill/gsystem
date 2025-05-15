@@ -18,7 +18,8 @@ extern "C" {
 #   endif
 
 
-#   define  hard_tim_t      NRF_TIMER_Type
+#   define hard_tim_t       NRF_TIMER_Type
+#   define hard_port_t      uint16_t
 
 #   define GSYS_DEFAULT_TIM (NRF_TIMER0)
 

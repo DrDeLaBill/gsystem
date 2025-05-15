@@ -72,6 +72,7 @@ extern "C" {
 #   define STM_ADC_MAX               ((uint32_t)0xFFF)
 
 #   define hard_tim_t                TIM_TypeDef
+#   define hard_port_t               GPIO_TypeDef
 
 #   define GSYS_DEFAULT_TIM          TIM1
 

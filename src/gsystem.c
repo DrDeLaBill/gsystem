@@ -31,8 +31,7 @@ static void _system_restart_check(void);
 static void sys_fill_ram();
 #endif
 
-
-static const uint32_t TIMER_VERIF_WORD = 0xBEDAC1DE;
+const uint32_t TIMER_VERIF_WORD = 0xBEDAC1DE;
 
 #if GSYSTEM_BUTTONS_COUNT
 unsigned buttons_count = 0;

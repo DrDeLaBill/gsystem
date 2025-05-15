@@ -6,21 +6,22 @@
 #ifdef USE_HAL_DRIVER
 
 
+#   include "gconfig.h"
 #   include "gdefines.h"
 
 #   include "glog.h"
 #   include "gsystem.h"
 
 
+#if GSYSTEM_BEDUG && !defined(GSYSTEM_NO_CPU_INFO)
 static void COREInfo(void);
 static void FPUInfo(void);
 static void IDCODEInfo(void);
+#endif
 
+extern uint32_t _sdata;
+extern uint32_t _estack;
 
-extern "C" {
-	extern uint32_t _sdata;
-	extern uint32_t _estack;
-}
 
 static const uint32_t TIMER_FREQ_MUL   = 2;
 
@@ -77,7 +78,9 @@ void g_timer_start(system_timer_t* timer, hard_tim_t* fw_tim, uint32_t delay_ms)
         count = HAL_RCC_GetPCLK1Freq();
         break;
     default:
+#if GSYSTEM_BEDUG
         BEDUG_ASSERT(false, "GSYSTEM TIM WAS NOT SELECTED");
+#endif
         return;
     }
     if (count) {
@@ -151,7 +154,9 @@ void g_timer_stop(system_timer_t* timer)
             __TIM4_CLK_DISABLE();
             break;
         default:
+#if GSYSTEM_BEDUG
             BEDUG_ASSERT(false, "GSYSTEM TIM WAS NOT SELECTED");
+#endif
             return;
         }
         memset((void*)timer->tim, 0, sizeof(TIM_TypeDef));
@@ -166,32 +171,24 @@ void g_restart_check()
     bool flag = false;
     // IWDG check reboot
     if (__HAL_RCC_GET_FLAG(RCC_FLAG_IWDGRST)) {
-#if GSYSTEM_BEDUG
-        printTagLog(SYSTEM_TAG, "IWDG just went off");
-#endif
+    	SYSTEM_BEDUG("IWDG just went off");
         flag = true;
     }
 
     // WWDG check reboot
     if (__HAL_RCC_GET_FLAG(RCC_FLAG_WWDGRST)) {
-#if GSYSTEM_BEDUG
-        printTagLog(SYSTEM_TAG, "WWDG just went off");
-#endif
+    	SYSTEM_BEDUG("WWDG just went off");
         flag = true;
     }
 
     if (__HAL_RCC_GET_FLAG(RCC_FLAG_SFTRST)) {
-#if GSYSTEM_BEDUG
-        printTagLog(SYSTEM_TAG, "SOFT RESET");
-#endif
+        SYSTEM_BEDUG("SOFT RESET");
         flag = true;
     }
 
     if (flag) {
         __HAL_RCC_CLEAR_RESET_FLAGS();
-#if GSYSTEM_BEDUG
-        printTagLog(SYSTEM_TAG, "DEVICE HAS BEEN REBOOTED");
-#endif
+        SYSTEM_BEDUG("DEVICE HAS BEEN REBOOTED");
     }
 }
 
@@ -240,7 +237,7 @@ static const char CORE_TAG[] = "CORE";
 void SystemInfo(void)
 {
 #ifndef GSYSTEM_NO_CPU_INFO
-	printTagLog(CORE_TAG, "Core=%lu, %lu MHz", SystemCoreClock, SystemCoreClock / 1000000);
+	SYSTEM_BEDUG(CORE_TAG, "Core=%lu, %lu MHz", SystemCoreClock, SystemCoreClock / 1000000);
 	COREInfo();
 	IDCODEInfo();
 	FPUInfo();
@@ -264,9 +261,9 @@ bool MCUcheck(void)
 #endif
 }
 
+#ifndef GSYSTEM_NO_CPU_INFO
 void COREInfo(void)
 {
-#ifndef GSYSTEM_NO_CPU_INFO
 #   if defined(_DEBUG) || defined(DEBUG) || defined(GBEDUG_FORCE)
 	uint32_t cpuid = SCB->CPUID;
 
@@ -307,12 +304,10 @@ void COREInfo(void)
 		printPretty("Unknown CORE IMPLEMENTER\n");
 	}
 #   endif
-#endif
 }
 
 void FPUInfo(void)
 {
-#ifndef GSYSTEM_NO_CPU_INFO
 	uint32_t mvfr0 = *(volatile uint32_t *)0xE000EF40;
 
 	if (mvfr0) {
@@ -344,12 +339,10 @@ void FPUInfo(void)
 		printPretty("Unknown FPU\n");
 		break;
 	}
-#endif
 }
 
 void IDCODEInfo(void)
 {
-#ifndef GSYSTEM_NO_CPU_INFO
 	uint32_t idcode = DBGMCU->IDCODE & 0xFFF;
 
 	printPretty("");
@@ -442,8 +435,8 @@ void IDCODEInfo(void)
         gprint("Unknown STM32 (IDCODE=0x%X)\n", (int)idcode);
 		break;
 	}
-#endif
 }
+#endif
 
 
 #endif

@@ -31,6 +31,8 @@ typedef struct _system_timer_t {
     uint32_t    count;
 } system_timer_t;
 
+extern const uint32_t TIMER_VERIF_WORD;
+
 
 void system_init(void);
 void system_register(void (*process) (void), uint32_t delay_ms, bool work_with_error);

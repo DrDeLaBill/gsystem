@@ -31,6 +31,7 @@ extern "C" {
 //#define GSYSTEM_NO_VTOR_REWRITE
 //#define GSYSTEM_NO_PRINTF
 //#define GSYSTEM_NO_CPU_INFO
+//#define GSYSTEM_NO_BEDUG
 
 #define GSYSTEM_ADC_VOLTAGE_COUNT  (1)
 
