@@ -15,25 +15,18 @@
 #   include "gsystem.h"
 
 
+#   define VECTOR_TABLE_SIZE  0xD8
+#   define VECTOR_TABLE_ALIGN __attribute__((aligned(0x200)))
+
+
 extern "C" {
 	extern uint32_t __HeapBase;
 	extern uint32_t __StackTop;
 }
 
-
-static void wdt_reset(void)
-{
-  const unsigned BASE_ADDR = 0x40010000;
-  const unsigned START_REG = 0x000;
-  const unsigned CRV_REG = 0x504;
-  *((unsigned*)(BASE_ADDR + CRV_REG)) = 0;
-  *((unsigned*)(BASE_ADDR + START_REG)) = 1;
-  while(1);
-}
-
 extern "C" void g_reboot()
 {
-    wdt_reset();
+    NVIC_SystemReset();
 }
 
 // TODO: sys timers
@@ -48,19 +41,28 @@ extern "C" void g_timer_stop(system_timer_t* timer) {}
 
 extern "C" void g_restart_check() {}
 
-uint32_t g_get_freq()
+extern "C" uint32_t g_get_freq()
 {
   return 64000000;
 }
 
-uint32_t* g_heap_start()
+// TODO: check memory map rules
+extern "C" uint32_t* g_heap_start()
 {
     return &__HeapBase;
 }
 
-uint32_t* g_stack_end()
+extern "C" uint32_t* g_stack_end()
 {
     return &__StackTop;
+}
+
+extern "C" char* g_serial_number()
+{
+    static char str_uid[17] = {0};
+    memset((void*)str_uid, 0, sizeof(str_uid));
+    sprintf(str_uid, "%08lX%08lX", NRF_FICR->DEVICEADDR[1], NRF_FICR->DEVICEADDR[0]);
+    return str_uid;
 }
 
 

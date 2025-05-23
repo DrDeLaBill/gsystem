@@ -56,6 +56,9 @@ uint32_t g_get_freq();
 uint32_t* g_heap_start();
 uint32_t* g_stack_end();
 
+char* g_serial_number();
+
+
 #ifdef __cplusplus
 }
 #endif

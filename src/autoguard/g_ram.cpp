@@ -3,8 +3,9 @@
 #include "gdefines.h"
 #include "gconfig.h"
 
-#include <unistd.h>
+#include <limits>
 #include <cstdint>
+#include <unistd.h>
 
 #include "glog.h"
 #include "gsystem.h"
@@ -14,7 +15,7 @@
 extern "C" void ram_watchdog_check()
 {
 	static const unsigned STACK_PERCENT_MIN = 5;
-	static unsigned lastFree = 0;
+	static unsigned lastFree = std::numeric_limits<unsigned>::max();
 
 	unsigned *start, *end;
 	__asm__ volatile ("mov %[end], sp" : [end] "=r" (end) : : );
@@ -47,18 +48,16 @@ extern "C" void ram_watchdog_check()
 		(uint32_t)__abs_dif(g_heap_start(), g_stack_end())
 	);
 #if GSYSTEM_BEDUG
-	if (freeRamBytes && __abs_dif(lastFree, freeRamBytes)) {
+	if (__abs_dif(lastFree, freeRamBytes)) {
 		printTagLog(SYSTEM_TAG, "-----ATTENTION! INDIRECT DATA BEGIN:-----");
-		printTagLog(SYSTEM_TAG, "RAM:              [0x%08X->0x%08X]", (unsigned)&_sdata, (unsigned)&_estack);
-		printTagLog(SYSTEM_TAG, "RAM occupied MAX: %u bytes", (unsigned)(__abs_dif((unsigned)&_sdata, (unsigned)&_estack) - freeRamBytes));
+		printTagLog(SYSTEM_TAG, "RAM:              [0x%08X->0x%08X]", (unsigned)g_heap_start(), (unsigned)g_stack_end());
+		printTagLog(SYSTEM_TAG, "RAM occupied MAX: %u bytes", (unsigned)(__abs_dif((unsigned)g_heap_start(), (unsigned)g_stack_end()) - freeRamBytes));
 		printTagLog(SYSTEM_TAG, "RAM free  MIN:    %u bytes (%u%%) [0x%08X->0x%08X]", (unsigned)freeRamBytes, freePercent, (unsigned)(stack_end - freeRamBytes), (unsigned)stack_end);
 		printTagLog(SYSTEM_TAG, "------ATTENTION! INDIRECT DATA END-------");
 	}
 #endif
 
-	if (freeRamBytes) {
-		lastFree = freeRamBytes;
-	}
+	lastFree = freeRamBytes;
 
 	if (freeRamBytes && lastFree && heap_end < stack_end && freePercent > STACK_PERCENT_MIN) {
 		reset_error(STACK_ERROR);

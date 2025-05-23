@@ -27,9 +27,7 @@ const char SYSTEM_TAG[] = "GSYS";
 
 
 static void _system_restart_check(void);
-#ifndef GSYSTEM_NO_RAM_W
-static void sys_fill_ram();
-#endif
+
 
 const uint32_t TIMER_VERIF_WORD = 0xBEDAC1DE;
 
@@ -164,6 +162,12 @@ extern void adc_watchdog_check();
 extern void sys_proc_init();
 void system_post_load(void)
 {
+#if GSYSTEM_BEDUG
+    gprint("\n\n\n");
+#endif
+    SYSTEM_BEDUG("GSystem is loading");
+    SYSTEM_BEDUG("Serial number: %s", get_system_serial_str());
+
     set_status(SYSTEM_SOFTWARE_STARTED);
 
 #ifndef GSYSTEM_NO_CPU_INFO
@@ -230,18 +234,13 @@ void system_post_load(void)
 #endif
 
     sys_proc_init();
+
+    SYSTEM_BEDUG("GSystem loaded");
 }
 
 void system_start(void)
 {
-#if GSYSTEM_BEDUG
-    gprint("\n\n\n");
-#endif
-    SYSTEM_BEDUG("GSystem is loading");
-
     system_post_load();
-
-    SYSTEM_BEDUG("GSystem loaded");
 
     while (1) {
         system_tick();
@@ -682,18 +681,7 @@ void system_reset_i2c_errata(void)
 
 char* get_system_serial_str(void)
 {
-    uint32_t uid_base = 0x1FFFF7E8;
-
-    uint16_t *idBase0 = (uint16_t*)(uid_base);
-    uint16_t *idBase1 = (uint16_t*)(uid_base + 0x02);
-    uint32_t *idBase2 = (uint32_t*)(uid_base + 0x04);
-    uint32_t *idBase3 = (uint32_t*)(uid_base + 0x08);
-
-    static char str_uid[25] = {0};
-    memset((void*)str_uid, 0, sizeof(str_uid));
-    sprintf(str_uid, "%04X%04X%08lX%08lX", *idBase0, *idBase1, *idBase2, *idBase3);
-
-    return str_uid;
+    return g_serial_number();
 }
 
 #ifndef GSYSTEM_NO_SYS_TICK_W

@@ -207,6 +207,22 @@ uint32_t* g_stack_end()
     return &_estack;
 }
 
+char* g_serial_number()
+{
+    uint32_t uid_base = 0x1FFFF7E8;
+
+    uint16_t *idBase0 = (uint16_t*)(uid_base);
+    uint16_t *idBase1 = (uint16_t*)(uid_base + 0x02);
+    uint32_t *idBase2 = (uint32_t*)(uid_base + 0x04);
+    uint32_t *idBase3 = (uint32_t*)(uid_base + 0x08);
+
+    static char str_uid[25] = {0};
+    memset((void*)str_uid, 0, sizeof(str_uid));
+    sprintf(str_uid, "%04X%04X%08lX%08lX", *idBase0, *idBase1, *idBase2, *idBase3);
+
+    return str_uid;
+}
+
 #if !defined(GSYSTEM_NO_PRINTF) || defined(GSYSTEM_BEDUG_UART)
 int _write(int line, uint8_t *ptr, int len) {
     (void)line;
