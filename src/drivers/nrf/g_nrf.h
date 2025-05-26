@@ -11,17 +11,17 @@ extern "C" {
 #ifdef NRF52
 
 
-#   ifdef ARDUINO
-#       include "nrf52.h"
-#   else
-#       error "Please select your framework"
-#   endif
+    #ifdef ARDUINO
+        #include "nrf52.h"
+    #else
+        #error "Please select your framework"
+    #endif
 
 
-#   define hard_tim_t       NRF_TIMER_Type
-#   define hard_port_t      uint16_t
-
-#   define GSYS_DEFAULT_TIM (NRF_TIMER0)
+    #define hard_tim_t       NRF_TIMER_Type
+    #define hard_port_t      uint16_t
+ 
+    #define GSYS_DEFAULT_TIM (NRF_TIMER0)
 
 
 #endif

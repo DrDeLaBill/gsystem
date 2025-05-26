@@ -6,11 +6,11 @@
 #ifdef USE_HAL_DRIVER
 
 
-#   include "gconfig.h"
-#   include "gdefines.h"
+    #include "gconfig.h"
+    #include "gdefines.h"
 
-#   include "glog.h"
-#   include "gsystem.h"
+    #include "glog.h"
+    #include "gsystem.h"
 
 
 #if GSYSTEM_BEDUG && !defined(GSYSTEM_NO_CPU_INFO)
@@ -229,16 +229,16 @@ int _write(int line, uint8_t *ptr, int len) {
     (void)ptr;
     (void)len;
 
-#   if defined(GSYSTEM_BEDUG_UART)
+    #if defined(GSYSTEM_BEDUG_UART)
     extern UART_HandleTypeDef GSYSTEM_BEDUG_UART;
     HAL_UART_Transmit(&GSYSTEM_BEDUG_UART, (uint8_t*)ptr, (uint16_t)(len), 100);
-#   endif
+    #endif
 
-#   if !defined(GSYSTEM_NO_PRINTF)
+    #if !defined(GSYSTEM_NO_PRINTF)
     for (int DataIdx = 0; DataIdx < len; DataIdx++) {
         ITM_SendChar(*ptr++);
     }
-#   endif
+    #endif
 
     return len;
 }
@@ -273,14 +273,14 @@ bool MCUcheck(void)
 #elif defined(STM32F4)
 	return ((cpuid & 0x0000FFF0) >> 4) == 0xC24;
 #else
-#   error "Select MCU"
+    #error "Select MCU"
 #endif
 }
 
 #ifndef GSYSTEM_NO_CPU_INFO
 void COREInfo(void)
 {
-#   if defined(_DEBUG) || defined(DEBUG) || defined(GBEDUG_FORCE)
+    #if defined(_DEBUG) || defined(DEBUG) || defined(GBEDUG_FORCE)
 	uint32_t cpuid = SCB->CPUID;
 
 	printPretty(
@@ -319,7 +319,7 @@ void COREInfo(void)
 	} else {
 		printPretty("Unknown CORE IMPLEMENTER\n");
 	}
-#   endif
+    #endif
 }
 
 void FPUInfo(void)

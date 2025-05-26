@@ -165,6 +165,16 @@ void reset_internal_status(SOUL_STATUS status);
 #endif
 
 
+#define CASE_CUSTOM_STATUS(SOUL_STATUS) case SOUL_STATUS:                \
+											snprintf(                    \
+												name,                    \
+												sizeof(name) - 1,        \
+												"%s",                    \
+												__STR_DEF__(SOUL_STATUS) \
+											);                           \
+										break;
+
+
 char* get_status_name(SOUL_STATUS status);
 char* get_custom_status_name(SOUL_STATUS status);
 bool has_new_error_data();

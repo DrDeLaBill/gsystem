@@ -5,18 +5,18 @@
 
 #ifdef NRF52
 
-#   ifdef ARDUINO
-#       include <Arduino.h>
-#   else
-#       error "Please select your framework"
-#   endif
+    #ifdef ARDUINO
+        #include <Arduino.h>
+    #else
+        #error "Please select your framework"
+    #endif 
 
 
-#   include "gsystem.h"
+    #include "gsystem.h"
 
 
-#   define VECTOR_TABLE_SIZE  0xD8
-#   define VECTOR_TABLE_ALIGN __attribute__((aligned(0x200)))
+    #define VECTOR_TABLE_SIZE  0xD8
+    #define VECTOR_TABLE_ALIGN __attribute__((aligned(0x200)))
 
 
 extern "C" {

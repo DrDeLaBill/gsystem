@@ -10,11 +10,11 @@ extern "C" {
 
 
 #if defined(USE_HAL_DRIVER)
-#   include "hal/g_hal.h"
+    #include "hal/g_hal.h"
 #elif defined(NRF52)
-#   include "nrf/g_nrf.h"
+    #include "nrf/g_nrf.h"
 #else
-#   error "No driver selected"
+    #error "No driver selected"
 #endif
 
 
