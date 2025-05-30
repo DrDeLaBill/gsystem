@@ -31,11 +31,12 @@ typedef struct _button_t {
 
 	bool       _pressed;
 	bool       _inverse;
-	bool       _clicked;
-	bool       _holded;
+	size_t     _clicks;
+	bool       _next_click;
+	uint32_t   _held;
 
 	uint32_t   _hold_ms;
-	gtimer_t   _hold;
+	gtimer_t   _held_tim;
 } button_t;
 
 
@@ -48,8 +49,8 @@ void button_create(
 void button_reset(button_t* button);
 void button_tick(button_t* button);
 
-bool button_one_click(button_t* button);
-bool button_holded(button_t* button);
+uint32_t button_clicks(button_t* button);
+uint32_t button_held_ms(button_t* button);
 bool button_pressed(button_t* button);
 
 #endif

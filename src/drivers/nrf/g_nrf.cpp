@@ -57,6 +57,11 @@ extern "C" uint32_t* g_stack_end()
     return &__StackTop;
 }
 
+extern "C" bool g_pin_read(port_pin_t pin)
+{
+    return digitalRead(pin.pin);
+}
+
 extern "C" char* g_serial_number()
 {
     static char str_uid[17] = {0};

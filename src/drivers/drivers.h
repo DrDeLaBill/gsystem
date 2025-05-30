@@ -56,6 +56,8 @@ uint32_t g_get_freq();
 uint32_t* g_heap_start();
 uint32_t* g_stack_end();
 
+bool g_pin_read(port_pin_t pin);
+
 char* g_serial_number();
 
 

@@ -207,6 +207,11 @@ uint32_t* g_stack_end()
     return &_estack;
 }
 
+bool g_pin_read(port_pin_t pin)
+{
+    return HAL_GPIO_ReadPin(pin.port, pin.pin);
+}
+
 char* g_serial_number()
 {
     uint32_t uid_base = 0x1FFFF7E8;
