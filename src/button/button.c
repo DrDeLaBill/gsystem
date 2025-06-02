@@ -157,7 +157,7 @@ void _btn_pressed_action(button_t* button)
 	bool pressed = _btn_pressed(button);
 	if (button->_pressed && !pressed) {
 #if GSYSTEM_BEDUG
-		printTagLog(SYSTEM_TAG, "button [0x%08X-0x%02X]: clicked (%lu times)", (unsigned)button->_pin.port, button->_pin.pin, button->_clicks);
+		printTagLog(SYSTEM_TAG, "button [0x%08X-0x%02X]: clicked (%u times)", (unsigned)button->_pin.port, button->_pin.pin, button->_clicks);
 #endif
 		gtimer_start(&button->_timeout, 10 * SECOND_MS);
 		gtimer_start(&button->_held_tim, button->_hold_ms);
