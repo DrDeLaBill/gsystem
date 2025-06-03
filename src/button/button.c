@@ -7,8 +7,6 @@
 #include "gdefines.h"
 
 
-#if GSYSTEM_BUTTONS_COUNT
-
 #include "glog.h"
 #include "bmacro.h"
 #include "fsm_gc.h"
@@ -201,5 +199,3 @@ void _btn_clicks_action(button_t* button)
 		button->_clicks = 0;
 	}
 }
-
-#endif

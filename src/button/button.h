@@ -8,10 +8,9 @@
 extern "C" {
 #endif
 
+
 #include "gconfig.h"
 #include "gdefines.h"
-
-#if GSYSTEM_BUTTONS_COUNT
 
 #include <stdint.h>
 
@@ -57,7 +56,4 @@ bool button_pressed(button_t* button);
 
 #ifdef __cplusplus
 }
-#endif
-
-
 #endif

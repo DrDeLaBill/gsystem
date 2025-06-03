@@ -14,6 +14,9 @@ typedef struct _process_t {
 	uint32_t delay_ms;
 	gtimer_t timer;
 	bool     work_with_error;
+	uint32_t time_max_ms;
+	uint32_t time_sum_ms;
+	uint32_t time_count;
 } process_t;
 
 
@@ -39,42 +42,38 @@ extern "C" void rtc_watchdog_check();
 #ifndef GSYSTEM_NO_MEMORY_W
 extern "C" void memory_watchdog_check();
 #endif
-#if GSYSTEM_BUTTONS_COUNT
 extern "C" void btn_watchdog_check();
-#endif
 
 
 static process_t sys_proc[] = {
-	{_sys_watchdog_check,      20,             {0,0}, true},
+	{_sys_watchdog_check,      20,             {0,0}, true, 0, 0, 0},
 #ifndef GSYSTEM_NO_SYS_TICK_W
-	{sys_clock_watchdog_check, SECOND_MS / 10, {0,0}, true},
+	{sys_clock_watchdog_check, SECOND_MS / 10, {0,0}, true, 0, 0, 0},
 #endif
 #ifndef GSYSTEM_NO_RAM_W
-	{ram_watchdog_check,       5 * SECOND_MS,  {0,0}, true},
+	{ram_watchdog_check,       5 * SECOND_MS,  {0,0}, true, 0, 0, 0},
 #endif
 #ifndef GSYSTEM_NO_ADC_W
-	{adc_watchdog_check,       1,              {0,0}, true},
+	{adc_watchdog_check,       1,              {0,0}, true, 0, 0, 0},
 #endif
 #if defined(STM32F1) && !defined(GSYSTEM_NO_I2C_W)
-	{i2c_watchdog_check,       5 * SECOND_MS,  {0,0}, true},
+	{i2c_watchdog_check,       5 * SECOND_MS,  {0,0}, true, 0, 0, 0},
 #endif
 #ifndef GSYSTEM_NO_RTC_W
-	{rtc_watchdog_check,       SECOND_MS,      {0,0}, true},
+	{rtc_watchdog_check,       SECOND_MS,      {0,0}, true, 0, 0, 0},
 #endif
 #if !defined(GSYSTEM_NO_POWER_W) && !defined(GSYSTEM_NO_ADC_W)
-	{power_watchdog_check,     1,              {0,0}, true},
+	{power_watchdog_check,     1,              {0,0}, true, 0, 0, 0},
 #endif
 #ifndef GSYSTEM_NO_MEMORY_W
-	{memory_watchdog_check,    1,              {0,0}, true},
+	{memory_watchdog_check,    1,              {0,0}, true, 0, 0, 0},
 #endif
-#if GSYSTEM_BUTTONS_COUNT
-	{btn_watchdog_check,       1,              {0,0}, true},
-#endif
+	{btn_watchdog_check,       5,              {0,0}, true, 0, 0, 0},
 };
 static unsigned user_proc_cnt = 0;
 static process_t user_proc[GSYSTEM_POCESSES_COUNT] = {{NULL,0,{0,0},false}};
 
-static utl::GQueue<16, process_t> queue;
+static utl::GQueue<16, process_t*> queue;
 
 #if defined(DEBUG)
 static unsigned kTPScounter = 0;
@@ -128,7 +127,15 @@ extern "C" void sys_proc_tick()
 #endif
 
 	if (queue.count()) {
-		queue.pop().action();
+		process_t* proc = queue.pop();
+		uint32_t start_ms = getMillis();
+		proc->action();
+		uint32_t time_ms = getMillis() - start_ms;
+		proc->time_sum_ms += time_ms;
+		proc->time_count++;
+		if (time_ms > proc->time_max_ms) {
+			proc->time_max_ms = time_ms;
+		}
 	}
 
 	for (unsigned i = 0; i < user_proc_cnt; i++) {
@@ -139,14 +146,14 @@ extern "C" void sys_proc_tick()
 			continue;
 		}
 		if (!gtimer_wait(&user_proc[i].timer)) {
-			queue.push(user_proc[i]);
+			queue.push(&user_proc[i]);
 			gtimer_start(&user_proc[i].timer, user_proc[i].delay_ms);
 		}
 	}
 
 	for (unsigned i = 0; i < __arr_len(sys_proc); i++) {
 		if (!gtimer_wait(&sys_proc[i].timer)) {
-			queue.push(sys_proc[i]);
+			queue.push(&sys_proc[i]);
 			gtimer_start(&sys_proc[i].timer, sys_proc[i].delay_ms);
 		}
 	}
@@ -176,6 +183,18 @@ void _sys_watchdog_check(void)
 			kTPScounter / (10 * SECOND_MS),
 			(kTPScounter / SECOND_MS) % 10
 		);
+		printTagLog(SYSTEM_TAG, "System processes");
+		for (unsigned i = 0; i < __arr_len(sys_proc); i++) {
+			printPretty("process[%u]: TPC=%04lu | avrg=%05lu ms | max=%04lu ms\n", i, sys_proc[i].time_count, sys_proc[i].time_sum_ms / sys_proc[i].time_count, sys_proc[i].time_max_ms);
+			sys_proc[i].time_sum_ms = 0;
+			sys_proc[i].time_count = 0;
+		}
+		printTagLog(SYSTEM_TAG, "User processes");
+		for (unsigned i = 0; i < user_proc_cnt; i++) {
+			printPretty("process[%u]: TPC=%04lu | avrg=%05lu ms | max=%04lu ms\n", i, user_proc[i].time_count, user_proc[i].time_sum_ms / user_proc[i].time_count, user_proc[i].time_max_ms);
+			user_proc[i].time_sum_ms = 0;
+			user_proc[i].time_count = 0;
+		}
 #   ifndef GSYSTEM_NO_ADC_W
 		uint32_t voltage = get_system_power_v_x100();
 		printTagLog(

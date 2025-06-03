@@ -13,13 +13,12 @@
 #include "gdefines.h"
 #include "drivers.h"
 
+#include "button.h"
+
 #if defined(GSYSTEM_DS130X_CLOCK)
 #   include "ds130x.h"
 #endif
 
-#if GSYSTEM_BUTTONS_COUNT
-#   include "button.h"
-#endif
 
 #if GSYSTEM_BEDUG
 const char SYSTEM_TAG[] = "GSYS";
@@ -31,10 +30,6 @@ static void _system_restart_check(void);
 
 const uint32_t TIMER_VERIF_WORD = 0xBEDAC1DE;
 
-#if GSYSTEM_BUTTONS_COUNT
-unsigned buttons_count = 0;
-button_t buttons[GSYSTEM_BUTTONS_COUNT] = {0};
-#endif
 
 #ifndef GSYSTEM_NO_SYS_TICK_W
 static bool system_hsi_initialized = false;
