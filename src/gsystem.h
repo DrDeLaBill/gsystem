@@ -51,6 +51,7 @@ void system_before_reset(void);
 
 void system_reset_i2c_errata(void);
 
+uint64_t get_system_serial(void);
 char* get_system_serial_str(void);
 
 void system_error_loop(void);

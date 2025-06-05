@@ -212,6 +212,16 @@ bool g_pin_read(port_pin_t pin)
     return HAL_GPIO_ReadPin(pin.port, pin.pin);
 }
 
+uint64_t g_serial()
+{
+    uint64_t serial = 0;
+    uint32_t uid_base = 0x1FFFF7E8;
+    uint32_t *idBase1 = (uint32_t*)(uid_base + 0x04);
+    uint32_t *idBase2 = (uint32_t*)(uid_base + 0x08);
+    serial = (uint64_t)*idBase1 << 32 | (uint64_t)*idBase2;
+    return serial;
+}
+
 char* g_serial_number()
 {
     uint32_t uid_base = 0x1FFFF7E8;

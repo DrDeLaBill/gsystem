@@ -674,6 +674,11 @@ void system_reset_i2c_errata(void)
 #endif
 }
 
+uint64_t get_system_serial(void)
+{
+    return g_serial();
+}
+
 char* get_system_serial_str(void)
 {
     return g_serial_number();

@@ -62,6 +62,21 @@ extern "C" bool g_pin_read(port_pin_t pin)
     return digitalRead(pin.pin);
 }
 
+extern "C" float g_temperature() { // TODO
+  NRF_TEMP->TASKS_START = 1;
+  while (NRF_TEMP->EVENTS_DATARDY == 0);
+  NRF_TEMP->EVENTS_DATARDY = 0;
+  int32_t raw_temp = NRF_TEMP->TEMP;
+  return (raw_temp * 0.25f);
+}
+
+extern "C" uint64_t g_serial()
+{
+    uint64_t serial = 0;
+    serial = (uint64_t)NRF_FICR->DEVICEADDR[1] << 32 | (uint64_t)NRF_FICR->DEVICEADDR[0];
+    return serial;
+}
+
 extern "C" char* g_serial_number()
 {
     static char str_uid[17] = {0};

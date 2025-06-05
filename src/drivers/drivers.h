@@ -58,6 +58,7 @@ uint32_t* g_stack_end();
 
 bool g_pin_read(port_pin_t pin);
 
+uint64_t g_serial();
 char* g_serial_number();
 
 
