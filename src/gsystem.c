@@ -281,7 +281,11 @@ void system_error_handler(SOUL_STATUS error)
         error = INTERNAL_ERROR;
     }
 
+#ifdef DEBUG
     SYSTEM_BEDUG("GSystem_error_handler called error=%s", get_status_name(error));
+#else 
+    SYSTEM_BEDUG("GSystem_error_handler called error");
+#endif
 
 #ifndef GSYSTEM_NO_SYS_TICK_W
     if (is_error(SYS_TICK_ERROR) && !system_hsi_initialized) {

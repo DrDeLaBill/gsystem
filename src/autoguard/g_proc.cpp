@@ -128,6 +128,9 @@ extern "C" void sys_proc_tick()
 
 	if (queue.count()) {
 		process_t* proc = queue.pop();
+#ifdef GSYSTEM_NO_PROC_INFO
+		proc->action();
+#else
 		uint32_t start_ms = getMillis();
 		proc->action();
 		uint32_t time_ms = getMillis() - start_ms;
@@ -136,6 +139,7 @@ extern "C" void sys_proc_tick()
 		if (time_ms > proc->time_max_ms) {
 			proc->time_max_ms = time_ms;
 		}
+#endif
 	}
 
 	for (unsigned i = 0; i < user_proc_cnt; i++) {
@@ -183,6 +187,7 @@ void _sys_watchdog_check(void)
 			kTPScounter / (10 * SECOND_MS),
 			(kTPScounter / SECOND_MS) % 10
 		);
+    #ifndef GSYSTEM_NO_PROC_INFO
 		printTagLog(SYSTEM_TAG, "System processes");
 		for (unsigned i = 0; i < __arr_len(sys_proc); i++) {
 			printPretty("process[%u]: TPC=%04lu | avrg=%05lu ms | max=%04lu ms\n", i, sys_proc[i].time_count, sys_proc[i].time_sum_ms / sys_proc[i].time_count, sys_proc[i].time_max_ms);
@@ -195,6 +200,7 @@ void _sys_watchdog_check(void)
 			user_proc[i].time_sum_ms = 0;
 			user_proc[i].time_count = 0;
 		}
+	#endif
 #   ifndef GSYSTEM_NO_ADC_W
 		uint32_t voltage = get_system_power_v_x100();
 		printTagLog(
