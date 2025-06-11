@@ -10,7 +10,7 @@
 
 
 unsigned buttons_count = 0;
-button_t buttons[GSYSTEM_BUTTONS_COUNT] = {0};
+button_t buttons[GSYSTEM_BUTTONS_COUNT] = {};
 
 
 extern "C" void btn_watchdog_check()

@@ -71,7 +71,7 @@ static process_t sys_proc[] = {
 	{btn_watchdog_check,       5,              {0,0}, true, 0, 0, 0},
 };
 static unsigned user_proc_cnt = 0;
-static process_t user_proc[GSYSTEM_POCESSES_COUNT] = {{NULL,0,{0,0},false}};
+static process_t user_proc[GSYSTEM_POCESSES_COUNT] = {};
 
 static utl::GQueue<16, process_t*> queue;
 

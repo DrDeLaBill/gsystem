@@ -47,7 +47,7 @@ void button_create(
 	button->_clicks      = 0;
 	button->_next_click  = false;
 	button->_hold_ms     = hold_ms;
-	button->_held      = false;
+	button->_held        = false;
 
 	button->_pressed     = _btn_pressed(button);
 

@@ -260,15 +260,10 @@ int _write(int line, uint8_t *ptr, int len) {
 #endif
 
 
-#if defined(DEBUG) && !defined(GSYSTEM_NO_CPU_INFO)
-static const char CORE_TAG[] = "CORE";
-#endif
-
-
 void SystemInfo(void)
 {
 #ifndef GSYSTEM_NO_CPU_INFO
-	SYSTEM_BEDUG(CORE_TAG, "Core=%lu, %lu MHz", SystemCoreClock, SystemCoreClock / 1000000);
+	SYSTEM_BEDUG("Core=%lu, %lu MHz", SystemCoreClock, SystemCoreClock / 1000000);
 	COREInfo();
 	IDCODEInfo();
 	FPUInfo();
