@@ -130,6 +130,7 @@ extern "C" void sys_proc_tick()
 		process_t* proc = queue.pop();
 #ifdef GSYSTEM_NO_PROC_INFO
 		proc->action();
+		gtimer_start(&proc->timer, proc->delay_ms);
 #else
 		uint32_t start_ms = getMillis();
 		proc->action();
@@ -151,14 +152,12 @@ extern "C" void sys_proc_tick()
 		}
 		if (!gtimer_wait(&user_proc[i].timer)) {
 			queue.push(&user_proc[i]);
-			gtimer_start(&user_proc[i].timer, user_proc[i].delay_ms);
 		}
 	}
 
 	for (unsigned i = 0; i < __arr_len(sys_proc); i++) {
 		if (!gtimer_wait(&sys_proc[i].timer)) {
 			queue.push(&sys_proc[i]);
-			gtimer_start(&sys_proc[i].timer, sys_proc[i].delay_ms);
 		}
 	}
 }

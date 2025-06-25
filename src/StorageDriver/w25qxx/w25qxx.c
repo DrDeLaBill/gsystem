@@ -203,7 +203,9 @@ flash_status_t w25qxx_erase_chip()
     printTagLog(W25Q_TAG, "flash erase: begin");
 #endif
 
+#if defined(GSYSTEM_FLASH_MODE) && defined(GSYSTEM_MEMORY_DMA)
     w25qxx_stop_dma();
+#endif
 
 	_W25Q_CS_set();
     flash_status_t status = _w25q_set_protect_block(W25Q_SR1_UNBLOCK_VALUE);
