@@ -128,10 +128,9 @@ extern "C" void sys_proc_tick()
 
 	if (queue.count()) {
 		process_t* proc = queue.pop();
-#ifdef GSYSTEM_NO_PROC_INFO
 		proc->action();
 		gtimer_start(&proc->timer, proc->delay_ms);
-#else
+#ifndef GSYSTEM_NO_PROC_INFO
 		uint32_t start_ms = getMillis();
 		proc->action();
 		uint32_t time_ms = getMillis() - start_ms;
@@ -189,18 +188,26 @@ void _sys_watchdog_check(void)
     #ifndef GSYSTEM_NO_PROC_INFO
 		printTagLog(SYSTEM_TAG, "System processes");
 		for (unsigned i = 0; i < __arr_len(sys_proc); i++) {
-			printPretty("process[%u]: TPC=%04lu | avrg=%05lu ms | max=%04lu ms\n", i, sys_proc[i].time_count, sys_proc[i].time_sum_ms / sys_proc[i].time_count, sys_proc[i].time_max_ms);
+			uint32_t avrg = 0;
+			if (sys_proc[i].time_count > 0) {
+				avrg = sys_proc[i].time_sum_ms / sys_proc[i].time_count;
+			}
+			printPretty("process[%u]: TPC=%04lu | avrg=%05lu ms | max=%04lu ms\n", i, sys_proc[i].time_count, avrg, sys_proc[i].time_max_ms);
 			sys_proc[i].time_sum_ms = 0;
 			sys_proc[i].time_count = 0;
 		}
 		printTagLog(SYSTEM_TAG, "User processes");
 		for (unsigned i = 0; i < user_proc_cnt; i++) {
-			printPretty("process[%u]: TPC=%04lu | avrg=%05lu ms | max=%04lu ms\n", i, user_proc[i].time_count, user_proc[i].time_sum_ms / user_proc[i].time_count, user_proc[i].time_max_ms);
+			uint32_t avrg = 0;
+			if (user_proc[i].time_count > 0) {
+				avrg = user_proc[i].time_sum_ms / user_proc[i].time_count;
+			}
+			printPretty("process[%u]: TPC=%04lu | avrg=%05lu ms | max=%04lu ms\n", i, user_proc[i].time_count, avrg, user_proc[i].time_max_ms);
 			user_proc[i].time_sum_ms = 0;
 			user_proc[i].time_count = 0;
 		}
 	#endif
-#   ifndef GSYSTEM_NO_ADC_W
+    #ifndef GSYSTEM_NO_ADC_W
 		uint32_t voltage = get_system_power_v_x100();
 		printTagLog(
 			SYSTEM_TAG,
@@ -208,7 +215,7 @@ void _sys_watchdog_check(void)
 			voltage / 100,
 			voltage % 100
 		);
-#   endif
+    #endif
 		kTPScounter = 0;
 		gtimer_start(&kTPSTimer, (10 * SECOND_MS));
 	}

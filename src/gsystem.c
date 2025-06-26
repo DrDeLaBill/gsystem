@@ -370,8 +370,8 @@ __attribute__((weak)) void system_before_reset(void) {}
 extern void g_timer_start(system_timer_t* timer, hard_tim_t* fw_tim, uint32_t delay_ms);
 void system_timer_start(system_timer_t* timer, hard_tim_t* fw_tim, uint32_t delay_ms)
 {
-    if (!timer->tim || timer->verif != TIMER_VERIF_WORD) {
-        SYSTEM_BEDUG("System timer has not initialized");
+    if (!timer || !fw_tim || !delay_ms) {
+        SYSTEM_BEDUG("System timer bad parameters");
         return;
     }
     g_timer_start(timer, fw_tim, delay_ms);
