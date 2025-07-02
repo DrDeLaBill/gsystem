@@ -13,7 +13,7 @@ extern const char SYSTEM_TAG[];
 
 extern "C" void power_watchdog_check()
 {
-	if (!is_status(SYSTEM_HARDWARE_READY)) {
+	if (!is_status(GSYS_ADC_READY)) {
 		return;
 	}
 
