@@ -192,7 +192,7 @@ void _sys_watchdog_check(void)
 			if (sys_proc[i].time_count > 0) {
 				avrg = sys_proc[i].time_sum_ms / sys_proc[i].time_count;
 			}
-			printPretty("process[%u]: TPC=%04lu | avrg=%05lu ms | max=%04lu ms\n", i, sys_proc[i].time_count, avrg, sys_proc[i].time_max_ms);
+			printPretty("process[%u]: TPC=%06lu | avrg=%05lu ms | max=%04lu ms\n", i, sys_proc[i].time_count, avrg, sys_proc[i].time_max_ms);
 			sys_proc[i].time_sum_ms = 0;
 			sys_proc[i].time_count = 0;
 		}
@@ -202,7 +202,7 @@ void _sys_watchdog_check(void)
 			if (user_proc[i].time_count > 0) {
 				avrg = user_proc[i].time_sum_ms / user_proc[i].time_count;
 			}
-			printPretty("process[%u]: TPC=%04lu | avrg=%05lu ms | max=%04lu ms\n", i, user_proc[i].time_count, avrg, user_proc[i].time_max_ms);
+			printPretty("process[%u]: TPC=%06lu | avrg=%05lu ms | max=%04lu ms\n", i, user_proc[i].time_count, avrg, user_proc[i].time_max_ms);
 			user_proc[i].time_sum_ms = 0;
 			user_proc[i].time_count = 0;
 		}

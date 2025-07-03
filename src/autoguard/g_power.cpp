@@ -21,8 +21,8 @@ extern "C" void power_watchdog_check()
 	if (STM_MIN_VOLTAGEx100 <= voltage && voltage <= STM_MAX_VOLTAGEx100) {
 		reset_error(POWER_ERROR);
 	} else {
-		printTagLog(SYSTEM_TAG, "NO POWER: %lu.%02lu", voltage / 100, voltage % 100);
-		set_error(POWER_ERROR);
+		printTagLog(SYSTEM_TAG, "NO POWER: %lu.%02lu V", voltage / 100, voltage % 100);
+		system_error_handler(POWER_ERROR);
 	}
 }
 #endif
