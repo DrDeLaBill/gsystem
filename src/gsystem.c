@@ -348,7 +348,7 @@ void system_error_handler(SOUL_STATUS error)
 
 #if GSYSTEM_BEDUG
     system_timer_start(&s_timer, GSYSTEM_TIMER, SECOND_MS);
-    SYSTEM_BEDUG("GSystem reset"); // TODO: change printf to work with registers when need_error_timer is true
+    SYSTEM_BEDUG("GSystem reset"); // TODO: change printf to function with registers when need_error_timer is true
     while(system_timer_wait(&s_timer));
     system_timer_stop(&s_timer);
 #endif

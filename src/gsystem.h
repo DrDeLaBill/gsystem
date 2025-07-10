@@ -88,6 +88,16 @@ bool set_system_bckp(const uint8_t idx, const uint8_t data);
 uint32_t get_system_freq(void);
 void system_delay_us(uint32_t us);
 
+#if defined(ARDUINO) && !defined(GSYSTEM_NO_VTOR_REWRITE)
+
+void NMI_Handler(void);
+void HardFault_Handler(void);
+void MemoryManagement_Handler(void);
+void BusFault_Handler(void);
+void UsageFault_Handler(void);
+
+#endif
+
 #ifdef __cplusplus
 }
 #endif
