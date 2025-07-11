@@ -118,15 +118,6 @@ typedef enum _SOUK_STATUS {
 } SOUL_STATUS;
 
 
-typedef struct _soul_t {
-#if defined(DEBUG) || defined(GBEDUG_FORCE)
-	bool has_new_error_data;
-	bool has_new_status_data;
-#endif
-	SOUL_STATUS last_err;
-	uint8_t statuses[__div_up(SOUL_STATUSES_END, BITS_IN_BYTE)];
-} soul_t;
-
 extern const char *SOUL_UNKNOWN_STATUS;
 
 
@@ -181,6 +172,7 @@ bool has_new_error_data();
 bool has_new_status_data();
 void show_errors();
 void show_statuses();
+bool is_soul_bedug_enable();
 
 
 #ifdef __cplusplus

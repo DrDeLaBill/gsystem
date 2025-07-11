@@ -13,17 +13,35 @@
 
 
 #if !defined(GSYSTEM_NO_STATUS_PRINT) && (defined(DEBUG) || defined(GBEDUG_FORCE))
+	#define __G_SOUL_BEDUG
+#endif
+
+
+#if defined(__G_SOUL_BEDUG)
 static const char TAG[] = "SOUL";
 #endif
 
+
+
+typedef struct _soul_t {
+#if defined(__G_SOUL_BEDUG)
+	bool has_new_error_data;
+	bool has_new_status_data;
+#endif
+	SOUL_STATUS last_err;
+	uint8_t statuses[__div_up(SOUL_STATUSES_END, BITS_IN_BYTE)];
+} soul_t;
+
+
 static soul_t soul = {
-#if defined(DEBUG) || defined(GBEDUG_FORCE)
+#if defined(__G_SOUL_BEDUG)
 	.has_new_error_data  = false,
 	.has_new_status_data = false,
 #endif
 	.last_err            = 0,
 	.statuses            = { 0 }
 };
+
 
 const char *SOUL_UNKNOWN_STATUS = "UNKNOWN_STATUS";
 
@@ -66,7 +84,7 @@ bool is_internal_error(SOUL_STATUS error)
 void set_internal_error(SOUL_STATUS error)
 {
 	if (error > ERRORS_START && error < ERRORS_END) {
-#if !defined(GSYSTEM_NO_STATUS_PRINT) && (defined(DEBUG) || defined(GBEDUG_FORCE))
+#if defined(__G_SOUL_BEDUG)
 		if (!_is_status(error)) {
 			soul.has_new_error_data = true;
 		}
@@ -78,7 +96,7 @@ void set_internal_error(SOUL_STATUS error)
 void reset_internal_error(SOUL_STATUS error)
 {
 	if (error > ERRORS_START && error < ERRORS_END) {
-#if !defined(GSYSTEM_NO_STATUS_PRINT) && (defined(DEBUG) || defined(GBEDUG_FORCE))
+#if defined(__G_SOUL_BEDUG)
 		if (_is_status(error)) {
 			soul.has_new_error_data = true;
 		}
@@ -108,7 +126,7 @@ bool is_internal_status(SOUL_STATUS status)
 void set_internal_status(SOUL_STATUS status)
 {
 	if (status > STATUSES_START && status < STATUSES_END) {
-#if !defined(GSYSTEM_NO_STATUS_PRINT) && (defined(DEBUG) || defined(GBEDUG_FORCE))
+#if defined(__G_SOUL_BEDUG)
 		if (!_is_status(status)) {
 			soul.has_new_status_data = true;
 		}
@@ -120,7 +138,7 @@ void set_internal_status(SOUL_STATUS status)
 void reset_internal_status(SOUL_STATUS status)
 {
 	if (status > STATUSES_START && status < STATUSES_END) {
-#if defined(DEBUG) || defined(GBEDUG_FORCE)
+#if defined(__G_SOUL_BEDUG)
 		if (_is_status(status)) {
 			soul.has_new_status_data = true;
 		}
@@ -161,9 +179,9 @@ void _reset_status(SOUL_STATUS status)
 char* get_status_name(SOUL_STATUS status)
 {
 	(void)status;
+#if defined(__G_SOUL_BEDUG)
 	static char name[35] = { 0 };
 	memset(name, 0, sizeof(name));
-#if !defined(GSYSTEM_NO_STATUS_PRINT) && (defined(DEBUG) || defined(GBEDUG_FORCE))
 	switch (status) {
 	CASE_STATUS(SYSTEM_ERROR_HANDLER_CALLED)
 	CASE_STATUS(SYSTEM_HARDWARE_STARTED)
@@ -252,8 +270,10 @@ char* get_status_name(SOUL_STATUS status)
 		snprintf(name, sizeof(name) - 1, "[%03u] %s", status, get_custom_status_name(status));
 		break;
 	}
-#endif
 	return name;
+#else
+	return (char*)SOUL_UNKNOWN_STATUS;
+#endif
 }
 
 __attribute__((weak)) char* get_custom_status_name(SOUL_STATUS status)
@@ -263,7 +283,7 @@ __attribute__((weak)) char* get_custom_status_name(SOUL_STATUS status)
 }
 #undef CASE_STATUS
 
-#if !defined(GSYSTEM_NO_STATUS_PRINT) && (defined(DEBUG) || defined(GBEDUG_FORCE))
+#if defined(__G_SOUL_BEDUG)
 
 bool has_new_error_data()
 {
@@ -310,9 +330,18 @@ void show_errors()
 		printPretty("%s\n", __STR_DEF__(NO_ERROR));
 	}
 }
+
+bool is_soul_bedug_enable()
+{
+	return true;
+}
+
 #else
+
 bool has_new_error_data() {return false;}
 bool has_new_status_data() {return false;}
 void show_errors() {}
 void show_statuses() {}
+bool is_soul_bedug_enable() {return false;}
+
 #endif
