@@ -170,6 +170,18 @@ extern "C" uint32_t get_system_freq(void)
 	return sys_cpu_freq;
 }
 
+static void _show_process(const unsigned idx, process_t* const proc)
+{
+	uint32_t avrg = 0;
+	if (proc->time_count > 0) {
+		avrg = proc->time_sum_ms / proc->time_count;
+	}
+	printPretty("process[%02u]: TPC=%06lu | avrg=%05lu ms | max=%04lu ms\n", idx, proc->time_count, avrg, proc->time_max_ms);
+	proc->time_sum_ms = 0;
+	proc->time_count  = 0;
+	proc->time_max_ms = 0;
+}
+
 void _sys_watchdog_check(void)
 {
     sys_cpu_freq = g_get_freq();
@@ -195,23 +207,11 @@ void _sys_watchdog_check(void)
     #ifndef GSYSTEM_NO_PROC_INFO
 		printTagLog(SYSTEM_TAG, "System processes");
 		for (unsigned i = 0; i < __arr_len(sys_proc); i++) {
-			uint32_t avrg = 0;
-			if (sys_proc[i].time_count > 0) {
-				avrg = sys_proc[i].time_sum_ms / sys_proc[i].time_count;
-			}
-			printPretty("process[%u]: TPC=%06lu | avrg=%05lu ms | max=%04lu ms\n", i, sys_proc[i].time_count, avrg, sys_proc[i].time_max_ms);
-			sys_proc[i].time_sum_ms = 0;
-			sys_proc[i].time_count = 0;
+			_show_process(i, &sys_proc[i]);
 		}
 		printTagLog(SYSTEM_TAG, "User processes");
 		for (unsigned i = 0; i < user_proc_cnt; i++) {
-			uint32_t avrg = 0;
-			if (user_proc[i].time_count > 0) {
-				avrg = user_proc[i].time_sum_ms / user_proc[i].time_count;
-			}
-			printPretty("process[%u]: TPC=%06lu | avrg=%05lu ms | max=%04lu ms\n", i, user_proc[i].time_count, avrg, user_proc[i].time_max_ms);
-			user_proc[i].time_sum_ms = 0;
-			user_proc[i].time_count = 0;
+			_show_process(i, &user_proc[i]);
 		}
 	#endif
     #ifndef GSYSTEM_NO_ADC_W
