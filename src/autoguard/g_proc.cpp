@@ -128,18 +128,21 @@ extern "C" void sys_proc_tick()
 
 	if (queue.count()) {
 		process_t* proc = queue.pop();
-		proc->action();
-		gtimer_start(&proc->timer, proc->delay_ms);
-#ifndef GSYSTEM_NO_PROC_INFO
+#if !defined(GSYSTEM_NO_PROC_INFO)
 		uint32_t start_ms = getMillis();
-		proc->action();
+		if (!is_status(SYSTEM_ERROR_HANDLER_CALLED) || proc->work_with_error) {
+			proc->action();
+		}
 		uint32_t time_ms = getMillis() - start_ms;
 		proc->time_sum_ms += time_ms;
 		proc->time_count++;
 		if (time_ms > proc->time_max_ms) {
 			proc->time_max_ms = time_ms;
 		}
+#else
+		proc->action();
 #endif
+		gtimer_start(&proc->timer, proc->delay_ms);
 	}
 
 	for (unsigned i = 0; i < user_proc_cnt; i++) {
@@ -170,6 +173,10 @@ extern "C" uint32_t get_system_freq(void)
 void _sys_watchdog_check(void)
 {
     sys_cpu_freq = g_get_freq();
+
+	if (is_error(HARD_FAULT)) {
+		return;
+	}
 
 #if GSYSTEM_BEDUG && !defined(GSYSTEM_NO_STATUS_PRINT)
 	static gtimer_t kTPSTimer = {0,(10 * SECOND_MS)};

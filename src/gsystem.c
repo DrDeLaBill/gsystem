@@ -8,6 +8,7 @@
 #include "glog.h"
 #include "clock.h"
 #include "bmacro.h"
+#include "fsm_gc.h"
 #include "gconfig.h"
 
 #include "gdefines.h"
@@ -274,6 +275,7 @@ void system_error_handler(SOUL_STATUS error)
 
     bool need_error_timer = is_status(SYS_TICK_FAULT) || is_error(HARD_FAULT);
     if (need_error_timer) {
+        fsm_gc_disable_all_messages();
         __disable_irq();
     }
 
