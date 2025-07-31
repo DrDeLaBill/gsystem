@@ -60,12 +60,12 @@ extern const char SYSTEM_TAG[];
 
 #if GSYSTEM_BEDUG
     #if __cplusplus >= 202002L
-        #define SYSTEM_BEDUG(FORMAT, ...) printTagLog(SYSTEM_TAG, FORMAT __VA_OPT__(,) __VA_ARGS__);
+        #define SYSTEM_BEDUG(FORMAT, ...) if (gsystem_messages_enabled()) printTagLog(SYSTEM_TAG, FORMAT __VA_OPT__(,) __VA_ARGS__);
     #else
-        #define SYSTEM_BEDUG(FORMAT, ...) printTagLog(SYSTEM_TAG, FORMAT, ##__VA_ARGS__);
+        #define SYSTEM_BEDUG(FORMAT, ...) if (gsystem_messages_enabled()) printTagLog(SYSTEM_TAG, FORMAT, ##__VA_ARGS__);
     #endif
 #else
-   #define SYSTEM_BEDUG(FORMAT, ...)
+   #define SYSTEM_BEDUG(FORMAT, ...) {}
 #endif
 
 #if defined(GSYSTEM_BEDUG_UART) && !GSYSTEM_BEDUG

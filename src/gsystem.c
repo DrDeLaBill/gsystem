@@ -31,6 +31,8 @@ static void _system_restart_check(void);
 
 const uint32_t TIMER_VERIF_WORD = 0xBEDAC1DE;
 
+static bool messages_enabled = true;
+
 
 #ifndef GSYSTEM_NO_SYS_TICK_W
 static bool system_hsi_initialized = false;
@@ -276,6 +278,7 @@ void system_error_handler(SOUL_STATUS error)
     bool need_error_timer = is_status(SYS_TICK_FAULT) || is_error(HARD_FAULT);
     if (need_error_timer) {
         fsm_gc_disable_all_messages();
+        messages_enabled = false;
         __disable_irq();
     }
 
@@ -350,9 +353,7 @@ void system_error_handler(SOUL_STATUS error)
 
 #if GSYSTEM_BEDUG
     system_timer_start(&s_timer, GSYSTEM_TIMER, SECOND_MS);
-    if (!need_error_timer) {
-        SYSTEM_BEDUG("GSystem reset"); // TODO: change printf to function with registers when need_error_timer is true
-    }
+    SYSTEM_BEDUG("GSystem reset"); // TODO: change printf to function with registers when need_error_timer is true
     while(system_timer_wait(&s_timer));
     system_timer_stop(&s_timer);
 #endif
@@ -575,6 +576,11 @@ __attribute__((weak)) void system_hsi_config(void)
 #endif
 
 __attribute__((weak)) void system_error_loop(void) {}
+
+bool gsystem_messages_enabled()
+{
+    return messages_enabled;
+}
 
 void system_reset_i2c_errata(void)
 {

@@ -66,6 +66,8 @@ bool system_button_pressed(port_pin_t pin);
 uint32_t system_button_held_ms(port_pin_t pin);
 void system_buttons_reset();
 
+bool gsystem_messages_enabled();
+
 #ifndef GSYSTEM_NO_ADC_W
 uint32_t get_system_power_v_x100(void);
 #endif
