@@ -67,6 +67,11 @@ extern "C" uint32_t system_button_held_ms(port_pin_t pin)
     return button_held_ms(btn);
 }
 
+extern "C" bool system_button_held(port_pin_t pin, uint32_t time_ms)
+{
+    return system_button_held_ms(pin) >= time_ms;
+}
+
 extern "C" void system_buttons_reset()
 {
 	for (unsigned i = 0; i < buttons_count; i++) {

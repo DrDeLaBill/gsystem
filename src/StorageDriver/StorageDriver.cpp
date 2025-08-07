@@ -5,6 +5,9 @@
 #include "gdefines.h"
 #include "gconfig.h"
 
+#include <cstring>
+
+
 #ifndef GSYSTEM_NO_MEMORY_W
 
 #include "glog.h"

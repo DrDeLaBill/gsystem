@@ -62,8 +62,6 @@ extern "C" {
         #error "Please select the target STM32Fxxx used in your application"
     #endif
 
-    #include "main.h"
-
 
     #define STM_REF_VOLTAGEx100       (120)
     #define STM_MIN_VOLTAGEx100       (200)
@@ -80,9 +78,13 @@ extern "C" {
 void SystemInfo(void);
 bool MCUcheck(void);
 
+
     #ifndef GSYSTEM_NO_PRINTF
+
 int _write(int line, uint8_t *ptr, int len);
+
     #endif
+
 
 #endif
 

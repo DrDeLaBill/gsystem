@@ -3,6 +3,8 @@
 #include "gdefines.h"
 #include "gconfig.h"
 
+#include <cstring>
+
 #include "drivers.h"
 
 

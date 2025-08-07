@@ -225,14 +225,15 @@ void __concat(gsys_, DMA_TX_FUNC)(void)
 
 #if defined(USE_HAL_DRIVER)
 
-extern const void* __isr_vector[];
+static uint32_t* flash_vector_table = (uint32_t*)0x08000000;
 static uint32_t VECTOR_TABLE_ALIGN gsys_isr_vector[VECTOR_TABLE_SIZE / sizeof(uint32_t)] = {};
+
 
 static void _change_addr(void (*original_ptr) (void), void (*target_ptr) (void))
 {
 	for (unsigned i = 0; i < __arr_len(gsys_isr_vector); i++) {
-		if (((uint32_t*)__isr_vector)[i] == (uint32_t)original_ptr) {
-			gsys_isr_vector[i] = (uint32_t)target_ptr | 1;
+		if (flash_vector_table[i] == (uint32_t)original_ptr) {
+			gsys_isr_vector[i] = (uint32_t)target_ptr;
 			return;
 		}
 	}
@@ -247,9 +248,9 @@ extern "C" void sys_isr_register()
 
     if (!MCUcheck()) {
 		system_error_handler(MCU_ERROR);
-        while(1) {}
 	}
-	memcpy(gsys_isr_vector, (uint32_t*)__isr_vector, VECTOR_TABLE_SIZE);
+	
+	memcpy(gsys_isr_vector, flash_vector_table, VECTOR_TABLE_SIZE);
 
     _change_addr(NMI_Handler,        gsys_NMI_Handler);
 	_change_addr(HardFault_Handler,  gsys_HardFault_Handler);

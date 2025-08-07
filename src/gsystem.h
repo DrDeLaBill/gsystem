@@ -64,6 +64,7 @@ void system_add_button(port_pin_t pin, bool inverse);
 uint32_t system_button_clicks(port_pin_t pin);
 bool system_button_pressed(port_pin_t pin);
 uint32_t system_button_held_ms(port_pin_t pin);
+bool system_button_held(port_pin_t pin, uint32_t time_ms);
 void system_buttons_reset();
 
 bool gsystem_messages_enabled();
