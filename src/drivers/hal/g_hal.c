@@ -245,8 +245,7 @@ int _write(int line, uint8_t *ptr, int len) {
     (void)len;
 
     #if defined(GSYSTEM_BEDUG_UART)
-    extern UART_HandleTypeDef GSYSTEM_BEDUG_UART;
-    HAL_UART_Transmit(&GSYSTEM_BEDUG_UART, (uint8_t*)ptr, (uint16_t)(len), (uint32_t)len * 10);
+    g_uart_print(ptr, lne);
     #endif
 
     #if !defined(GSYSTEM_NO_PRINTF)
@@ -464,5 +463,14 @@ void IDCODEInfo(void)
 }
 #endif
 
+void g_uart_print(const char* data, const uint16_t len)
+{
+    (void)data;
+    (void)len;
+#if defined(GSYSTEM_BEDUG_UART)
+    extern UART_HandleTypeDef GSYSTEM_BEDUG_UART;
+    HAL_UART_Transmit(&GSYSTEM_BEDUG_UART, (uint8_t*)data, (uint16_t)len, (uint32_t)len * 10);
+#endif
+}
 
 #endif

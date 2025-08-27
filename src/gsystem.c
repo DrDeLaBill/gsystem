@@ -164,7 +164,6 @@ void system_post_load(void)
     gprint("\n\n\n");
 #endif
     SYSTEM_BEDUG("GSystem is loading");
-    SYSTEM_BEDUG("Serial number: %s", get_system_serial_str());
 
     set_status(SYSTEM_SOFTWARE_STARTED);
 

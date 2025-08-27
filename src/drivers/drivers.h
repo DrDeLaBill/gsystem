@@ -61,6 +61,8 @@ bool g_pin_read(port_pin_t pin);
 uint64_t g_serial();
 char* g_serial_number();
 
+void g_uart_print(const char* data, const uint16_t len);
+
 
 #ifdef __cplusplus
 }

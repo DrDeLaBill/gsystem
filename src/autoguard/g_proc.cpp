@@ -45,6 +45,9 @@ extern "C" void memory_watchdog_check();
 extern "C" void btn_watchdog_check();
 
 
+static void _device_rev_show(void);
+
+
 static process_t sys_proc[] = {
 	{_sys_watchdog_check,      20,             {0,0}, true, 0, 0, 0},
 #ifndef GSYSTEM_NO_SYS_TICK_W
@@ -115,9 +118,7 @@ extern "C" void sys_proc_init()
 	if (!gversion_from_string(BUILD_VERSION, strlen(BUILD_VERSION), &build_ver)) {
 		memset((void*)&build_ver, 0, sizeof(build_ver));
 	}
-#ifdef GSYSTEM_BEDUG
-	printTagLog(SYSTEM_TAG, "BUILD VERSION=%s", gversion_to_string(&build_ver));
-#endif
+	_device_rev_show();
 }
 
 extern "C" void sys_proc_tick()
@@ -257,4 +258,58 @@ void _sys_watchdog_check(void)
 	} else if (!gtimer_wait(&err_timer)) {
 		system_error_handler(has_errors() ? get_first_error() : LOAD_ERROR);
 	}
+}
+
+void _device_rev_show(void)
+{
+#if !defined(GSYSTEM_NO_REVISION)
+	
+	char rev[100] = "";
+	char ser[100] = "";
+	char str[256] = "";
+
+	snprintf(
+		rev,
+		sizeof(rev) - 1,
+		"REVISION %s (%s %s)",
+		gversion_to_string(&build_ver),
+		__DATE__,
+		__TIME__
+	);
+
+	const char SERIAL_START[] = "SERIAL ";
+	char const* serial_num = get_system_serial_str();
+	uint16_t offset = strlen(rev) - strlen(SERIAL_START);
+	offset = (strlen(serial_num) < offset) ? offset - strlen(serial_num) : 0;
+	snprintf(
+		ser,
+		sizeof(ser) - 1,
+		"%*s%s%s%*s",
+		offset / 2,
+		"",
+		SERIAL_START,
+		serial_num,
+		__div_up(offset, 2),
+		""
+	);
+
+	snprintf(
+		str,
+		sizeof(str) - 1,
+		"----------------------------> %s <----------------------------\n"
+		"----------------------------> %s <----------------------------\n",
+		ser,
+		rev
+	);
+	
+	g_uart_print(str, strlen(str));
+
+    #if !defined(GSYSTEM_NO_PRINTF)
+	char* ptr = str;
+    for (size_t DataIdx = 0; DataIdx < strlen(str); DataIdx++) {
+        ITM_SendChar(*ptr++);
+    }
+    #endif
+
+#endif
 }

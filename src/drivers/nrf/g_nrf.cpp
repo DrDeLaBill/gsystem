@@ -136,5 +136,14 @@ extern "C" char* g_serial_number()
     return str_uid;
 }
 
+void g_uart_print(const char* data, const uint16_t len)
+{
+    (void)data;
+    (void)len;
+    for (uint16_t i = 0; i < len; i++) {
+        Serial.write(data[i]);
+    }
+}
+
 
 #endif
