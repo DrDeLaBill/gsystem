@@ -6,11 +6,13 @@
 #ifdef USE_HAL_DRIVER
 
 
-    #include "gconfig.h"
-    #include "gdefines.h"
+#include <string.h>
 
-    #include "glog.h"
-    #include "gsystem.h"
+#include "gconfig.h"
+#include "gdefines.h"
+
+#include "glog.h"
+#include "gsystem.h"
 
 
 #if GSYSTEM_BEDUG && !defined(GSYSTEM_NO_CPU_INFO)
@@ -245,7 +247,7 @@ int _write(int line, uint8_t *ptr, int len) {
     (void)len;
 
     #if defined(GSYSTEM_BEDUG_UART)
-    g_uart_print(ptr, lne);
+    g_uart_print((char*)ptr, (uint16_t)len);
     #endif
 
     #if !defined(GSYSTEM_NO_PRINTF)

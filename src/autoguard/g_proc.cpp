@@ -171,6 +171,7 @@ extern "C" uint32_t get_system_freq(void)
 	return sys_cpu_freq;
 }
 
+#if GSYSTEM_BEDUG && !defined(GSYSTEM_NO_STATUS_PRINT)
 static void _show_process(const unsigned idx, process_t* const proc)
 {
 	uint32_t avrg = 0;
@@ -182,6 +183,7 @@ static void _show_process(const unsigned idx, process_t* const proc)
 	proc->time_count  = 0;
 	proc->time_max_ms = 0;
 }
+#endif
 
 void _sys_watchdog_check(void)
 {
@@ -266,7 +268,7 @@ void _device_rev_show(void)
 	
 	char rev[100] = "";
 	char ser[100] = "";
-	char str[256] = "";
+	char str[322] = "";
 
 	snprintf(
 		rev,
@@ -279,8 +281,8 @@ void _device_rev_show(void)
 
 	const char SERIAL_START[] = "SERIAL ";
 	char const* serial_num = get_system_serial_str();
-	uint16_t offset = strlen(rev) - strlen(SERIAL_START);
-	offset = (strlen(serial_num) < offset) ? offset - strlen(serial_num) : 0;
+	uint16_t offset = (uint16_t)(strlen(rev) - strlen(SERIAL_START));
+	offset = (uint16_t)((strlen(serial_num) < offset) ? offset - strlen(serial_num) : 0);
 	snprintf(
 		ser,
 		sizeof(ser) - 1,
@@ -302,7 +304,7 @@ void _device_rev_show(void)
 		rev
 	);
 	
-	g_uart_print(str, strlen(str));
+	g_uart_print(str, (uint16_t)strlen(str));
 
     #if !defined(GSYSTEM_NO_PRINTF)
 	char* ptr = str;

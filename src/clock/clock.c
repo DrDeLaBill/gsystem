@@ -10,7 +10,8 @@
 #ifndef GSYSTEM_NO_RTC_W
 
 
-#include <clock.h>
+#include <stdio.h>
+#include <string.h>
 #include <stdint.h>
 #include <stdbool.h>
 
