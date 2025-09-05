@@ -6,6 +6,7 @@
 #include "gsystem.h"
 #include "gversion.h"
 
+#include "Timer.h"
 #include "GQueue.hpp"
 
 
@@ -46,6 +47,7 @@ extern "C" void btn_watchdog_check();
 
 
 static void _device_rev_show(void);
+static void _queue_proc(process_t* proc);
 
 
 static process_t sys_proc[] = {
@@ -78,8 +80,9 @@ static process_t user_proc[GSYSTEM_POCESSES_COUNT] = {};
 
 static utl::GQueue<16, process_t*> queue;
 
-#if defined(DEBUG)
-static unsigned kTPScounter = 0;
+#if GSYSTEM_BEDUG && !defined(GSYSTEM_NO_STATUS_PRINT)
+static utl::Timer kTPCTimer(10 * SECOND_MS);
+static unsigned kTPCcounter = 0;
 #endif
 
 static gtimer_t err_timer = {};
@@ -124,7 +127,7 @@ extern "C" void sys_proc_init()
 extern "C" void sys_proc_tick()
 {
 #if defined(DEBUG)
-	kTPScounter++;
+	kTPCcounter++;
 #endif
 
 	if (queue.count()) {
@@ -141,9 +144,10 @@ extern "C" void sys_proc_tick()
 			proc->time_max_ms = time_ms;
 		}
 #else
-		proc->action();
+		if (!is_status(SYSTEM_ERROR_HANDLER_CALLED) || proc->work_with_error) {
+			proc->action();
+		}
 #endif
-		gtimer_start(&proc->timer, proc->delay_ms);
 	}
 
 	for (unsigned i = 0; i < user_proc_cnt; i++) {
@@ -154,13 +158,13 @@ extern "C" void sys_proc_tick()
 			continue;
 		}
 		if (!gtimer_wait(&user_proc[i].timer)) {
-			queue.push(&user_proc[i]);
+			_queue_proc(&user_proc[i]);
 		}
 	}
 
 	for (unsigned i = 0; i < __arr_len(sys_proc); i++) {
 		if (!gtimer_wait(&sys_proc[i].timer)) {
-			queue.push(&sys_proc[i]);
+			_queue_proc(&sys_proc[i]);
 		}
 	}
 }
@@ -172,13 +176,17 @@ extern "C" uint32_t get_system_freq(void)
 }
 
 #if GSYSTEM_BEDUG && !defined(GSYSTEM_NO_STATUS_PRINT)
-static void _show_process(const unsigned idx, process_t* const proc)
+static void _show_process(const unsigned idx, process_t* const proc, const uint32_t time_passed)
 {
+	uint32_t tpc_per_sec = 0;
+	if (time_passed > 0) {
+		tpc_per_sec = proc->time_count * SECOND_MS / time_passed;
+	}
 	uint32_t avrg = 0;
 	if (proc->time_count > 0) {
 		avrg = proc->time_sum_ms / proc->time_count;
 	}
-	printPretty("process[%02u]: TPC=%06lu | avrg=%05lu ms | max=%04lu ms\n", idx, proc->time_count, avrg, proc->time_max_ms);
+	printPretty("process[%02u]: TPC=%06lu | avrg=%05lu ms | max=%04lu ms\n", idx, tpc_per_sec, avrg, proc->time_max_ms);
 	proc->time_sum_ms = 0;
 	proc->time_count  = 0;
 	proc->time_max_ms = 0;
@@ -194,8 +202,10 @@ void _sys_watchdog_check(void)
 	}
 
 #if GSYSTEM_BEDUG && !defined(GSYSTEM_NO_STATUS_PRINT)
-	static gtimer_t kTPSTimer = {0,(10 * SECOND_MS)};
-	if (!gtimer_wait(&kTPSTimer)) {
+	if (!kTPCTimer.getStart()) {
+		kTPCTimer.start();
+	}
+	if (!kTPCTimer.wait()) {
 		printTagLog(
 			SYSTEM_TAG,
 			"firmware: v%s",
@@ -204,17 +214,18 @@ void _sys_watchdog_check(void)
 		printTagLog(
 			SYSTEM_TAG,
 			"kTPS    : %lu.%lu",
-			kTPScounter / (10 * SECOND_MS),
-			(kTPScounter / SECOND_MS) % 10
+			kTPCcounter / (10 * SECOND_MS),
+			(kTPCcounter / SECOND_MS) % 10
 		);
     #ifndef GSYSTEM_NO_PROC_INFO
-		printTagLog(SYSTEM_TAG, "System processes");
+		uint32_t time_passed = kTPCTimer.getDelay();
+		printTagLog(SYSTEM_TAG, "System processes", time_passed);
 		for (unsigned i = 0; i < __arr_len(sys_proc); i++) {
-			_show_process(i, &sys_proc[i]);
+			_show_process(i, &sys_proc[i], time_passed);
 		}
 		printTagLog(SYSTEM_TAG, "User processes");
 		for (unsigned i = 0; i < user_proc_cnt; i++) {
-			_show_process(i, &user_proc[i]);
+			_show_process(i, &user_proc[i], time_passed);
 		}
 	#endif
     #ifndef GSYSTEM_NO_ADC_W
@@ -226,8 +237,8 @@ void _sys_watchdog_check(void)
 			voltage % 100
 		);
     #endif
-		kTPScounter = 0;
-		gtimer_start(&kTPSTimer, (10 * SECOND_MS));
+		kTPCcounter = 0;
+		kTPCTimer.start();
 	}
 	if (has_new_status_data()) {
 		show_statuses();
@@ -314,4 +325,13 @@ void _device_rev_show(void)
     #endif
 
 #endif
+}
+
+void _queue_proc(process_t* proc)
+{
+	if (queue.full()) {
+		gtimer_reset(&queue.pop()->timer);
+	}
+	queue.push(proc);
+	gtimer_start(&proc->timer, proc->delay_ms);
 }
