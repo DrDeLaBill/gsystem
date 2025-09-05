@@ -85,6 +85,7 @@ static utl::Timer kTPCTimer(10 * SECOND_MS);
 static unsigned kTPCcounter = 0;
 #endif
 
+static bool err_timer_init = false;
 static gtimer_t err_timer = {};
 
 static const uint32_t err_delay_ms = 30 * MINUTE_MS;
@@ -240,10 +241,8 @@ void _sys_watchdog_check(void)
 		kTPCcounter = 0;
 		kTPCTimer.start();
 	}
-	if (has_new_status_data()) {
+	if (has_new_status_data() || has_new_error_data()) {
 		show_statuses();
-	}
-	if (has_new_error_data()) {
 		show_errors();
 	}
 #endif
@@ -265,10 +264,14 @@ void _sys_watchdog_check(void)
 	if (!sys_timeout_enabled || is_status(SYSTEM_ERROR_HANDLER_CALLED)) {
 		return;
 	}
-
+	if (!err_timer_init && sys_timeout_ms) {
+		gtimer_start(&err_timer, sys_timeout_ms);
+		err_timer_init = true;
+	}
 	if (is_system_ready()) {
 		gtimer_start(&err_timer, sys_timeout_ms);
-	} else if (!gtimer_wait(&err_timer)) {
+	} 
+	if (!gtimer_wait(&err_timer)) {
 		system_error_handler(has_errors() ? get_first_error() : LOAD_ERROR);
 	}
 }
