@@ -12,6 +12,7 @@
 #include "gdefines.h"
 
 #include "glog.h"
+#include "gutils.h"
 #include "gsystem.h"
 
 
@@ -473,6 +474,13 @@ void g_uart_print(const char* data, const uint16_t len)
     extern UART_HandleTypeDef GSYSTEM_BEDUG_UART;
     HAL_UART_Transmit(&GSYSTEM_BEDUG_UART, (uint8_t*)data, (uint16_t)len, (uint32_t)len * 10);
 #endif
+}
+
+void g_delay_ms(const uint32_t ms)
+{
+    gtimer_t timer = { 0 };
+    gtimer_start(&timer, ms);
+    while (gtimer_wait(&timer));
 }
 
 #endif

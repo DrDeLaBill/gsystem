@@ -12,6 +12,7 @@
     #endif 
 
 
+    #include "Timer.h"
     #include "gsystem.h"
 
 
@@ -136,13 +137,20 @@ extern "C" char* g_serial_number()
     return str_uid;
 }
 
-void g_uart_print(const char* data, const uint16_t len)
+extern "C" void g_uart_print(const char* data, const uint16_t len)
 {
     (void)data;
     (void)len;
     for (uint16_t i = 0; i < len; i++) {
         Serial.write(data[i]);
     }
+}
+
+extern "C" void g_delay_ms(const uint32_t ms)
+{
+    utl::Timer timer(ms);
+    timer.start();
+    while (timer.wait());
 }
 
 

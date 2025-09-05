@@ -63,6 +63,8 @@ char* g_serial_number();
 
 void g_uart_print(const char* data, const uint16_t len);
 
+void g_delay_ms(const uint32_t ms);
+
 
 #ifdef __cplusplus
 }
