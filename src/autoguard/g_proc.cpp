@@ -127,7 +127,7 @@ extern "C" void sys_proc_init()
 
 extern "C" void sys_proc_tick()
 {
-#if defined(DEBUG)
+#if GSYSTEM_BEDUG && !defined(GSYSTEM_NO_STATUS_PRINT)
 	kTPCcounter++;
 #endif
 
