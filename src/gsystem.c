@@ -246,6 +246,7 @@ void system_start(void)
 
 void system_reset(void)
 {
+    system_before_reset();
     g_reboot();
 }
 
