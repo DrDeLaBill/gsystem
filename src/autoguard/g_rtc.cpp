@@ -15,6 +15,12 @@
 #   include "clock.h"
 
 
+extern "C" bool __internal_set_clock_ready();
+extern "C" bool __internal_is_clock_ready();
+extern "C" bool __internal_get_clock_ram(const uint8_t idx, uint8_t* data);
+extern "C" bool __internal_set_clock_ram(const uint8_t idx, uint8_t data);
+
+
 void _print_OK()
 {
 #if GSYSTEM_BEDUG
@@ -113,6 +119,29 @@ extern "C" void rtc_watchdog_check()
 	if (!is_clock_started()) {
 		clock_begin();
 	}
+
+	#if defined(GSYSTEM_DOUBLE_BKCP_ENABLE)
+	static bool __intenal_system_error_loaded = false;
+    if (!__internal_is_clock_ready()) {
+    	__internal_set_clock_ready();
+    }
+	if (!__intenal_system_error_loaded && __internal_is_clock_ready()) {
+		SOUL_STATUS status = (SOUL_STATUS)0;
+		for (uint8_t i = 0; i < sizeof(status); i++) {
+			if (!__internal_get_clock_ram(i, &((uint8_t*)&status)[i])) {
+				status = (SOUL_STATUS)0;
+				break;
+			}
+		}
+		for (uint8_t i = 0; i < sizeof(status); i++) {
+			__internal_set_clock_ram(i, 0);
+		}
+		set_last_error((SOUL_STATUS)status);
+		__intenal_system_error_loaded = true;
+
+		SYSTEM_BEDUG("Last reload error (internal backup): %s", get_status_name(get_last_error()));
+	}
+	#endif
 	if (is_clock_started() && !system_error_loaded) {
 		SOUL_STATUS status = (SOUL_STATUS)0;
 		for (uint8_t i = 0; i < sizeof(status); i++) {
@@ -127,11 +156,7 @@ extern "C" void rtc_watchdog_check()
 		set_last_error((SOUL_STATUS)status);
 		system_error_loaded = true;
 
-#   if GSYSTEM_BEDUG
-		if (get_last_error()) {
-			printTagLog(SYSTEM_TAG, "Last reload error: %s", get_status_name(get_last_error()));
-		}
-#   endif
+		SYSTEM_BEDUG("Last reload error (external backup): %s", get_status_name(get_last_error()));
 	}
 
 	if (!is_clock_started()) {

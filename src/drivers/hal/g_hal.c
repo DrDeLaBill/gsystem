@@ -172,13 +172,12 @@ void g_timer_stop(system_timer_t* timer)
 void g_restart_check() 
 {
     bool flag = false;
-    // IWDG check reboot
+
     if (__HAL_RCC_GET_FLAG(RCC_FLAG_IWDGRST)) {
     	SYSTEM_BEDUG("IWDG just went off");
         flag = true;
     }
 
-    // WWDG check reboot
     if (__HAL_RCC_GET_FLAG(RCC_FLAG_WWDGRST)) {
     	SYSTEM_BEDUG("WWDG just went off");
         flag = true;

@@ -17,7 +17,7 @@
 #include "button.h"
 
 #if defined(GSYSTEM_DS130X_CLOCK)
-#   include "ds130x.h"
+    #include "ds130x.h"
 #endif
 
 
@@ -43,9 +43,16 @@ uint16_t SYSTEM_ADC_VOLTAGE[GSYSTEM_ADC_VOLTAGE_COUNT] = {0};
 #endif
 
 #ifndef GSYSTEM_TIMER
-#   define GSYSTEM_TIMER (GSYS_DEFAULT_TIM)
+    #define GSYSTEM_TIMER (GSYS_DEFAULT_TIM)
 #endif
 
+
+#if !defined(GSYSTEM_NO_RTC_W)
+extern bool __internal_set_clock_ready();
+extern bool __internal_is_clock_ready();
+extern bool __internal_get_clock_ram(const uint8_t idx, uint8_t* data);
+extern bool __internal_set_clock_ram(const uint8_t idx, uint8_t data);
+#endif
 
 extern void sys_isr_register();
 extern void sys_fill_ram();
@@ -71,19 +78,19 @@ void system_init(void)
     }
     system_timer_stop(&timer);
 
-#   ifndef GSYSTEM_NO_PLL_CHECK_W
+    #ifndef GSYSTEM_NO_PLL_CHECK_W
 
     RCC_PLLInitTypeDef PLL = {0};
     PLL.PLLState = RCC_PLL_ON;
     PLL.PLLSource = RCC_PLLSOURCE_HSE;
-#       if defined(STM32F1)
+    #    if defined(STM32F1)
     PLL.PLLMUL = RCC_PLL_MUL9;
-#       elif defined(STM32F4)
+    #    elif defined(STM32F4)
     PLL.PLLM = 4;
     PLL.PLLN = 84;
     PLL.PLLP = RCC_PLLP_DIV2;
     PLL.PLLQ = 4;
-#       endif
+    #    endif
 
     __HAL_RCC_PLL_DISABLE();
     system_timer_start(&timer, GSYSTEM_TIMER, SECOND_MS);
@@ -98,16 +105,16 @@ void system_init(void)
     }
     system_timer_stop(&timer);
 
-#       if defined(STM32F1)
+    #    if defined(STM32F1)
     __HAL_RCC_PLL_CONFIG(PLL.PLLSource,
                          PLL.PLLMUL);
-#       elif defined(STM32F4)
+    #    elif defined(STM32F4)
     WRITE_REG(RCC->PLLCFGR, (PLL.PLLSource                     | \
                 PLL.PLLM                                       | \
              (  PLL.PLLN << RCC_PLLCFGR_PLLN_Pos)              | \
              (((PLL.PLLP >> 1U) - 1U) << RCC_PLLCFGR_PLLP_Pos) | \
              (  PLL.PLLQ << RCC_PLLCFGR_PLLQ_Pos)));
-#       endif
+    #    endif
     __HAL_RCC_PLL_ENABLE();
 
     system_timer_start(&timer, GSYSTEM_TIMER, SECOND_MS);
@@ -122,28 +129,28 @@ void system_init(void)
     }
     system_timer_stop(&timer);
 
-#       if defined(STM32F1)
+    #    if defined(STM32F1)
     uint32_t pll_config = RCC->CFGR;
-#       elif defined(STM32F4)
+    #    elif defined(STM32F4)
     uint32_t pll_config = RCC->PLLCFGR;
-#       endif
+    #    endif
     if (((PLL.PLLState) == RCC_PLL_OFF)                                                                ||
-#       if defined(STM32F1)
+    #    if defined(STM32F1)
        (READ_BIT(pll_config, RCC_CFGR_PLLSRC)  != PLL.PLLSource)                                       ||
        (READ_BIT(pll_config, RCC_CFGR_PLLMULL) != PLL.PLLMUL)
-#       elif defined(STM32F4)
+    #    elif defined(STM32F4)
        (READ_BIT(pll_config, RCC_PLLCFGR_PLLSRC) != PLL.PLLSource)                                     ||
        (READ_BIT(pll_config, RCC_PLLCFGR_PLLM)   != (PLL.PLLM) << RCC_PLLCFGR_PLLM_Pos)                ||
        (READ_BIT(pll_config, RCC_PLLCFGR_PLLN)   != (PLL.PLLN) << RCC_PLLCFGR_PLLN_Pos)                ||
        (READ_BIT(pll_config, RCC_PLLCFGR_PLLP)   != (((PLL.PLLP >> 1U) - 1U)) << RCC_PLLCFGR_PLLP_Pos) ||
        (READ_BIT(pll_config, RCC_PLLCFGR_PLLQ)   != (PLL.PLLQ << RCC_PLLCFGR_PLLQ_Pos))
-#       endif
+    #    endif
     ) {
     	set_error(SYS_TICK_ERROR);
         set_status(SYS_TICK_FAULT);
     }
 
-#   endif
+    #endif
 
 #endif
 
@@ -286,9 +293,9 @@ void system_error_handler(SOUL_STATUS error)
         error = INTERNAL_ERROR;
     }
 
-    if (is_soul_bedug_enable()) {
+    if (is_soul_bedug_enable() && !is_error(POWER_ERROR)) {
         SYSTEM_BEDUG("GSystem_error_handler called error=%s", get_status_name(error));
-    } else {
+    } else if (!is_error(POWER_ERROR)) {
         SYSTEM_BEDUG("GSystem_error_handler called error");
     }
 
@@ -299,7 +306,7 @@ void system_error_handler(SOUL_STATUS error)
 #endif
 
 #if !defined(GSYSTEM_NO_RTC_W)
-#   if defined(GSYSTEM_DS1307_CLOCK)
+    #if defined(GSYSTEM_DS1307_CLOCK)
     if (!is_clock_started()) {
         GSYSTEM_CLOCK_I2C.Instance = GSYSTEM_CLOCK_I2C_BASE;
         GSYSTEM_CLOCK_I2C.Init.ClockSpeed = 100000;
@@ -315,7 +322,18 @@ void system_error_handler(SOUL_STATUS error)
         }
         clock_begin();
     }
-#   endif
+    #endif
+
+	#if defined(GSYSTEM_DOUBLE_BKCP_ENABLE)
+    if (!__internal_is_clock_ready()) {
+    	__internal_set_clock_ready();
+    }
+    if (__internal_is_clock_ready()) {
+        for (uint8_t i = 0; i < sizeof(error); i++) {
+        	__internal_set_clock_ram(i, ((uint8_t*)&error)[i]);
+        }
+    }
+	#endif
     if (!is_clock_ready()) {
         set_clock_ready();
     }
@@ -325,6 +343,17 @@ void system_error_handler(SOUL_STATUS error)
         }
     }
 #endif
+
+    if (is_error(POWER_ERROR)) {
+#ifndef DEBUG
+        __disable_irq();
+        __reset_bit(SCB->SCR, SCB_SCR_SEVONPEND_Msk);
+        __set_bit(SCB->SCR, SCB_SCR_SLEEPDEEP_Msk | SCB_SCR_SLEEPONEXIT_Msk);
+        __WFI();
+#else
+        g_reboot();
+#endif
+    }
 
     uint32_t delay_ms = GSYSTEM_RESET_TIMEOUT_MS;
     gtimer_t timer = {0};
@@ -356,15 +385,6 @@ void system_error_handler(SOUL_STATUS error)
     SYSTEM_BEDUG("GSystem reset"); // TODO: change printf to function with registers when need_error_timer is true
     while(system_timer_wait(&s_timer));
     system_timer_stop(&s_timer);
-#endif
-
-#ifndef DEBUG
-    if (is_error(POWER_ERROR)) {
-        __disable_irq();
-        __reset_bit(SCB->SCR, SCB_SCR_SEVONPEND_Msk);
-        __set_bit(SCB->SCR, SCB_SCR_SLEEPDEEP_Msk | SCB_SCR_SLEEPONEXIT_Msk);
-        __WFI();
-    }
 #endif
 
     g_reboot();
@@ -568,7 +588,7 @@ __attribute__((weak)) void system_hsi_config(void)
         return;
     }
 #else
-#   error "Please select your controller"
+    #error "Please select your controller"
 #endif
 
     system_hsi_initialized = true;
@@ -684,7 +704,7 @@ void system_reset_i2c_errata(void)
 
     HAL_I2C_Init(&GSYSTEM_I2C);
 #elif defined(STM32F1) && !defined(GSYSTEM_NO_I2C_W)
-#   warning "GSystem i2c has not selected"
+    #warning "GSystem i2c has not selected"
 #endif
 }
 

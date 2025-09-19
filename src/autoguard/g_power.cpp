@@ -11,6 +11,13 @@
 
 extern const char SYSTEM_TAG[];
 
+
+#if !defined(GSYSTEM_NO_RTC_W)
+extern "C" bool __internal_is_clock_ready();
+extern "C" bool __internal_set_clock_ram(const uint8_t idx, uint8_t data);
+#endif
+
+
 extern "C" void power_watchdog_check()
 {
 	if (!is_status(GSYS_ADC_READY)) {
@@ -21,7 +28,15 @@ extern "C" void power_watchdog_check()
 	if (STM_MIN_VOLTAGEx100 <= voltage && voltage <= STM_MAX_VOLTAGEx100) {
 		reset_error(POWER_ERROR);
 	} else {
-		SYSTEM_BEDUG("NO POWER: %lu.%02lu V", voltage / 100, voltage % 100);
+#if defined(GSYSTEM_DOUBLE_BKCP_ENABLE)
+	    if (__internal_is_clock_ready()) {
+	    	SOUL_STATUS error = POWER_ERROR;
+	        for (uint8_t i = 0; i < sizeof(error); i++) {
+	        	__internal_set_clock_ram(i, ((uint8_t*)&error)[i]);
+	        }
+	    }
+#endif
+		SYSTEM_BEDUG("POWER ERROR: %lu.%02lu V", voltage / 100, voltage % 100);
 		system_error_handler(POWER_ERROR);
 	}
 }

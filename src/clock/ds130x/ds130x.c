@@ -1,6 +1,8 @@
 #include "ds130x.h"
 
 
+#include <string.h>
+
 #include "gdefines.h"
 #include "gconfig.h"
 

@@ -24,38 +24,40 @@ extern "C" {
 #define SYSTEM_CANARY_WORD                 ((uint32_t)0xBEDAC0DE)
 
 #if !defined(STM32F1) && defined(GSYSTEM_NO_I2C_W)
-   #undef GSYSTEM_NO_I2C_W
+    #undef GSYSTEM_NO_I2C_W
 #endif
 
 #ifndef GSYSTEM_ADC_VOLTAGE_COUNT
-   #define GSYSTEM_ADC_VOLTAGE_COUNT (1)
+    #define GSYSTEM_ADC_VOLTAGE_COUNT (1)
 #endif
 
 #ifndef GSYSTEM_BUTTONS_COUNT
-   #define GSYSTEM_BUTTONS_COUNT     (10)
+    #define GSYSTEM_BUTTONS_COUNT     (10)
 #endif
 
 #ifndef BUILD_VERSION
-   #define BUILD_VERSION             "v0.0.0"
+    #define BUILD_VERSION             "v0.0.0"
 #endif
 
 #ifdef DEBUG
-   #define GSYSTEM_BEDUG 1
+    #define GSYSTEM_BEDUG 1
 #elif defined(GBEDUG_FORCE)
-   #define GSYSTEM_BEDUG 1
+    #define GSYSTEM_BEDUG 1
 #endif
+
 #ifdef GSYSTEM_NO_BEDUG
-   #undef GSYSTEM_BEDUG
+    #undef GSYSTEM_BEDUG
 #endif
+
 #if GSYSTEM_BEDUG
 extern const char SYSTEM_TAG[];
 #endif
 
 #if !GSYSTEM_RESET_TIMEOUT_MS
-   #ifdef GSYSTEM_RESET_TIMEOUT_MS
-       #undef GSYSTEM_RESET_TIMEOUT_MS
-   #endif
-   #define GSYSTEM_RESET_TIMEOUT_MS (30 * SECOND_MS)
+    #ifdef GSYSTEM_RESET_TIMEOUT_MS
+        #undef GSYSTEM_RESET_TIMEOUT_MS
+    #endif
+    #define GSYSTEM_RESET_TIMEOUT_MS (30 * SECOND_MS)
 #endif
 
 #if GSYSTEM_BEDUG
@@ -65,22 +67,25 @@ extern const char SYSTEM_TAG[];
         #define SYSTEM_BEDUG(FORMAT, ...) if (gsystem_messages_enabled()) printTagLog(SYSTEM_TAG, FORMAT, ##__VA_ARGS__);
     #endif
 #else
-   #define SYSTEM_BEDUG(FORMAT, ...) {}
+    #define SYSTEM_BEDUG(FORMAT, ...) {}
 #endif
 
 #if defined(GSYSTEM_BEDUG_UART) && !GSYSTEM_BEDUG
-   #undef GSYSTEM_BEDUG_UART
+    #undef GSYSTEM_BEDUG_UART
 #endif
 
 #if defined(GSYSTEM_DS1302_CLOCK) || defined(GSYSTEM_DS1307_CLOCK)
-   #define GSYSTEM_DS130X_CLOCK
+    #define GSYSTEM_DS130X_CLOCK
 #endif
 #if defined(GSYSTEM_DS130X_CLOCK)
-   #define SYSTEM_BKUP_SIZE (DS130X_REG_RAM_END - DS130X_REG_RAM_BEGIN - sizeof(SOUL_STATUS))
+    #define SYSTEM_BKUP_SIZE (DS130X_REG_RAM_END - DS130X_REG_RAM_BEGIN - sizeof(SOUL_STATUS))
 #elif !defined(GSYSTEM_NO_RTC_W)
-   #define SYSTEM_BKUP_SIZE (RTC_BKP_NUMBER - RTC_BKP_DR2 - sizeof(SOUL_STATUS))
+    #define SYSTEM_BKUP_SIZE (RTC_BKP_NUMBER - RTC_BKP_DR2 - sizeof(SOUL_STATUS))
 #endif
 
+#if !defined(GSYSTEM_NO_RTC_INTERNAL_W) && (defined(GSYSTEM_DS1302_CLOCK) || defined(GSYSTEM_DS1307_CLOCK))
+    #define GSYSTEM_DOUBLE_BKCP_ENABLE
+#endif
 
 #ifndef GSYSTEM_POCESSES_COUNT
    #define GSYSTEM_POCESSES_COUNT (32)

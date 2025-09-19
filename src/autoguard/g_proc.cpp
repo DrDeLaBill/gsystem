@@ -214,7 +214,7 @@ void _sys_watchdog_check(void)
 		);
 		printTagLog(
 			SYSTEM_TAG,
-			"kTPS    : %lu.%lu",
+			"kTPC    : %lu.%lu",
 			kTPCcounter / (10 * SECOND_MS),
 			(kTPCcounter / SECOND_MS) % 10
 		);

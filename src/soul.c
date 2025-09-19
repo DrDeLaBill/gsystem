@@ -233,6 +233,13 @@ char* get_status_name(SOUL_STATUS status)
 	CASE_STATUS(ERROR_HANDLER_CALLED)
 	CASE_STATUS(INTERNAL_ERROR)
 	case STATUSES_START:
+	case STATUSES_END:
+	case NO_ERROR:
+	case ERRORS_START:
+	case ERRORS_END:
+	case SOUL_STATUSES_END:
+		snprintf(name, sizeof(name) - 1, "EMPTY STATUS");
+		break;
 	case RESERVED_STATUS_01:
 	case RESERVED_STATUS_02:
 	case RESERVED_STATUS_03:
@@ -248,9 +255,6 @@ char* get_status_name(SOUL_STATUS status)
 	case RESERVED_STATUS_13:
 	case RESERVED_STATUS_14:
 	case RESERVED_STATUS_15:
-	case STATUSES_END:
-	case NO_ERROR:
-	case ERRORS_START:
 	case RESERVED_ERROR_01:
 	case RESERVED_ERROR_02:
 	case RESERVED_ERROR_03:
@@ -266,8 +270,6 @@ char* get_status_name(SOUL_STATUS status)
 	case RESERVED_ERROR_13:
 	case RESERVED_ERROR_14:
 	case RESERVED_ERROR_15:
-	case ERRORS_END:
-	case SOUL_STATUSES_END:
 	default:
 		snprintf(name, sizeof(name) - 1, "[%03u] %s", status, get_custom_status_name(status));
 		break;

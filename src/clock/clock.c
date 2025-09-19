@@ -21,8 +21,10 @@
 
 
 #if defined(GSYSTEM_DS130X_CLOCK)
-#   include "ds130x.h"
-#else
+    #include "ds130x.h"
+#endif
+
+#if !defined(GSYSTEM_NO_RTC_INTERNAL_W)
 extern RTC_HandleTypeDef hrtc;
 #endif
 
@@ -49,6 +51,12 @@ static bool clock_started = false;
 
 
 uint8_t _get_days_in_month(uint16_t year, Months month);
+
+
+bool __internal_set_clock_ready();
+bool __internal_is_clock_ready();
+bool __internal_get_clock_ram(const uint8_t idx, uint8_t* data);
+bool __internal_set_clock_ram(const uint8_t idx, uint8_t data);
 
 
 void clock_begin()
@@ -197,7 +205,7 @@ bool save_clock_time(const clock_time_t* save_time)
 		return false;
 	}
 
-#   if CLOCK_BEDUG
+    #if CLOCK_BEDUG
 	printTagLog(
 		TAG,
 		"clock_save_time: time=%02u:%02u:%02u",
@@ -205,7 +213,7 @@ bool save_clock_time(const clock_time_t* save_time)
 		time.Minutes,
 		time.Seconds
 	);
-#   endif
+    #endif
 
 	return true;
 #else
@@ -220,7 +228,7 @@ bool save_clock_time(const clock_time_t* save_time)
 	HAL_PWR_DisableBkUpAccess();
 
 	BEDUG_ASSERT(status == HAL_OK, "Unable to set current time");
-#   if CLOCK_BEDUG
+    #if CLOCK_BEDUG
 	printTagLog(
 		TAG,
 		"clock_save_time: time=%02u:%02u:%02u",
@@ -228,7 +236,7 @@ bool save_clock_time(const clock_time_t* save_time)
 		tmpTime.Minutes,
 		tmpTime.Seconds
 	);
-#   endif
+    #endif
     return status == HAL_OK;
 #endif
 }
@@ -283,17 +291,17 @@ bool save_clock_date(const clock_date_t* save_date)
 	HAL_PWR_DisableBkUpAccess();
 
 	BEDUG_ASSERT(status == HAL_OK, "Unable to set current date");
-#   if CLOCK_BEDUG
-		printTagLog(
-			TAG,
-			"clock_save_date: seconds=%lu, time=20%02u-%02u-%02u weekday=%u",
-			seconds,
-			saveDate.Year,
-			saveDate.Month,
-			saveDate.Date,
-			saveDate.WeekDay
-		);
-#   endif
+    #if CLOCK_BEDUG
+	printTagLog(
+		TAG,
+		"clock_save_date: seconds=%lu, time=20%02u-%02u-%02u weekday=%u",
+		seconds,
+		saveDate.Year,
+		saveDate.Month,
+		saveDate.Date,
+		saveDate.WeekDay
+	);
+    #endif
     return status == HAL_OK;
 #endif
 }
@@ -527,6 +535,13 @@ bool set_clock_ready()
 	}
 	return true;
 #else
+	return __internal_set_clock_ready();
+#endif
+}
+
+bool __internal_set_clock_ready()
+{
+#if !defined(GSYSTEM_NO_RTC_INTERNAL_W)
 	HAL_PWR_EnableBkUpAccess();
 	HAL_RTCEx_BKUPWrite(&hrtc, RTC_BKP_DR1, (uint16_t)BEDAC0DE);
 	HAL_RTCEx_BKUPWrite(&hrtc, RTC_BKP_DR2, (uint16_t)(BEDAC0DE >> 16U));
@@ -546,6 +561,13 @@ bool is_clock_ready()
 	}
 	return value == BEDAC0DE;
 #else
+	return __internal_is_clock_ready();
+#endif
+}
+
+bool __internal_is_clock_ready()
+{
+#if !defined(GSYSTEM_NO_RTC_INTERNAL_W)
 	HAL_PWR_EnableBkUpAccess();
 	uint32_t value =
 		HAL_RTCEx_BKUPRead(&hrtc, RTC_BKP_DR1) |
@@ -560,6 +582,13 @@ bool get_clock_ram(const uint8_t idx, uint8_t* data)
 #if defined(GSYSTEM_DS130X_CLOCK)
 	return DS130X_GetRAM(sizeof(BEDAC0DE) + idx, data) == DS130X_OK;
 #else
+	return __internal_get_clock_ram(idx, data);
+#endif
+}
+
+bool __internal_get_clock_ram(const uint8_t idx, uint8_t* data)
+{
+#if !defined(GSYSTEM_NO_RTC_INTERNAL_W)
 	if (RTC_BKP_DR3 + (idx / STM_BCKP_REG_SIZE) > RTC_BKP_NUMBER) {
 		return false;
 	}
@@ -576,6 +605,13 @@ bool set_clock_ram(const uint8_t idx, uint8_t data)
 #if defined(GSYSTEM_DS130X_CLOCK)
 	return DS130X_SetRAM(sizeof(BEDAC0DE) + idx, data) == DS130X_OK;
 #else
+	return __internal_set_clock_ram(idx, data);
+#endif
+}
+
+bool __internal_set_clock_ram(const uint8_t idx, uint8_t data)
+{
+#if !defined(GSYSTEM_NO_RTC_INTERNAL_W)
 	if (RTC_BKP_DR3 + (idx / STM_BCKP_REG_SIZE) > RTC_BKP_NUMBER) {
 		return false;
 	}
