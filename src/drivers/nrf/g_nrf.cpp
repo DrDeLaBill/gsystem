@@ -2,6 +2,7 @@
 
 #include "g_nrf.h"
 
+#include "interfaces.h"
 
 #ifdef NRF52
 
