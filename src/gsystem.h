@@ -13,6 +13,7 @@ extern "C" {
 #include <stdint.h>
 
 #include "gdefines.h"
+#include "g_settings.h"
 
 
 #define GSYS_CALL_HARD_FAULT() { \

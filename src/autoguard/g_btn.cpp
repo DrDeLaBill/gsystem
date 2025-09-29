@@ -44,7 +44,7 @@ extern "C" uint32_t system_button_clicks(port_pin_t pin)
 {
     button_t* btn = _find_button({pin.port, pin.pin});
     if (!btn) {
-        return false;
+        return 0;
     }
     return button_clicks(btn);
 }

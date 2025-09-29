@@ -30,7 +30,10 @@ typedef struct _button_t {
 
 	bool       _pressed;
 	bool       _inverse;
+
 	size_t     _clicks;
+	gtimer_t   _clicks_tim;
+
 	bool       _next_click;
 	uint32_t   _held;
 

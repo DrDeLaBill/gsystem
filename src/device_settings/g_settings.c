@@ -1,0 +1,126 @@
+/* Copyright © 2025 Georgy E. All rights reserved. */
+
+#include "g_settings.h"
+
+#ifndef GSYSTEM_NO_DEVICE_SETTINGS
+
+#include <stdio.h>
+#include <string.h>
+
+#include "glog.h"
+#include "clock.h"
+#include "gutils.h"
+#include "gsystem.h"
+#include "drivers.h"
+
+#include "settings.h"
+
+
+
+#define DEFAULT_CHAR_SETIINGS_SIZE (30)
+#define G_SETTINGS_BEDACODE        ((uint32_t)0xBEDAC0DE)
+
+
+static unsigned _get_settings_payload_size();
+
+
+device_settings_storage_t device_settings_storage = 
+{
+    .gs_settings.bedacode = G_SETTINGS_BEDACODE,
+    .gs_settings.dv_type  = GSYSTEM_DEVICE_TYPE,
+    .gs_settings.fw_id    = GSYSTEM_FW_VERSION,
+    .gs_settings.stg_id   = GSYSTEM_STG_VERSION,
+    .gs_settings.data     = { 0 },
+    .gs_settings.crc      = 0
+};
+
+settings_t* settings = (settings_t*)device_settings_storage.gs_settings.data;
+
+
+settings_t* get_settings()
+{
+	return (settings_t*)device_settings_storage.gs_settings.data;
+}
+
+void set_settings(settings_t* other)
+{
+	memcpy((uint8_t*)settings, (uint8_t*)other, sizeof(settings));
+}
+
+uint32_t settings_size()
+{
+	return sizeof(device_settings_storage.gs_settings_bytes.data);
+}
+
+void _g_settings_before_save(device_settings_storage_t* const other)
+{
+    settings_before_save((settings_t*)other->gs_settings.data);
+	uint16_t crc = (uint16_t)util_hash(other->gs_settings_bytes.data, _get_settings_payload_size());
+    other->gs_settings_bytes.crc = crc;
+}
+
+bool _g_settings_check(device_settings_storage_t* const other)
+{
+	if (other->gs_settings.bedacode != G_SETTINGS_BEDACODE) {
+		return false;
+	}
+	if (other->gs_settings.dv_type != GSYSTEM_DEVICE_TYPE) {
+		return false;
+	}
+	if (other->gs_settings.stg_id != GSYSTEM_STG_VERSION) {
+		return false;
+	}
+	if (other->gs_settings.fw_id != GSYSTEM_FW_VERSION) {
+		return false;
+	}
+	uint16_t crc = (uint16_t)util_hash(other->gs_settings_bytes.data, _get_settings_payload_size());
+    if (other->gs_settings_bytes.crc != crc) {
+        return false;
+    }
+    return settings_check((settings_t* const)other->gs_settings.data);
+}
+
+void _g_settings_repair(device_settings_storage_t* const other)
+{
+    settings_t* const stg = (settings_t* const)other->gs_settings.data;
+    settings_repair(stg, other->gs_settings.stg_id);
+	if (!settings_check(stg)) {
+		settings_reset(stg);
+	} else {
+		other->gs_settings.bedacode = G_SETTINGS_BEDACODE;
+		other->gs_settings.dv_type  = GSYSTEM_DEVICE_TYPE;
+		other->gs_settings.stg_id   = GSYSTEM_STG_VERSION;
+		other->gs_settings.fw_id    = GSYSTEM_FW_VERSION;
+	}
+}
+
+void _g_settings_reset(device_settings_storage_t* const other)
+{
+	SYSTEM_BEDUG("Reset settings");
+
+	other->gs_settings.bedacode = G_SETTINGS_BEDACODE;
+	other->gs_settings.dv_type  = GSYSTEM_DEVICE_TYPE;
+	other->gs_settings.stg_id   = GSYSTEM_STG_VERSION;
+	other->gs_settings.fw_id    = GSYSTEM_FW_VERSION;
+
+    settings_reset((settings_t* const)other->gs_settings.data);
+}
+
+void _g_settings_show()
+{
+    printPretty("######################SETTINGS######################\n");
+	printPretty("Device version:                     %s\n", BUILD_VERSION);
+	printPretty("Device type:                        %u\n", device_settings_storage.gs_settings.dv_type);
+	printPretty("Software ID:                        %u\n", device_settings_storage.gs_settings.stg_id);
+	printPretty("Firmware ID:                        %u\n", device_settings_storage.gs_settings.fw_id);
+	printPretty("Device serial:                      %s\n", get_system_serial_str());
+    settings_show();
+	printPretty("######################SETTINGS######################\n");
+}
+
+unsigned _get_settings_payload_size()
+{
+	return settings_size() - sizeof(uint16_t);
+}
+
+#endif

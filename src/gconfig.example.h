@@ -28,6 +28,7 @@ extern "C" {
 //#define GSYSTEM_NO_PLL_CHECK_W
 //#define GSYSTEM_NO_STORAGE_AT
 //#define GSYSTEM_NO_REVISION
+//#define GSYSTEM_NO_DEVICE_SETTINGS
 
 //#define GSYSTEM_NO_STATUS_PRINT
 //#define GSYSTEM_NO_VTOR_REWRITE
@@ -75,6 +76,18 @@ extern "C" {
 //	CUSTOM_STATUS_01 = RESERVED_STATUS_01,
 //	CUSTOM_STATUS_02 = RESERVED_STATUS_02
 //} CUSTOM_SOUL_STATUSES;
+
+
+// enum DEVICE_TYPE {
+// 	DT_DEVICE_1 = 0x0001,
+// 	DT_DEVICE_2,
+// 	DT_DEVICE_3
+// };
+
+// #define GSYSTEM_DEVICE_TYPE     (DT_DEVICE_1)
+
+// #define GSYSTEM_STG_VERSION     ((uint8_t)0x01)
+// #define GSYSTEM_FW_VERSION      ((uint8_t)0x01)
 
 
 #ifdef __cplusplus
