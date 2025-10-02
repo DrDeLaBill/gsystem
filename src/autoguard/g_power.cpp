@@ -26,7 +26,7 @@ extern "C" void power_watchdog_check()
 
 	uint32_t voltage = get_system_power_v_x100();
 	if (voltage > STM_MAX_VOLTAGEx100) {
-		SYSTEM_BEDUG("WARNING! POWER: %lu.%02lu V", voltage / 100, voltage % 100);
+		SYSTEM_BEDUG("WARNING! CPU POWER: %lu.%02lu V", voltage / 100, voltage % 100);
 	}
 	if (STM_MIN_VOLTAGEx100 <= voltage) {
 		reset_error(POWER_ERROR);
@@ -39,7 +39,7 @@ extern "C" void power_watchdog_check()
 	        }
 	    }
 #endif
-		SYSTEM_BEDUG("POWER ERROR: %lu.%02lu V", voltage / 100, voltage % 100);
+		SYSTEM_BEDUG("CPU POWER ERROR: %lu.%02lu V", voltage / 100, voltage % 100);
 		system_error_handler(POWER_ERROR);
 	}
 }

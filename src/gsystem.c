@@ -2,6 +2,7 @@
 
 #include "gsystem.h"
 
+#include <string.h>
 #include <unistd.h>
 #include <stdbool.h>
 
@@ -15,6 +16,7 @@
 #include "drivers.h"
 
 #include "button.h"
+#include "gversion.h"
 
 #if defined(GSYSTEM_DS130X_CLOCK)
     #include "ds130x.h"
@@ -33,6 +35,7 @@ const uint32_t TIMER_VERIF_WORD = 0xBEDAC1DE;
 
 static bool messages_enabled = true;
 
+static gversion_t build_ver = { 0 };
 
 #ifndef GSYSTEM_NO_SYS_TICK_W
 static bool system_hsi_initialized = false;
@@ -41,6 +44,7 @@ static bool system_hsi_initialized = false;
 #ifndef GSYSTEM_NO_ADC_W
 uint16_t SYSTEM_ADC_VOLTAGE[GSYSTEM_ADC_VOLTAGE_COUNT] = {0};
 #endif
+
 
 #ifndef GSYSTEM_TIMER
     #define GSYSTEM_TIMER (GSYS_DEFAULT_TIM)
@@ -61,6 +65,10 @@ void system_init(void)
     sys_isr_register();
 
     sys_fill_ram();
+
+	if (!gversion_from_string(system_device_version(), strlen(system_device_version()), &build_ver)) {
+		memset((void*)&build_ver, 0, sizeof(build_ver));
+	}
 
     system_timer_t timer = {0};
 #ifndef GSYSTEM_NO_SYS_TICK_W
@@ -161,6 +169,11 @@ void system_init(void)
     set_status(SYSTEM_HARDWARE_STARTED);
 }
 
+const char* system_device_version()
+{
+	return gversion_to_string(&build_ver);
+}
+
 #ifndef GSYSTEM_NO_ADC_W
 extern void adc_watchdog_check();
 #endif
@@ -255,12 +268,6 @@ void system_reset(void)
 {
     system_before_reset();
     g_reboot();
-}
-
-extern void sys_proc_tick();
-void system_tick(void)
-{
-    sys_proc_tick();
 }
 
 bool is_system_ready()
@@ -812,7 +819,7 @@ void system_delay_us(uint32_t us)
     CoreDebug->DEMCR |= CoreDebug_DEMCR_TRCENA_Msk;
     DWT->CYCCNT = 0;
     DWT->CTRL |= DWT_CTRL_CYCCNTENA_Msk;
-    uint32_t ticks = us * (get_system_freq() / 1000000);
+    uint32_t ticks = us * (g_get_freq() / 1000000);
     uint32_t start = DWT->CYCCNT;
     while (DWT->CYCCNT - start < ticks);
 }

@@ -13,6 +13,7 @@ extern "C" {
 #include <stdint.h>
 
 #include "gdefines.h"
+
 #include "g_settings.h"
 
 
@@ -36,10 +37,13 @@ extern const uint32_t TIMER_VERIF_WORD;
 
 
 void system_init(void);
-void system_register(void (*process) (void), uint32_t delay_ms, bool work_with_error);
+void system_register(void (*task) (void), uint32_t delay_ms, bool realtime, bool work_with_error, uint32_t weight_x100);
+
 void set_system_timeout(uint32_t timeout_ms);
 void system_start(void);
 void system_reset(void);
+
+const char* system_device_version();
 
 void system_post_load(void);
 void system_tick(void);

@@ -119,7 +119,7 @@ uint32_t button_held_ms(button_t* button)
 	if (!gtimer_wait(&button->_held_tim)) {
 		button->_held = true;
 	}
-	return button->_held_tim.start ? getMillis() - button->_held_tim.start : 0;
+	return (uint32_t)(button->_held_tim.start ? getMillis() - button->_held_tim.start : 0);
 }
 
 bool button_pressed(button_t* button)

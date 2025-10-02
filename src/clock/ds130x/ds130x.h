@@ -51,8 +51,8 @@ typedef enum _DS130X_STATUS {
 #define DS130X_REG_MONTH  	    0x88
 #define DS130X_REG_DOW   	    0x8A
 #define DS130X_REG_YEAR   	    0x8C
-#define DS130X_REG_WP    	    0x8E
-#define DS130X_REG_CONTROL 	    0x90
+#define DS130X_REG_CONTROL      0x8E
+#define DS130X_REG_TRICKLE 	    0x90
 #define DS130X_REG_RAM_BEGIN	0xC0
 #define DS130X_REG_RAM_END      0xFC
 #endif

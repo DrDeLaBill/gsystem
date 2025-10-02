@@ -226,7 +226,13 @@ uint64_t g_serial()
 
 char* g_serial_number()
 {
-    uint32_t uid_base = 0x1FFFF7E8;
+#if defined(STM32F1)
+	uint32_t uid_base = 0x1FFFF7E8;
+#elif defined(STM32F4)
+	uint32_t uid_base = 0x1FFF7A10; // TODO: check address
+#else
+	#error Please select your device
+#endif
 
     uint16_t *idBase0 = (uint16_t*)(uid_base);
     uint16_t *idBase1 = (uint16_t*)(uid_base + 0x02);

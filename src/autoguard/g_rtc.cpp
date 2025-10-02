@@ -12,7 +12,7 @@
 #ifndef GSYSTEM_NO_RTC_W
 
 
-#   include "clock.h"
+    #include "clock.h"
 
 
 extern "C" bool __internal_set_clock_ready();
@@ -35,16 +35,16 @@ extern "C" void rtc_watchdog_check()
 	static gtimer_t timer = {};
 	static bool tested = false;
 
-#   ifndef GSYSTEM_NO_RTC_CALENDAR_W
+    #ifndef GSYSTEM_NO_RTC_CALENDAR_W
 	clock_date_t dumpDate  = {0,0,0,0};
 	clock_time_t dumpTime  = {0,0,0};
-	uint64_t dumpMs        = getMillis();
+	g_time_t dumpMs        = getMillis();
 
-#   if defined(GSYSTEM_DS130X_CLOCK)
+    #if defined(GSYSTEM_DS130X_CLOCK)
 	clock_date_t saveDate  = {0, 04, 28, 24};
-#   else
+    #else
 	clock_date_t saveDate  = {RTC_WEEKDAY_SUNDAY, 04, 28, 24};
-#   endif
+    #endif
 	clock_time_t saveTime  = {13,37,00};
 
 	clock_date_t checkDate = {0,0,0,0};
@@ -53,7 +53,7 @@ extern "C" void rtc_watchdog_check()
 	uint64_t res_seconds   = 0;
 
 	const clock_date_t dates[] = {
-#   if defined(GSYSTEM_DS130X_CLOCK)
+    #if defined(GSYSTEM_DS130X_CLOCK)
 		{0, 01, 01, 00},
 		{0, 01, 02, 00},
 		{0, 04, 27, 24},
@@ -63,7 +63,7 @@ extern "C" void rtc_watchdog_check()
 		{0, 05, 01, 24},
 		{0, 05, 02, 24},
 		{0, 05, 03, 24},
-#   else
+    #else
 		{RTC_WEEKDAY_SATURDAY,  01, 01, 00},
 		{RTC_WEEKDAY_SUNDAY,    01, 02, 00},
 		{RTC_WEEKDAY_SATURDAY,  04, 27, 24},
@@ -73,7 +73,7 @@ extern "C" void rtc_watchdog_check()
 		{RTC_WEEKDAY_WEDNESDAY, 05, 01, 24},
 		{RTC_WEEKDAY_THURSDAY,  05, 02, 24},
 		{RTC_WEEKDAY_FRIDAY,    05, 03, 24},
-#   endif
+    #endif
 	};
 	const clock_time_t times[] = {
 		{00, 00, 00},
@@ -101,7 +101,7 @@ extern "C" void rtc_watchdog_check()
 	clock_date_t tmpDate = {0,0,0,0};
 	clock_time_t tmpTime = {0,0,0};
 	uint64_t tmpSeconds  = 0;
-#   endif
+    #endif
 
 	uint8_t  ram_bckp[sizeof(uint32_t)] = {};
 	uint32_t ram_word = 0x12345678;
@@ -182,9 +182,9 @@ extern "C" void rtc_watchdog_check()
 		return;
 	}
 
-#   if GSYSTEM_BEDUG
+    #if GSYSTEM_BEDUG
 	printTagLog(SYSTEM_TAG, "RTC testing in progress...");
-#   endif
+    #endif
 
 	uint8_t ram_dump = 0;
 	if (!get_clock_ram(0, &ram_dump)) {
@@ -194,43 +194,43 @@ extern "C" void rtc_watchdog_check()
 		goto do_error;
 	}
 
-#   ifndef GSYSTEM_NO_RTC_CALENDAR_W
+    #ifndef GSYSTEM_NO_RTC_CALENDAR_W
 
-#   if GSYSTEM_BEDUG
+    #if GSYSTEM_BEDUG
 	printPretty("Dump date test:    ");
-#   endif
+    #endif
 	if (!get_clock_rtc_date(&dumpDate)) {
 		goto do_error;
 	}
 	_print_OK();
 
-#   if GSYSTEM_BEDUG
+    #if GSYSTEM_BEDUG
 	printPretty("Dump time test:    ");
-#   endif
+    #endif
 	if (!get_clock_rtc_time(&dumpTime)) {
 		goto do_error;
 	}
    	_print_OK();
 
-#   if GSYSTEM_BEDUG
+    #if GSYSTEM_BEDUG
 	printPretty("Save date test:    ");
-#   endif
+    #endif
    	if (!save_clock_date(&saveDate)) {
 		goto do_error;
 	}
    	_print_OK();
 
-#   if GSYSTEM_BEDUG
+    #if GSYSTEM_BEDUG
 	printPretty("Save time test:    ");
-#   endif
+    #endif
 	if (!save_clock_time(&saveTime)) {
 		goto do_error;
 	}
     _print_OK();
 
-#   if GSYSTEM_BEDUG
+    #if GSYSTEM_BEDUG
 	printPretty("Check date test:   ");
-#   endif
+    #endif
 	if (!get_clock_rtc_date(&checkDate)) {
 		goto do_error;
 	}
@@ -239,9 +239,9 @@ extern "C" void rtc_watchdog_check()
 	}
 	_print_OK();
 
-#   if GSYSTEM_BEDUG
+    #if GSYSTEM_BEDUG
 	printPretty("Check time test:   ");
-#   endif
+    #endif
 	if (!get_clock_rtc_time(&checkTime)) {
 		goto do_error;
 	}
@@ -253,25 +253,25 @@ extern "C" void rtc_watchdog_check()
 	res_seconds = get_clock_datetime_to_seconds(&dumpDate, &dumpTime);
 	res_seconds += ((getMillis() - dumpMs) / SECOND_MS);
 	get_clock_seconds_to_datetime(res_seconds, &dumpDate, &dumpTime);
-#   if GSYSTEM_BEDUG
+    #if GSYSTEM_BEDUG
 	printPretty("Dump date save:    ");
-#   endif
+    #endif
 	if (!save_clock_date(&dumpDate)) {
 		goto do_error;
 	}
 	_print_OK();
 
-#   if GSYSTEM_BEDUG
+    #if GSYSTEM_BEDUG
 	printPretty("Dump time save:    ");
-#   endif
+    #endif
 	if (!save_clock_time(&dumpTime)) {
 		goto do_error;
 	}
 	_print_OK();
 
-#   if GSYSTEM_BEDUG
+    #if GSYSTEM_BEDUG
 	printPretty("Check dump date:   ");
-#   endif
+    #endif
 	if (!get_clock_rtc_date(&checkDate)) {
 		goto do_error;
 	}
@@ -280,9 +280,9 @@ extern "C" void rtc_watchdog_check()
 	}
 	_print_OK();
 
-#   if GSYSTEM_BEDUG
+    #if GSYSTEM_BEDUG
  	printPretty("Check dump time:   ");
-#   endif
+    #endif
 	if (!get_clock_rtc_time(&checkTime)) {
 		goto do_error;
 	}
@@ -291,22 +291,22 @@ extern "C" void rtc_watchdog_check()
 	}
 	_print_OK();
 
-#   if GSYSTEM_BEDUG
+    #if GSYSTEM_BEDUG
 	printPretty("Weekday test\n");
-#   endif
+    #endif
 
 	for (unsigned i = 0; i < __arr_len(seconds); i++) {
-#   if GSYSTEM_BEDUG
+    #if GSYSTEM_BEDUG
 		printPretty("[%02u]:              ", i);
-#   endif
+    #endif
 
 		memset((uint8_t*)&tmpDate, 0, sizeof(tmpDate));
 		memset((uint8_t*)&tmpTime, 0, sizeof(tmpTime));
 		get_clock_seconds_to_datetime(seconds[i], &tmpDate, &tmpTime);
 		if (!is_same_date(&tmpDate, &dates[i])
-#   if !defined(GSYSTEM_DS130X_CLOCK)
+    #if !defined(GSYSTEM_DS130X_CLOCK)
 			&& tmpDate.WeekDay == dates[i].WeekDay
-#   endif
+    #endif
 		) {
 			goto do_error;
 		}
@@ -321,15 +321,15 @@ extern "C" void rtc_watchdog_check()
 		_print_OK();
 	}
 
-#   endif
+    #endif
 
 	reset_error(RTC_ERROR);
 	tested = true;
 
 	memset(ram_bckp, 0, sizeof(ram_bckp));
-#   if GSYSTEM_BEDUG
+    #if GSYSTEM_BEDUG
 	printPretty("RTC RAM test:      ");
-#   endif
+    #endif
 	for (uint8_t i = 0; i < __arr_len(ram_bckp); i++) {
 		if (!get_clock_ram(i, &ram_bckp[i])) {
 			goto do_error;
@@ -361,25 +361,25 @@ extern "C" void rtc_watchdog_check()
 		goto do_error;
 	}
 
-#   if GSYSTEM_BEDUG
+    #if GSYSTEM_BEDUG
 	printTagLog(SYSTEM_TAG, "RTC testing done");
-#   endif
+    #endif
 
 	return;
 
 do_error:
-#   if GSYSTEM_BEDUG
+    #if GSYSTEM_BEDUG
 	gprint("error\n");
-#   endif
+    #endif
 
-#   ifdef GSYSTEM_DS1307_CLOCK
+    #ifdef GSYSTEM_DS1307_CLOCK
 	system_reset_i2c_errata();
 	set_error(RTC_ERROR);
 	return;
-#   else
+    #else
 	set_error(RTC_ERROR);
 	return;
-#   endif
+    #endif
 }
-#   undef RTC_ERROR_END
+    #undef RTC_ERROR_END
 #endif

@@ -24,6 +24,8 @@ extern "C" {
 
 #define TIMESTAMP2000_01_01_00_00_00 (946670400)
 
+#define MILLIS_US                    ((uint32_t)(1000))
+
 #define SECOND_MS                    ((uint32_t)(1000))
 
 #define MINUTE_S                     ((uint32_t)(60))
@@ -64,6 +66,8 @@ char* g_serial_number();
 void g_uart_print(const char* data, const uint16_t len);
 
 void g_delay_ms(const uint32_t ms);
+
+uint32_t g_system_freq(void);
 
 
 #ifdef __cplusplus

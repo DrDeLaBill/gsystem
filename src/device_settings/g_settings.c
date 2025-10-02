@@ -111,9 +111,9 @@ void _g_settings_show()
     printPretty("######################SETTINGS######################\n");
 	printPretty("Device version:                     %s\n", BUILD_VERSION);
 	printPretty("Device type:                        %u\n", device_settings_storage.gs_settings.dv_type);
-	printPretty("Software ID:                        %u\n", device_settings_storage.gs_settings.stg_id);
 	printPretty("Firmware ID:                        %u\n", device_settings_storage.gs_settings.fw_id);
 	printPretty("Device serial:                      %s\n", get_system_serial_str());
+	printPretty("Settings version:                   %u\n", device_settings_storage.gs_settings.stg_id);
     settings_show();
 	printPretty("######################SETTINGS######################\n");
 }

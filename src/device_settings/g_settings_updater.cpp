@@ -2,6 +2,8 @@
 
 #include "g_settings.h"
 
+#ifndef GSYSTEM_NO_DEVICE_SETTINGS
+
 #include <cstring>
 
 #include "glog.h"
@@ -232,3 +234,5 @@ void _stng_update_hash_a(void)
 	}
 	fsm_gc_clear(&stng_fsm);
 }
+
+#endif
