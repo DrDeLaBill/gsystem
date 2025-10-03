@@ -66,7 +66,7 @@ void system_init(void)
 
     sys_fill_ram();
 
-	if (!gversion_from_string(system_device_version(), strlen(system_device_version()), &build_ver)) {
+	if (!gversion_from_string(BUILD_VERSION, strlen(BUILD_VERSION), &build_ver)) {
 		memset((void*)&build_ver, 0, sizeof(build_ver));
 	}
 

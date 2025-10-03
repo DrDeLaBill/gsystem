@@ -37,7 +37,7 @@ extern const uint32_t TIMER_VERIF_WORD;
 
 
 void system_init(void);
-void system_register(void (*task) (void), uint32_t delay_ms, bool realtime, bool work_with_error, uint32_t weight_x100);
+void system_register(void (*task) (void), uint32_t delay_ms, bool realtime, bool work_with_error, int32_t weight_x100);
 
 void set_system_timeout(uint32_t timeout_ms);
 void system_start(void);
