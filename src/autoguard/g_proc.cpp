@@ -35,6 +35,7 @@ static constexpr int32_t MAX_SCALE_PCT100          = 2000; // Work time scaling 
 static constexpr uint32_t DEFAULT_WEIGHT_PCT100    = 100;
 static constexpr int32_t FIX                       = 100;
 static constexpr int32_t LOAD_SCALE                = 10000;
+static constexpr uint32_t LOAD_SHOW_DELAY_MS       = 10 * SECOND_MS;
 
 
 template<
@@ -64,6 +65,11 @@ struct Process {
     int32_t   scale_smooth_pct100  = 100;             // Process smooth scale
     uint32_t  last_exec_us         = 0;               // Last execution time
 
+    // Execution counter
+    uint32_t exec_counter          = 0;
+    uint32_t execs_per_sec_x100    = 0;
+
+
     Process(): timer(0) {}
 
     Process(
@@ -77,7 +83,8 @@ struct Process {
         action(action), orig_delay_ms(delay_ms), current_delay_ms(delay_ms), timer(delay_ms),
         work_with_error(work_with_error), realtime(realtime), system_task(false),
         exec_ewma_us_pct100(0), last_start_us(0), weight_pct100(weight_pct100), max_delay_ms(max_delay_ms),
-        last_load_scaled(0), scale_raw_pct100(100), scale_smooth_pct100(100), last_exec_us(0)
+        last_load_scaled(0), scale_raw_pct100(100), scale_smooth_pct100(100), last_exec_us(0),
+        exec_counter(0), execs_per_sec_x100(0)
     {}
 
     template<void (*_ACTION) (void) = nullptr, uint32_t _DELAY_MS = 0, bool _REALTIME = false, bool _WORK_WITH_ERROR = false, uint32_t _WEIGHT = 100>
@@ -155,7 +162,7 @@ private:
     void print_div_line()
     {
 #if defined(GSYSTEM_PROC_INFO_ENABLE)
-        printPretty("+----+-------------+-------------+-------------+---------+-------------+-----------+--------+----------+----------+\n");
+        printPretty("+----+-------------+-------------+-------------+----------+---------+-------------+-----------+--------+----------+----------+\n");
 #endif
     }
 
@@ -236,6 +243,7 @@ public:
             pr.last_start_us = getMicroseconds();
             if (pr.action) {
                 pr.action();
+                pr.exec_counter++;
             }
             uint64_t after_us = getMicroseconds();
 
@@ -290,9 +298,9 @@ public:
         );
 
         const int32_t warn_threshold_x100 = 500;
-
+        static const char header[] = "| ID | PeriodO(ms) | PeriodC(ms) | ExecAvg(us) | Freq(Hz) | Load(%%) | LastLoad(%%) | Weight(%%) | scaleR | scaleSmo | Realtime |\n";
         print_div_line();
-        printPretty("| ID | PeriodO(ms) | PeriodC(ms) | ExecAvg(us) | Load(%%) | LastLoad(%%) | Weight(%%) | scaleR | scaleSmo | Realtime |\n");
+        printPretty(header);
         print_div_line();
 
         int64_t sum_weighted_load = 0;
@@ -327,6 +335,9 @@ public:
             sum_weighted_load += (int64_t)p.weight_pct100 * load_scaled_ewma;
             sum_weights += p.weight_pct100;
             total_unweighted_load_scaled += load_scaled_ewma;
+            
+            p.execs_per_sec_x100 = (uint32_t)(((uint64_t)p.exec_counter * SECOND_MS * 100) / (uint64_t)LOAD_SHOW_DELAY_MS);
+            p.exec_counter = 0;
 
             if (i == SYSTEM_TASK_LIST::COUNT) {
                 print_div_line();
@@ -337,6 +348,7 @@ public:
             gprint(" %11lu |", periodO);
             gprint(" %11lu |", periodC);
             gprint(" %11lu |", exec_us_ewma);
+            gprint(" %5lu.%02lu |", p.execs_per_sec_x100 / 100, __abs(p.execs_per_sec_x100 % 100));
             gprint(" %4lu.%02lu |", load_percent_x100 / FIX, __abs(load_percent_x100 % FIX));
             gprint(" %8lu.%02lu |", load_last_percent_x100 / FIX, __abs(load_last_percent_x100 % FIX));
             gprint(" %6lu.%02lu |", p.weight_pct100 / FIX, __abs(p.weight_pct100 % FIX));
@@ -584,34 +596,34 @@ extern "C" void system_scheduler_init();
 static Scheduler<
     GSYSTEM_POCESSES_COUNT,
     TaskList<
-        Process<_scheduler_load_show,         10 * SECOND_MS, true,  true, DEFAULT_WEIGHT_PCT100>,
-        Process<_scheduler_recompute_scaling, RECOMPUTE_MS,   true,  true, DEFAULT_WEIGHT_PCT100>,
-        Process<_scheduler_error_check,       SECOND_MS,      true,  true, DEFAULT_WEIGHT_PCT100>,
+        Process<_scheduler_load_show,         LOAD_SHOW_DELAY_MS, true,  true, DEFAULT_WEIGHT_PCT100>,
+        Process<_scheduler_recompute_scaling, RECOMPUTE_MS,       true,  true, DEFAULT_WEIGHT_PCT100>,
+        Process<_scheduler_error_check,       SECOND_MS,          true,  true, DEFAULT_WEIGHT_PCT100>,
 #ifndef GSYSTEM_NO_MEMORY_W
-        Process<memory_watchdog_check,        100,            false, true, DEFAULT_WEIGHT_PCT100>,
+        Process<memory_watchdog_check,        100,                false, true, DEFAULT_WEIGHT_PCT100>,
 #endif
 #ifndef GSYSTEM_NO_SYS_TICK_W
-        Process<sys_clock_watchdog_check,     SECOND_MS / 10, false, true, DEFAULT_WEIGHT_PCT100>,
+        Process<sys_clock_watchdog_check,     SECOND_MS / 10,     false, true, DEFAULT_WEIGHT_PCT100>,
 #endif
 #ifndef GSYSTEM_NO_RAM_W
-        Process<ram_watchdog_check,           5 * SECOND_MS,  false, true, DEFAULT_WEIGHT_PCT100>,
+        Process<ram_watchdog_check,           5 * SECOND_MS,      false, true, DEFAULT_WEIGHT_PCT100>,
 #endif
 #if !defined(GSYSTEM_NO_ADC_W)
-        Process<adc_watchdog_check,           1,              true,  true, DEFAULT_WEIGHT_PCT100>,
+        Process<adc_watchdog_check,           1,                  true,  true, DEFAULT_WEIGHT_PCT100>,
 #endif
 #if defined(STM32F1) && !defined(GSYSTEM_NO_I2C_W)
-        Process<i2c_watchdog_check,           5 * SECOND_MS,  false, true, DEFAULT_WEIGHT_PCT100>,
+        Process<i2c_watchdog_check,           5 * SECOND_MS,      false, true, DEFAULT_WEIGHT_PCT100>,
 #endif
 #ifndef GSYSTEM_NO_RTC_W
-        Process<rtc_watchdog_check,           SECOND_MS,      false, true, DEFAULT_WEIGHT_PCT100>,
+        Process<rtc_watchdog_check,           SECOND_MS,          false, true, DEFAULT_WEIGHT_PCT100>,
 #endif
 #if !defined(GSYSTEM_NO_POWER_W) && !defined(GSYSTEM_NO_ADC_W)
-        Process<power_watchdog_check,         1,              true,  true, DEFAULT_WEIGHT_PCT100>,
+        Process<power_watchdog_check,         1,                  true,  true, DEFAULT_WEIGHT_PCT100>,
 #endif
 #ifndef GSYSTEM_NO_DEVICE_SETTINGS
-        Process<settings_update,              500,            false, true, DEFAULT_WEIGHT_PCT100>,
+        Process<settings_update,              500,                false, true, DEFAULT_WEIGHT_PCT100>,
 #endif
-        Process<btn_watchdog_check,           5,              false, true, DEFAULT_WEIGHT_PCT100>
+        Process<btn_watchdog_check,           5,                  false, true, DEFAULT_WEIGHT_PCT100>
     >
 > scheduler;
 
