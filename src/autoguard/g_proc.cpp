@@ -15,6 +15,10 @@
 #include "TypeListService.h"
 
 
+#if GSYSTEM_BEDUG && !defined(GSYSTEM_NO_PROC_INFO)
+    #define GSYSTEM_PROC_PROC_ENABLE
+#endif
+
 #if GSYSTEM_BEDUG && !defined(GSYSTEM_NO_STATUS_PRINT)
     #define GSYSTEM_PROC_INFO_ENABLE
 #endif
@@ -46,6 +50,8 @@ template<
     uint32_t WEIGHT           = 100
 >
 struct Process {
+	static constexpr uint32_t MAX_DELAY_MS = MINUTE_MS;
+
     void       (*action)(void)     = ACTION;
     uint32_t   orig_delay_ms       = DELAY_MS;        // Original period
     uint32_t   current_delay_ms    = 0;               // Real period
@@ -57,17 +63,18 @@ struct Process {
     int64_t    exec_ewma_us_pct100 = 0;               // Average time EWMA
     uint64_t   last_start_us       = 0;               // Start time
     int32_t    weight_pct100       = WEIGHT;          // CPU load weight
-    uint32_t   max_delay_ms        = MINUTE_MS;
 
     // Adaptive scaling:
     int64_t   last_load_scaled     = 0;               // Last load (part)
     int32_t   scale_raw_pct100     = 100;             // Raw scale value (without smooth) scale_i
     int32_t   scale_smooth_pct100  = 100;             // Process smooth scale
+#if !defined(GSYSTEM_NO_PROC_INFO)
     uint32_t  last_exec_us         = 0;               // Last execution time
 
     // Execution counter
     uint32_t exec_counter          = 0;
     uint32_t execs_per_sec_x100    = 0;
+#endif
 
 
     Process(): timer(0) {}
@@ -77,14 +84,15 @@ struct Process {
         uint32_t delay_ms,
         bool realtime          = false,
         bool work_with_error   = false,
-        int32_t weight_pct100  = 100,
-        uint32_t max_delay_ms  = MINUTE_MS
+        int32_t weight_pct100  = 100
     ):
         action(action), orig_delay_ms(delay_ms), current_delay_ms(delay_ms), timer(delay_ms),
         work_with_error(work_with_error), realtime(realtime), system_task(false),
-        exec_ewma_us_pct100(0), last_start_us(0), weight_pct100(weight_pct100), max_delay_ms(max_delay_ms),
-        last_load_scaled(0), scale_raw_pct100(100), scale_smooth_pct100(100), last_exec_us(0),
-        exec_counter(0), execs_per_sec_x100(0)
+        exec_ewma_us_pct100(0), last_start_us(0), weight_pct100(weight_pct100),
+        last_load_scaled(0), scale_raw_pct100(100), scale_smooth_pct100(100)
+#if !defined(GSYSTEM_NO_PROC_INFO)
+    	, last_exec_us(0), exec_counter(0), execs_per_sec_x100(0)
+#endif
     {}
 
     template<void (*_ACTION) (void) = nullptr, uint32_t _DELAY_MS = 0, bool _REALTIME = false, bool _WORK_WITH_ERROR = false, uint32_t _WEIGHT = 100>
@@ -153,15 +161,15 @@ private:
         if (newd < 1) {
             newd = 1;
         }
-        if ((uint32_t)newd > proc.max_delay_ms) {
-            newd = proc.max_delay_ms;
+        if ((uint32_t)newd > Process<>::MAX_DELAY_MS) {
+            newd = Process<>::MAX_DELAY_MS;
         }
         proc.current_delay_ms = (uint32_t)newd;
     }
 
     void print_div_line()
     {
-#if defined(GSYSTEM_PROC_INFO_ENABLE)
+#if defined(GSYSTEM_PROC_PROC_ENABLE)
         printPretty("+----+-------------+-------------+-------------+----------+---------+-------------+-----------+--------+----------+----------+\n");
 #endif
     }
@@ -243,12 +251,16 @@ public:
             pr.last_start_us = getMicroseconds();
             if (pr.action) {
                 pr.action();
+#if !defined(GSYSTEM_NO_PROC_INFO)
                 pr.exec_counter++;
+#endif
             }
             uint64_t after_us = getMicroseconds();
 
             uint64_t dur_us = (after_us >= pr.last_start_us) ? (after_us - pr.last_start_us) : 0;
+#if !defined(GSYSTEM_NO_PROC_INFO)
             pr.last_exec_us = (uint32_t)dur_us;
+#endif
 
             int64_t new_us100 = (int64_t)dur_us * FIX;
             if (pr.exec_ewma_us_pct100 <= 0) {
@@ -275,7 +287,7 @@ public:
 
     void print_status()
     {
-#if defined(GSYSTEM_PROC_INFO_ENABLE)
+#if defined(GSYSTEM_PROC_PROC_ENABLE)
         SYSTEM_BEDUG("System scheduler info");
 
     #if !defined(GSYSTEM_NO_ADC_W)
@@ -284,7 +296,7 @@ public:
         printPretty(
             "Build version: v%s  |  kTPC: %lu.%02lu"
     #if !defined(GSYSTEM_NO_ADC_W)
-            "  |  CPU PWR: %lu.%02lu V",
+            "  |  CPU PWR: %lu.%02lu V"
     #endif
             "\n",
             system_device_version(),

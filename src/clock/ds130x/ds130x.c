@@ -35,8 +35,6 @@ static port_pin_t pin_io  = {GSYSTEM_CLOCK_IO};
 static port_pin_t pin_ce  = {GSYSTEM_CLOCK_CE};
 
 
-static bool DS1302_ReadWriteProtectFlag(void);
-static void DS1302_SetWriteProtect(bool enable);
 static uint8_t DS1302_BuildTCR(uint8_t ds_sel, uint8_t rs_sel);
 static HAL_StatusTypeDef DS1302_ConfigureTrickle(bool enable, uint8_t ds_sel, uint8_t rs_sel);
 
@@ -110,20 +108,6 @@ DS130X_STATUS DS130X_GetClockHalt(uint8_t* res) {
 
 #if defined(GSYSTEM_DS1302_CLOCK)
 
-bool DS1302_ReadWriteProtectFlag(void)
-{
-    uint8_t val = 0;
-    DS130X_GetRegByte(DS130X_REG_CONTROL, &val);
-    return (val & 0x80) != 0;
-}
-
-void DS1302_SetWriteProtect(bool enable)
-{
-    uint8_t val = enable ? 0x80 : 0x00;
-    DS130X_SetRegByte(DS130X_REG_CONTROL, val);
-    system_delay_us(50);
-}
-
 uint8_t DS1302_BuildTCR(uint8_t ds_sel, uint8_t rs_sel)
 {
     if (ds_sel == 0 || ds_sel == 3) return 0x00;
@@ -136,31 +120,27 @@ uint8_t DS1302_BuildTCR(uint8_t ds_sel, uint8_t rs_sel)
 
 HAL_StatusTypeDef DS1302_ConfigureTrickle(bool enable, uint8_t ds_sel, uint8_t rs_sel) // TODO: not working
 {
-    bool wp_before = DS1302_ReadWriteProtectFlag();
-
-    if (wp_before) {
-        DS1302_SetWriteProtect(false);
-    }
-
     uint8_t tcr_value = 0x00;
     if (enable) {
         tcr_value = DS1302_BuildTCR(ds_sel, rs_sel);
         if (tcr_value == 0x00) {
-            if (wp_before) DS1302_SetWriteProtect(true);
             return HAL_ERROR;
         }
     } else {
         tcr_value = 0x00;
     }
 
-    DS130X_SetRegByte(DS130X_REG_TRICKLE, tcr_value);
+    if (DS130X_SetReg(DS130X_REG_TRICKLE, tcr_value) != DS130X_OK) {
+        return HAL_ERROR;
+    }
     system_delay_us(50);
 
     uint8_t read_back = 0;
-    DS130X_GetRegByte(DS130X_REG_TRICKLE, &read_back);
+    if (DS130X_GetReg(DS130X_REG_TRICKLE, &read_back) != DS130X_OK) {
+        return HAL_ERROR;
+    }
+    DS130X_GetReg(DS130X_REG_TRICKLE, &read_back);
     system_delay_us(20);
-
-    if (wp_before) DS1302_SetWriteProtect(true);
 
     return (read_back == tcr_value) ? HAL_OK : HAL_ERROR;
 }
