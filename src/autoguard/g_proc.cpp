@@ -3,8 +3,6 @@
 #include "gdefines.h"
 #include "gconfig.h"
 
-#include <variant>
-
 #include "gstring.h"
 #include "gsystem.h"
 #include "gversion.h"
@@ -12,7 +10,7 @@
 
 #include "Timer.h"
 #include "CircleBuffer.hpp"
-#include "TypeListService.h"
+#include "TypeListBuilder.h"
 
 
 #if GSYSTEM_BEDUG && !defined(GSYSTEM_NO_PROC_INFO)
@@ -108,6 +106,7 @@ struct TaskList {
         !utl::empty(typename utl::typelist_t<TASKS...>::RESULT{}),
         "empty tasks list"
     );
+#if __cplusplus > 201402L
     static_assert(
         std::is_same_v<
             typename utl::variant_factory<utl::typelist_t<TASKS...>>::VARIANT,
@@ -115,20 +114,23 @@ struct TaskList {
         >,
         "repeated tasks"
     );
+#endif
 
     using tasks_p = utl::simple_list_t<TASKS...>;
-    using tasks_v = std::variant<TASKS...>;
 
-    static constexpr unsigned COUNT =  std::variant_size_v<tasks_v>;
+#if __cplusplus > 201402L
+    static constexpr unsigned COUNT = std::variant_size_v<tasks_v>;
+#else
+    static constexpr unsigned COUNT = sizeof...(TASKS);
+#endif
 };
 
 
 template<size_t USER_COUNT, class SYSTEM_TASK_LIST>
 class Scheduler {
 private:
-    static constexpr unsigned TASKS_COUNT  = utl::SizeMultiplierSelector<USER_COUNT + SYSTEM_TASK_LIST::COUNT, 2>::SIZE;
+    static constexpr unsigned TASKS_COUNT = 32; // utl::SizeMultiplierSelector<USER_COUNT + SYSTEM_TASK_LIST::COUNT, 2>::SIZE;
 
-    using system_task_v = typename SYSTEM_TASK_LIST::tasks_v;
     using system_task_p = typename SYSTEM_TASK_LIST::tasks_p;
     using proc_size_t   = typename utl::TypeSelector<TASKS_COUNT>::TYPE;
 
@@ -189,11 +191,22 @@ private:
         add_task(SYS_PACK{});
     }
 
+#if __cplusplus > 201402L
     template<class... SYS_PACKS>
     void system_tasks_register(utl::simple_list_t<SYS_PACKS...>)
     {
         (add_sys_task(utl::getType<SYS_PACKS>{}), ...);
     }
+#else
+    void system_tasks_register(utl::simple_list_t<>) {}
+
+    template<class FIRST, class... REST>
+    void system_tasks_register(utl::simple_list_t<FIRST, REST...>)
+    {
+        add_sys_task(utl::getType<FIRST>{});
+        system_tasks_register(utl::simple_list_t<REST...>{});
+    }
+#endif
 
 public:
     Scheduler():
