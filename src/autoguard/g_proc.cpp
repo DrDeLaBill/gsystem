@@ -3,14 +3,16 @@
 #include "gdefines.h"
 #include "gconfig.h"
 
+#include <cstring>
+
 #include "gstring.h"
 #include "gsystem.h"
 #include "gversion.h"
 #include "g_settings.h"
+#include "circle_buf_gc.h"
 
 #include "Timer.h"
-#include "CircleBuffer.hpp"
-#include "TypeListBuilder.h"
+#include "TypeListService.h"
 
 
 #if GSYSTEM_BEDUG && !defined(GSYSTEM_NO_PROC_INFO)
@@ -118,23 +120,21 @@ struct TaskList {
 
     using tasks_p = utl::simple_list_t<TASKS...>;
 
-#if __cplusplus > 201402L
-    static constexpr unsigned COUNT = std::variant_size_v<tasks_v>;
-#else
     static constexpr unsigned COUNT = sizeof...(TASKS);
-#endif
 };
 
 
 template<size_t USER_COUNT, class SYSTEM_TASK_LIST>
 class Scheduler {
 private:
-    static constexpr unsigned TASKS_COUNT = 32; // utl::SizeMultiplierSelector<USER_COUNT + SYSTEM_TASK_LIST::COUNT, 2>::SIZE;
+    static constexpr unsigned TASKS_COUNT = USER_COUNT + SYSTEM_TASK_LIST::COUNT;
 
     using system_task_p = typename SYSTEM_TASK_LIST::tasks_p;
     using proc_size_t   = typename utl::TypeSelector<TASKS_COUNT>::TYPE;
 
-    utl::CircleBuffer<TASKS_COUNT, Process<>> processes;
+	Process<> processes_buf[TASKS_COUNT];
+	circle_buf_gc_t processes;
+
     uint32_t smooth_scale_x100;
     uint32_t last_recompute_ms;
     int32_t last_scale_x100;
@@ -143,30 +143,30 @@ private:
     uint32_t TPC_counter;
     uint32_t last_TPC_counter;
 
-    bool denied(Process<>& proc)
+    bool denied(Process<>* const proc)
     {
-        if (proc.system_task) {
+        if (proc->system_task) {
             return false;
         }
         if (is_error(HARD_FAULT)) {
             return true;;
         }
-        if (is_status(SYSTEM_ERROR_HANDLER_CALLED) && !proc.work_with_error) {
+        if (is_status(SYSTEM_ERROR_HANDLER_CALLED) && !proc->work_with_error) {
             return true;
         }
         return false;
     }
 
-    void newd_update(Process<>& proc)
+    void newd_update(Process<>* const proc)
     {
-        int64_t newd = ((int64_t)proc.orig_delay_ms * proc.scale_smooth_pct100 + (FIX - 1)) / FIX;
+        int64_t newd = ((int64_t)proc->orig_delay_ms * proc->scale_smooth_pct100 + (FIX - 1)) / FIX;
         if (newd < 1) {
             newd = 1;
         }
         if ((uint32_t)newd > Process<>::MAX_DELAY_MS) {
             newd = Process<>::MAX_DELAY_MS;
         }
-        proc.current_delay_ms = (uint32_t)newd;
+        proc->current_delay_ms = (uint32_t)newd;
     }
 
     void print_div_line()
@@ -188,7 +188,8 @@ private:
     template<class SYS_PACK>
     void add_sys_task(utl::getType<SYS_PACK>)
     {
-        add_task(SYS_PACK{});
+		SYS_PACK proc;
+        add_task((Process<>*)&proc);
     }
 
 #if __cplusplus > 201402L
@@ -210,10 +211,11 @@ private:
 
 public:
     Scheduler():
-        processes({}), smooth_scale_x100(100), last_recompute_ms(0),
+        processes_buf({}), processes({}), smooth_scale_x100(100), last_recompute_ms(0),
         last_scale_x100(0), err_timer(0),
         TPC_timer(SECOND_MS), TPC_counter(0), last_TPC_counter(0)
     {
+		circle_buf_gc_init(&processes, (uint8_t*)processes_buf, sizeof(Process<>), __arr_len(processes_buf));
         system_tasks_register(system_task_p{});
     }
 
@@ -223,20 +225,19 @@ public:
     }
 
     template<void (*ACTION) (void) = nullptr, uint32_t DELAY_MS = 0, bool REALTIME = false, bool WORK_WITH_ERROR = false, uint32_t WEIGHT = 100>
-    bool add_task(const Process<ACTION, DELAY_MS, REALTIME, WORK_WITH_ERROR, WEIGHT>& p)
+    bool add_task(Process<ACTION, DELAY_MS, REALTIME, WORK_WITH_ERROR, WEIGHT>* const proc)
     {
         BEDUG_ASSERT(!full(), "GSystem user processes is out of range");
         if (full()) {
             return false;
         }
 
-        Process<> proc = p;
-        proc.current_delay_ms = proc.orig_delay_ms;
-        proc.timer.changeDelay(proc.current_delay_ms);
-        proc.timer.start();
-        proc.scale_smooth_pct100 = 100;
+		proc->current_delay_ms = proc->orig_delay_ms;
+        proc->timer.changeDelay(proc->current_delay_ms);
+        proc->timer.start();
+        proc->scale_smooth_pct100 = 100;
 
-        processes.push_back(proc);
+		circle_buf_gc_push_back(&processes, (uint8_t*)proc);
 
         return true;
     }
@@ -251,43 +252,43 @@ public:
             TPC_counter = 0;
         }
 
-        for (proc_size_t i = 0; i < processes.count(); i++) {
-            Process<>& pr = processes[i];
-            if (pr.timer.wait()) {
+        for (proc_size_t i = 0; i < circle_buf_gc_count(&processes); i++) {
+            Process<>* proc = (Process<>*)circle_buf_gc_index(&processes, i);
+            if (proc->timer.wait()) {
                 continue;
             }
 
-            if (denied(pr)) {
+            if (denied(proc)) {
                 continue;
             }
 
-            pr.last_start_us = getMicroseconds();
-            if (pr.action) {
-                pr.action();
+            proc->last_start_us = getMicroseconds();
+            if (proc->action) {
+                proc->action();
 #if !defined(GSYSTEM_NO_PROC_INFO)
-                pr.exec_counter++;
+                proc->exec_counter++;
 #endif
             }
             uint64_t after_us = getMicroseconds();
 
-            uint64_t dur_us = (after_us >= pr.last_start_us) ? (after_us - pr.last_start_us) : 0;
+            uint64_t dur_us = (after_us >= proc->last_start_us) ? (after_us - proc->last_start_us) : 0;
 #if !defined(GSYSTEM_NO_PROC_INFO)
-            pr.last_exec_us = (uint32_t)dur_us;
+            proc->last_exec_us = (uint32_t)dur_us;
 #endif
 
             int64_t new_us100 = (int64_t)dur_us * FIX;
-            if (pr.exec_ewma_us_pct100 <= 0) {
-                pr.exec_ewma_us_pct100 = new_us100;
+            if (proc->exec_ewma_us_pct100 <= 0) {
+                proc->exec_ewma_us_pct100 = new_us100;
             } else {
-                pr.exec_ewma_us_pct100 = (
-                    ((int64_t)(100 - EWMA_ALPHA_PCT100) * pr.exec_ewma_us_pct100 ) +
+                proc->exec_ewma_us_pct100 = (
+                    ((int64_t)(100 - EWMA_ALPHA_PCT100) * proc->exec_ewma_us_pct100 ) +
                     ((int64_t)EWMA_ALPHA_PCT100 * new_us100)
                 ) / 100;
             }
 
-            uint32_t delay_ms = pr.current_delay_ms ? pr.current_delay_ms : pr.orig_delay_ms;
-            pr.timer.changeDelay(delay_ms);
-            pr.timer.start();
+            uint32_t delay_ms = proc->current_delay_ms ? proc->current_delay_ms : proc->orig_delay_ms;
+            proc->timer.changeDelay(delay_ms);
+            proc->timer.start();
 
 #if defined(GSYSTEM_PROC_INFO_ENABLE)
             if (has_new_status_data() || has_new_error_data()) {
@@ -333,21 +334,21 @@ public:
 
         int64_t total_unweighted_load_scaled = 0;
 
-        for (proc_size_t i = 0; i < processes.count(); ++i) {
-            Process<>& p = processes[i];
-            uint32_t periodO    = p.orig_delay_ms;
-            uint32_t periodC    = p.current_delay_ms;
+        for (proc_size_t i = 0; i < circle_buf_gc_count(&processes); i++) {
+            Process<>* proc  = (Process<>*)circle_buf_gc_index(&processes, i);
+            uint32_t periodO = proc->orig_delay_ms;
+            uint32_t periodC = proc->current_delay_ms;
 
-            int64_t exec_us100  = p.exec_ewma_us_pct100;
+            int64_t exec_us100  = proc->exec_ewma_us_pct100;
             uint32_t exec_us_ewma = (uint32_t)(exec_us100 / FIX);
 
-            uint32_t exec_us_last = p.last_exec_us;
+            uint32_t exec_us_last = proc->last_exec_us;
 
             int64_t load_scaled_ewma = 0;
             if (periodC > 0) {
                 load_scaled_ewma = (exec_us100 * (int64_t)LOAD_SCALE) / ((int64_t)periodC * (int64_t)MILLIS_US * (int64_t)FIX);
             }
-            p.last_load_scaled = load_scaled_ewma;
+            proc->last_load_scaled = load_scaled_ewma;
 
             int32_t load_percent_x100 = (int32_t)((load_scaled_ewma * 100) / LOAD_SCALE);
 
@@ -357,12 +358,12 @@ public:
             }
             int32_t load_last_percent_x100 = (load_last_scaled * 100) / LOAD_SCALE;
 
-            sum_weighted_load += (int64_t)p.weight_pct100 * load_scaled_ewma;
-            sum_weights += p.weight_pct100;
+            sum_weighted_load += (int64_t)proc->weight_pct100 * load_scaled_ewma;
+            sum_weights += proc->weight_pct100;
             total_unweighted_load_scaled += load_scaled_ewma;
             
-            p.execs_per_sec_x100 = (uint32_t)(((uint64_t)p.exec_counter * SECOND_MS * 100) / (uint64_t)LOAD_SHOW_DELAY_MS);
-            p.exec_counter = 0;
+            proc->execs_per_sec_x100 = (uint32_t)(((uint64_t)proc->exec_counter * SECOND_MS * 100) / (uint64_t)LOAD_SHOW_DELAY_MS);
+            proc->exec_counter = 0;
 
             if (i == SYSTEM_TASK_LIST::COUNT) {
                 print_div_line();
@@ -373,13 +374,13 @@ public:
             gprint(" %11lu |", periodO);
             gprint(" %11lu |", periodC);
             gprint(" %11lu |", exec_us_ewma);
-            gprint(" %5lu.%02lu |", p.execs_per_sec_x100 / 100, __abs(p.execs_per_sec_x100 % 100));
+            gprint(" %5lu.%02lu |", proc->execs_per_sec_x100 / 100, __abs(proc->execs_per_sec_x100 % 100));
             gprint(" %4lu.%02lu |", load_percent_x100 / FIX, __abs(load_percent_x100 % FIX));
             gprint(" %8lu.%02lu |", load_last_percent_x100 / FIX, __abs(load_last_percent_x100 % FIX));
-            gprint(" %6lu.%02lu |", p.weight_pct100 / FIX, __abs(p.weight_pct100 % FIX));
-            gprint(" %3lu.%02lu |", p.scale_raw_pct100 / FIX, __abs(p.scale_raw_pct100 % FIX));
-            gprint(" %5lu.%02lu |",  p.scale_smooth_pct100 / FIX, __abs(p.scale_smooth_pct100 % FIX));
-            gprint(" %8s |", p.realtime ? "YES" : "NO");
+            gprint(" %6lu.%02lu |", proc->weight_pct100 / FIX, __abs(proc->weight_pct100 % FIX));
+            gprint(" %3lu.%02lu |", proc->scale_raw_pct100 / FIX, __abs(proc->scale_raw_pct100 % FIX));
+            gprint(" %5lu.%02lu |",  proc->scale_smooth_pct100 / FIX, __abs(proc->scale_smooth_pct100 % FIX));
+            gprint(" %8s |", proc->realtime ? "YES" : "NO");
             if ( load_last_percent_x100 > warn_threshold_x100 ) {
                 gprint(" WARNING!");
             }
@@ -403,15 +404,15 @@ public:
             (int32_t)TARGET_UTIL_PCT100
         );
 
-        for (proc_size_t i = 0; i < processes.count(); ++i) {
-            Process<>& p = processes[i];
-            int32_t load_s = calc_load_scaled(p.last_exec_us, p.current_delay_ms);
+        for (proc_size_t i = 0; i < circle_buf_gc_count(&processes); i++) {
+            Process<>* proc = (Process<>*)circle_buf_gc_index(&processes, i);
+            int32_t load_s = calc_load_scaled(proc->last_exec_us, proc->current_delay_ms);
             int load_percent_times100 = (load_s * 100) / LOAD_SCALE;
-            if (((int32_t)((p.last_load_scaled * 100) / LOAD_SCALE)) > warn_threshold_x100) {
+            if (((int32_t)((proc->last_load_scaled * 100) / LOAD_SCALE)) > warn_threshold_x100) {
                 printPretty(
                     "WARNING: task %u heavy: %u us (~%d.%02d%%)\n",
                     i,
-                    p.last_exec_us,
+                    proc->last_exec_us,
                     load_percent_times100 / 100, load_percent_times100 % 100
                );
             }
@@ -424,20 +425,20 @@ public:
         int64_t sum_weighted_load = 0;
         int64_t sum_weights = 0;
 
-        for (proc_size_t i = 0; i < processes.count(); i++) {
-            Process<>& proc = processes[i];
-            if (proc.realtime) {
-                proc.last_load_scaled = 0;
+        for (proc_size_t i = 0; i < circle_buf_gc_count(&processes); i++) {
+            Process<>* proc = (Process<>*)circle_buf_gc_index(&processes, i);
+            if (proc->realtime) {
+                proc->last_load_scaled = 0;
                 continue;
             }
 
-            uint32_t period_ms = (proc.current_delay_ms ? proc.current_delay_ms : proc.orig_delay_ms);
+            uint32_t period_ms = (proc->current_delay_ms ? proc->current_delay_ms : proc->orig_delay_ms);
             if (period_ms == 0) {
-                proc.last_load_scaled = 0;
+                proc->last_load_scaled = 0;
                 continue;
             }
 
-            int64_t exec_us100 = proc.exec_ewma_us_pct100;
+            int64_t exec_us100 = proc->exec_ewma_us_pct100;
             int64_t period_us  = period_ms * MILLIS_US;
 
             int64_t load_scaled = 0;
@@ -446,10 +447,10 @@ public:
             }else {
                 load_scaled = 0;
             }
-            proc.last_load_scaled = (int32_t)load_scaled;
+            proc->last_load_scaled = (int32_t)load_scaled;
 
-            sum_weighted_load += (int64_t)proc.weight_pct100 * load_scaled;
-            sum_weights += proc.weight_pct100;
+            sum_weighted_load += (int64_t)proc->weight_pct100 * load_scaled;
+            sum_weights += proc->weight_pct100;
         }
         if (sum_weights <= 0) {
             sum_weights = 1;
@@ -458,22 +459,22 @@ public:
         int64_t U_weighted_scaled = sum_weighted_load / sum_weights;
         int64_t target_scaled = (int64_t)TARGET_UTIL_PCT100 * (LOAD_SCALE / 100);
         if (U_weighted_scaled <= TARGET_UTIL_PCT100) {
-            for (proc_size_t i = 0; i < processes.count(); i++) {
-                Process<>& proc = processes[i];
-                if (proc.realtime) {
-                    proc.current_delay_ms    = proc.orig_delay_ms;
-                    proc.scale_raw_pct100    = 100;
-                    proc.scale_smooth_pct100 = (
-                            (int32_t)((100 - SCALE_SMOOTH_ALPHA_PCT100) * (int64_t)proc.scale_smooth_pct100 +
+			for (proc_size_t i = 0; i < circle_buf_gc_count(&processes); i++) {
+				Process<>* proc = (Process<>*)circle_buf_gc_index(&processes, i);
+                if (proc->realtime) {
+                    proc->current_delay_ms    = proc->orig_delay_ms;
+                    proc->scale_raw_pct100    = 100;
+                    proc->scale_smooth_pct100 = (
+                            (int32_t)((100 - SCALE_SMOOTH_ALPHA_PCT100) * (int64_t)proc->scale_smooth_pct100 +
                             (int64_t)SCALE_SMOOTH_ALPHA_PCT100 * 100)
                     ) / 100;
                     continue;
                 }
 
-                proc.scale_raw_pct100    = 100;
-                proc.scale_smooth_pct100 = (int32_t)(
-                    ((100 - SCALE_SMOOTH_ALPHA_PCT100) * (int64_t)proc.scale_smooth_pct100 +
-                    (int64_t)SCALE_SMOOTH_ALPHA_PCT100 * (int64_t)proc.scale_raw_pct100)
+                proc->scale_raw_pct100    = 100;
+                proc->scale_smooth_pct100 = (int32_t)(
+                    ((100 - SCALE_SMOOTH_ALPHA_PCT100) * (int64_t)proc->scale_smooth_pct100 +
+                    (int64_t)SCALE_SMOOTH_ALPHA_PCT100 * (int64_t)proc->scale_raw_pct100)
                 ) / 100;
 
                 newd_update(proc);
@@ -491,28 +492,27 @@ public:
         }
 
         int64_t denom = 0;
-        for (proc_size_t i = 0; i < processes.count(); i++) {
-            Process<>& proc = processes[i];
-            denom += proc.weight_pct100 * proc.last_load_scaled;
+        for (proc_size_t i = 0; i < circle_buf_gc_count(&processes); i++) {
+            Process<>* proc = (Process<>*)circle_buf_gc_index(&processes, i);
+            denom += proc->weight_pct100 * proc->last_load_scaled;
         }
         if (denom <= 0) {
             denom = 1;
         }
 
-
-        for (proc_size_t i = 0; i < processes.count(); i++) {
-            Process<>& proc = processes[i];
-            if (proc.realtime) {
-                proc.current_delay_ms    = proc.orig_delay_ms;
-                proc.scale_raw_pct100    = 100;
-                proc.scale_smooth_pct100 = (int32_t)(
-                    ((100 - SCALE_SMOOTH_ALPHA_PCT100) * (int64_t)proc.scale_smooth_pct100 +
+        for (proc_size_t i = 0; i < circle_buf_gc_count(&processes); i++) {
+            Process<>* proc = (Process<>*)circle_buf_gc_index(&processes, i);
+            if (proc->realtime) {
+                proc->current_delay_ms    = proc->orig_delay_ms;
+                proc->scale_raw_pct100    = 100;
+                proc->scale_smooth_pct100 = (int32_t)(
+                    ((100 - SCALE_SMOOTH_ALPHA_PCT100) * (int64_t)proc->scale_smooth_pct100 +
                     (int64_t)SCALE_SMOOTH_ALPHA_PCT100 * 100)
                 ) / 100;
                 continue;
             }
 
-            int64_t contrib = (int64_t)proc.weight_pct100 * proc.last_load_scaled;
+            int64_t contrib = (int64_t)proc->weight_pct100 * proc->last_load_scaled;
             int64_t frac_pct100 = (contrib * (int64_t)FIX) / denom;
             int64_t delta = excess_scaled100 - 100;
             int64_t scale_raw_pct100 = 100 + (delta * frac_pct100) / 100;
@@ -522,11 +522,11 @@ public:
             if (scale_raw_pct100 > MAX_SCALE_PCT100) {
                 scale_raw_pct100 = MAX_SCALE_PCT100;
             }
-            proc.scale_raw_pct100 = (int32_t)scale_raw_pct100;
+            proc->scale_raw_pct100 = (int32_t)scale_raw_pct100;
 
-            proc.scale_smooth_pct100 = (int32_t)(
-                ((100 - SCALE_SMOOTH_ALPHA_PCT100) * (int64_t)proc.scale_smooth_pct100 +
-                (int64_t)SCALE_SMOOTH_ALPHA_PCT100 * (int64_t)proc.scale_raw_pct100)
+            proc->scale_smooth_pct100 = (int32_t)(
+                ((100 - SCALE_SMOOTH_ALPHA_PCT100) * (int64_t)proc->scale_smooth_pct100 +
+                (int64_t)SCALE_SMOOTH_ALPHA_PCT100 * (int64_t)proc->scale_raw_pct100)
             ) / 100;
 
             newd_update(proc);
@@ -586,7 +586,7 @@ public:
 
     bool full()
     {
-        return processes.full();
+        return circle_buf_gc_full(&processes);
     }
 };
 
@@ -673,7 +673,8 @@ extern "C" void system_register(void (*task) (void), uint32_t delay_ms, bool rea
         BEDUG_ASSERT(false, "GSystem user processes is out of range");
         return;
     }
-    scheduler.add_task({task, delay_ms, realtime, work_with_error, weight_x100});
+	Process<> proc(task, delay_ms, realtime, work_with_error, weight_x100);
+    scheduler.add_task(&proc);
 }
 
 extern "C" void set_system_timeout(uint32_t timeout_ms)
