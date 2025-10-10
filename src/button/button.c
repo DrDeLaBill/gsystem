@@ -37,10 +37,10 @@ static void _btn_clicks_action(button_t* button);
 
 
 void button_create(
-	button_t*   button,
-	port_pin_t* pin,
-	bool        inverse,
-	uint32_t    hold_ms
+	button_t*         button,
+	const port_pin_t* pin,
+	bool              inverse,
+	uint32_t          hold_ms
 ) {
 	if (!button || !pin) {
 		BEDUG_ASSERT(false, "button or pin is null pointer");
