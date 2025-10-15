@@ -814,14 +814,10 @@ bool set_system_bckp(const uint8_t idx, const uint8_t data)
 }
 #endif
 
-void system_delay_us(uint32_t us)
+void system_delay_us(uint64_t us)
 {
-    CoreDebug->DEMCR |= CoreDebug_DEMCR_TRCENA_Msk;
-    DWT->CYCCNT = 0;
-    DWT->CTRL |= DWT_CTRL_CYCCNTENA_Msk;
-    uint32_t ticks = us * (g_get_freq() / 1000000);
-    uint32_t start = DWT->CYCCNT;
-    while (DWT->CYCCNT - start < ticks);
+    uint64_t start = getMicroseconds();
+    while (start + us > getMicroseconds());
 }
 
 void _system_restart_check(void)

@@ -94,7 +94,7 @@ bool set_system_bckp(const uint8_t idx, const uint8_t data);
 #endif
 
 uint32_t get_system_freq(void);
-void system_delay_us(uint32_t us);
+void system_delay_us(uint64_t us);
 
 #if defined(ARDUINO) && !defined(GSYSTEM_NO_VTOR_REWRITE)
 
