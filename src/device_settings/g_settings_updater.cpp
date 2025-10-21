@@ -149,7 +149,11 @@ void _stng_init_s(void)
 
 void _stng_idle_s(void)
 {
-	bool save_needed = has_new_settings() && !is_status(SETTINGS_STOPPED);
+	bool has_new_stg = has_new_settings();
+	bool save_needed = has_new_stg && !is_status(SETTINGS_STOPPED);
+	if (!has_new_stg && is_status(NEED_SAVE_SETTINGS)) {
+		reset_status(NEED_SAVE_SETTINGS);
+	}
 	if (!save_needed) {
 		saveTimer.start();
 	}
