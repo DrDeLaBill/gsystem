@@ -699,7 +699,7 @@ void _device_rev_show(void)
         __TIME__
     );
 
-    const char SERIAL_START[] = "SERIAL ";
+    const char SERIAL_START[] = "CPU SERIAL ";
     char const* serial_num = get_system_serial_str();
     uint16_t offset = (uint16_t)(strlen(rev) - strlen(SERIAL_START));
     offset = (uint16_t)((strlen(serial_num) < offset) ? offset - strlen(serial_num) : 0);
