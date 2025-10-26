@@ -93,7 +93,6 @@ void settings_reset(settings_t* const other);
 void settings_before_save(settings_t* const other);
 void settings_show();
 
-
 #ifdef __cplusplus
 }
 #endif

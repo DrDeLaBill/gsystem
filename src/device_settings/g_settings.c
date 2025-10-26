@@ -22,6 +22,7 @@
 
 
 static unsigned _get_settings_payload_size();
+static uint16_t _get_settings_hash(device_settings_storage_t* const other);
 
 
 device_settings_storage_t device_settings_storage = 
@@ -55,26 +56,33 @@ uint32_t settings_size()
 void _g_settings_before_save(device_settings_storage_t* const other)
 {
     settings_before_save((settings_t*)other->gs_settings.data);
-	uint16_t crc = (uint16_t)util_hash(other->gs_settings_bytes.data, _get_settings_payload_size());
+	uint16_t crc = _get_settings_hash(other);
+	SYSTEM_BEDUG("new settings CRC16=%u", crc);
     other->gs_settings_bytes.crc = crc;
 }
 
 bool _g_settings_check(device_settings_storage_t* const other)
 {
 	if (other->gs_settings.bedacode != G_SETTINGS_BEDACODE) {
+		SYSTEM_BEDUG("check settings error: bedacode 0x%08X != 0x%08X", other->gs_settings.bedacode, G_SETTINGS_BEDACODE);
 		return false;
 	}
 	if (other->gs_settings.dv_type != GSYSTEM_DEVICE_TYPE) {
+		SYSTEM_BEDUG("check settings error: DEVICE_TYPE %u != %u", other->gs_settings.dv_type, GSYSTEM_DEVICE_TYPE);
 		return false;
 	}
 	if (other->gs_settings.stg_id != GSYSTEM_STG_VERSION) {
+		SYSTEM_BEDUG("check settings error: STG_VERSION %u != %u", other->gs_settings.stg_id, GSYSTEM_STG_VERSION);
 		return false;
 	}
 	if (other->gs_settings.fw_id != GSYSTEM_FW_VERSION) {
+		SYSTEM_BEDUG("check settings error: FW_VERSION %u != %u", other->gs_settings.fw_id, GSYSTEM_FW_VERSION);
 		return false;
 	}
-	uint16_t crc = (uint16_t)util_hash(other->gs_settings_bytes.data, _get_settings_payload_size());
+	uint16_t crc = _get_settings_hash(other);
     if (other->gs_settings_bytes.crc != crc) {
+		SYSTEM_BEDUG("check settings error: crc %u != %u", other->gs_settings_bytes.crc, crc);
+		_g_settings_show();
         return false;
     }
     return settings_check((settings_t* const)other->gs_settings.data);
@@ -115,12 +123,18 @@ void _g_settings_show()
 	printPretty("Device serial:                      %s\n", get_system_serial_str());
 	printPretty("Settings version:                   %u\n", device_settings_storage.gs_settings.stg_id);
     settings_show();
+	printPretty("CRC16:                              %u\n", device_settings_storage.gs_settings.crc);
 	printPretty("######################SETTINGS######################\n");
 }
 
 unsigned _get_settings_payload_size()
 {
-	return settings_size() - sizeof(uint16_t);
+	return sizeof(gs_settings_bytes_t) - sizeof(uint16_t);
+}
+
+uint16_t _get_settings_hash(device_settings_storage_t* const other)
+{
+	return (uint16_t)(util_hash(other->gs_settings_bytes.data, _get_settings_payload_size()) & 0xFFFF);
 }
 
 #endif

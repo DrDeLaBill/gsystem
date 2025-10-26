@@ -104,7 +104,7 @@ void _stng_check(void)
 
 unsigned _get_new_hash()
 {
-	return util_hash(device_settings_storage.gs_settings_bytes.data, settings_size());
+	return util_hash(device_settings_storage.gs_settings_bytes.data, sizeof(settings_t));
 }
 
 void _stng_init_s(void)
@@ -139,7 +139,6 @@ void _stng_init_s(void)
 		set_status(SETTINGS_INITIALIZED);
 		set_status(SYSTEM_SOFTWARE_READY);
 
-		_stng_check();
 		fsm_gc_push_event(&stng_fsm, &stng_updated_e);
 	} else {
 		SYSTEM_BEDUG("settings error");
@@ -167,7 +166,6 @@ void _stng_idle_s(void)
 #else
 		reset_status(SYSTEM_SOFTWARE_READY);
 #endif
-		_stng_check();
 #ifndef EMULATOR
 		fsm_gc_push_event(&stng_fsm, &stng_updated_e);
 #endif
@@ -178,7 +176,6 @@ void _stng_idle_s(void)
 #else
 		reset_status(SYSTEM_SOFTWARE_READY);
 #endif
-		_stng_check();
 #ifndef EMULATOR
 		fsm_gc_push_event(&stng_fsm, &stng_saved_e);
 #endif
@@ -191,6 +188,7 @@ void _stng_save_s(void)
 	if (old_hash != _get_new_hash()) {
 		SYSTEM_BEDUG("settings is saving");
 		_g_settings_before_save(&device_settings_storage);
+		_stng_check();
 		status = storage.write(FILENAME, (uint8_t*)&device_settings_storage, sizeof(device_settings_storage));
 	}
 	if (status == STORAGE_OK) {
