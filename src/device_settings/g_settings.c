@@ -82,7 +82,6 @@ bool _g_settings_check(device_settings_storage_t* const other)
 	uint16_t crc = _get_settings_hash(other);
     if (other->gs_settings_bytes.crc != crc) {
 		SYSTEM_BEDUG("check settings error: crc %u != %u", other->gs_settings_bytes.crc, crc);
-		_g_settings_show();
         return false;
     }
     return settings_check((settings_t* const)other->gs_settings.data);
