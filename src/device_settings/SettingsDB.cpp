@@ -23,7 +23,7 @@ extern StorageAT* storage;
 using status_t = StorageStatus;
 #else
 #include "g_fs.hpp"
-extern G_FS* storage;
+G_FS& storage = get_settings_storage();;
 using status_t = GFSStatus;
 #endif
 
@@ -109,13 +109,13 @@ GSettingsStatus SettingsDB::load()
 #else
     uint32_t cnt = 0;
     uint8_t tmpSettings2[size] = {};
-    status = storage->read(FILENAME1, (uint8_t*)&tmpSettings, size, &cnt);
+    status = storage.read(FILENAME1, (uint8_t*)&tmpSettings, size, &cnt);
     if (status != STORAGE_OK) {
         SYSTEM_BEDUG("STG BD load 1: find err=%02X", status);
         needResaveFirst = true;
     }
 
-    status = storage->read(FILENAME2, (uint8_t*)&tmpSettings2, size, &cnt);
+    status = storage.read(FILENAME2, (uint8_t*)&tmpSettings2, size, &cnt);
     if (status != STORAGE_OK) {
         SYSTEM_BEDUG("STG BD load 2: find err=%02X", status);
         needResaveSecond = true;
@@ -200,14 +200,14 @@ GSettingsStatus SettingsDB::save()
         return G_SETTINGS_ERROR;
     }
 #else
-    status = storage->write(FILENAME1, settings, size);
+    status = storage.write(FILENAME1, settings, size);
     if (status != STORAGE_OK) {
         SYSTEM_BEDUG("STG BD save 1: err=%02X", status);
         return G_SETTINGS_ERROR;
     }
 
     // Save 2 settings
-	status = storage->write(FILENAME2, settings, size);
+	status = storage.write(FILENAME2, settings, size);
     if (status != STORAGE_OK) {
         SYSTEM_BEDUG("STG BD save 2: storage save err=%02X", status);
         return G_SETTINGS_ERROR;

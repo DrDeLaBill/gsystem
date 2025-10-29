@@ -1,6 +1,6 @@
 /* Copyright © 2025 Georgy E. All rights reserved. */
 
-#ifndef _G_FS_F_
+#ifndef _G_FS_H_
 #define _G_FS_H_
 
 
@@ -24,10 +24,14 @@ typedef enum _GFSStatus {
 
 class G_FS {
 public:
+	virtual ~G_FS() = default;
 	virtual GFSStatus read(const char* filename, uint8_t* data, const uint32_t size, uint32_t* cnt) = 0;
 	virtual GFSStatus write(const char* filename, const uint8_t* data, const uint32_t size)         = 0;
 	virtual GFSStatus rm(const char* filename)                                                      = 0;
 };
+
+
+G_FS& get_settings_storage();
 
 
 #endif

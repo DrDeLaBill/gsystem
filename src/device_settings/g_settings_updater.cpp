@@ -15,7 +15,6 @@
 #include "gsystem.h"
 
 #include "Timer.h"
-#include "storage.hpp"
 #include "SettingsDB.h"
 #include "CodeStopwatch.h"
 
@@ -43,8 +42,6 @@ static const char TAG[] = "STGw";
 
 static unsigned old_hash = 0;
 static utl::Timer saveTimer(SAVE_DELAY_MS);
-
-extern Storage storage;
 
 
 FSM_GC_CREATE(stng_fsm)
