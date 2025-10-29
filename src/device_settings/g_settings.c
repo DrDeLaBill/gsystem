@@ -53,6 +53,11 @@ uint32_t settings_size()
 	return sizeof(device_settings_storage.gs_settings_bytes.data);
 }
 
+void __attribute__((weak)) settings_before_save(settings_t* const other)
+{
+	(void)other;
+}
+
 void _g_settings_before_save(device_settings_storage_t* const other)
 {
     settings_before_save((settings_t*)other->gs_settings.data);

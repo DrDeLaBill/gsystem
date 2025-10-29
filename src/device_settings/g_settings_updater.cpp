@@ -35,7 +35,7 @@ extern "C" void _g_settings_before_save(device_settings_storage_t* const other);
 extern device_settings_storage_t device_settings_storage;
 
 
-#if DEBUG
+#ifdef DEBUG
 static const char TAG[] = "STGw";
 #endif
 

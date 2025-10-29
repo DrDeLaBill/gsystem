@@ -211,7 +211,7 @@ private:
 
 public:
     Scheduler():
-        processes_buf({}), processes({}), smooth_scale_x100(100), last_recompute_ms(0),
+        processes_buf(), processes(), smooth_scale_x100(100), last_recompute_ms(0),
         last_scale_x100(0), err_timer(0),
         TPC_timer(SECOND_MS), TPC_counter(0), last_TPC_counter(0)
     {

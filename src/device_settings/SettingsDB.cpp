@@ -72,7 +72,7 @@ GSettingsStatus SettingsDB::load()
 	needResaveSecond = false;
 
 #if !defined(GSYSTEM_NO_STORAGE_AT)
-    uint8_t tmpSettings[size] = {};
+    uint8_t tmpSettings2[size] = {};
 	uint32_t address1 = 0, address2 = 0;
     status = storage->find(FIND_MODE_EQUAL, &address1, PREFIX, 1);
     if (status != STORAGE_OK) {
@@ -92,7 +92,7 @@ GSettingsStatus SettingsDB::load()
         if (status != STORAGE_OK) {
             SYSTEM_BEDUG("STG BD load 1: err=%02X addr1=%lu addr2=%lu", status, address1, address2);
 			status = STORAGE_ERROR;
-        } else if (!check(tmpSettings)) {
+        } else if (!check((device_settings_storage_t*)tmpSettings)) {
 			status = STORAGE_ERROR;
 		}
     }
@@ -102,7 +102,7 @@ GSettingsStatus SettingsDB::load()
         if (status != STORAGE_OK) {
             SYSTEM_BEDUG("STG BD load 2: err=%02X addr1=%lu, addr2=%lu", status, address1, address2);
 			status = STORAGE_ERROR;
-        } else if (!check(tmpSettings)) {
+        } else if (!check((device_settings_storage_t*)tmpSettings)) {
 			status = STORAGE_ERROR;
 		}
     }
@@ -157,7 +157,7 @@ GSettingsStatus SettingsDB::save()
 
 #if !defined(GSYSTEM_NO_STORAGE_AT)
 	uint32_t address = 0;
-	GStorageStatus status = G_STORAGE_OK;
+	status = STORAGE_OK;
     status = storage->find(FIND_MODE_EQUAL, &address, PREFIX, 1);
     if (status == STORAGE_NOT_FOUND) {
         SYSTEM_BEDUG("STG BD save 1: find err=%02X", status);
@@ -199,6 +199,15 @@ GSettingsStatus SettingsDB::save()
         SYSTEM_BEDUG("STG BD save 2: storage save err=%02X addr=%lu", status, address);
         return G_SETTINGS_ERROR;
     }
+
+	SYSTEM_BEDUG("STG BD saved");
+
+	GSettingsStatus res = load();
+    if (res != G_SETTINGS_OK || needSave()) {
+	SYSTEM_BEDUG("STG BD save error");
+    	return G_SETTINGS_ERROR;
+    }
+    return G_SETTINGS_OK;
 #else
     status = storage.write(FILENAME1, settings, size);
     if (status != STORAGE_OK) {
@@ -212,7 +221,6 @@ GSettingsStatus SettingsDB::save()
         SYSTEM_BEDUG("STG BD save 2: storage save err=%02X", status);
         return G_SETTINGS_ERROR;
     }
-#endif
 
 	SYSTEM_BEDUG("STG BD saved");
 
@@ -222,6 +230,7 @@ GSettingsStatus SettingsDB::save()
     	return G_SETTINGS_ERROR;
     }
     return G_SETTINGS_OK;
+#endif
 }
 
 bool SettingsDB::needSave()
