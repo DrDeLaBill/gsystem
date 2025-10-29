@@ -2,6 +2,9 @@
 
 #include "g_settings.h"
 
+#include "gdefines.h"
+#include "gconfig.h"
+
 #ifndef GSYSTEM_NO_DEVICE_SETTINGS
 
 #include <cstring>
@@ -13,6 +16,7 @@
 
 #include "Timer.h"
 #include "storage.hpp"
+#include "SettingsDB.h"
 #include "CodeStopwatch.h"
 
 
@@ -28,6 +32,7 @@ extern "C" bool _g_settings_check(device_settings_storage_t* const other);
 extern "C" void _g_settings_repair(device_settings_storage_t* const other);
 extern "C" void _g_settings_before_save(device_settings_storage_t* const other);
 
+
 extern device_settings_storage_t device_settings_storage;
 
 
@@ -38,7 +43,6 @@ static const char TAG[] = "STGw";
 
 static unsigned old_hash = 0;
 static utl::Timer saveTimer(SAVE_DELAY_MS);
-static const char FILENAME[] = "settings.bin";
 
 extern Storage storage;
 
@@ -113,26 +117,24 @@ void _stng_init_s(void)
 		return;
 	}
 
-	uint32_t cnt = 0;
-	STORAGE_STATUS status = storage.read(FILENAME, (uint8_t*)&device_settings_storage, sizeof(device_settings_storage), &cnt);
-	if (status == STORAGE_OK) {
+	SettingsDB& settingsDB = SettingsDB::get();
+	GSettingsStatus status = settingsDB.load();
+	if (status == G_SETTINGS_OK) {
 		SYSTEM_BEDUG("settings loaded");
 		if (!_g_settings_check(&device_settings_storage)) {
-			SYSTEM_BEDUG("settings check fail");
-			status = STORAGE_ERROR;
+			status = G_SETTINGS_ERROR;
 		}
 	}
 
-	if (status != STORAGE_OK) {
+	if (status != G_SETTINGS_OK) {
 		SYSTEM_BEDUG("settings repair");
 		_g_settings_repair(&device_settings_storage);
 		_g_settings_before_save(&device_settings_storage);
-		status = storage.write(FILENAME, (uint8_t*)&device_settings_storage, sizeof(device_settings_storage));
+		status = settingsDB.save();
 	}
 
-	if (status == STORAGE_OK) {
+	if (status == G_SETTINGS_OK) {
 		SYSTEM_BEDUG("settings OK");
-
 		reset_error(SETTINGS_LOAD_ERROR);
 		_g_settings_show();
 
@@ -161,37 +163,27 @@ void _stng_idle_s(void)
 		(is_status(NEED_SAVE_SETTINGS) || !saveTimer.wait())
 	) {
 		SYSTEM_BEDUG("settings needs save");
-#ifdef EMULATOR
-		reset_status(NEED_SAVE_SETTINGS);
-#else
 		reset_status(SYSTEM_SOFTWARE_READY);
-#endif
-#ifndef EMULATOR
+		_stng_check();
 		fsm_gc_push_event(&stng_fsm, &stng_updated_e);
-#endif
 	} else if (is_status(NEED_LOAD_SETTINGS)) {
-		SYSTEM_BEDUG("settings needs load");
-#ifdef EMULATOR
-		reset_status(NEED_LOAD_SETTINGS);
-#else
 		reset_status(SYSTEM_SOFTWARE_READY);
-#endif
-#ifndef EMULATOR
+		_stng_check();
 		fsm_gc_push_event(&stng_fsm, &stng_saved_e);
-#endif
 	}
 }
 
 void _stng_save_s(void)
 {
-	bool status = G_SETTINGS_OK;
+	GSettingsStatus status = G_SETTINGS_OK;
+	SettingsDB& settingsDB = SettingsDB::get();
 	if (old_hash != _get_new_hash()) {
 		SYSTEM_BEDUG("settings is saving");
 		_g_settings_before_save(&device_settings_storage);
 		_stng_check();
-		status = storage.write(FILENAME, (uint8_t*)&device_settings_storage, sizeof(device_settings_storage));
+		status = settingsDB.save();
 	}
-	if (status == STORAGE_OK) {
+	if (status == G_SETTINGS_OK) {
 		SYSTEM_BEDUG("settings saved");
 		_stng_check();
 		fsm_gc_push_event(&stng_fsm, &stng_saved_e);
@@ -205,11 +197,10 @@ void _stng_save_s(void)
 
 void _stng_load_s(void)
 {
-	uint32_t cnt = 0;
 	SYSTEM_BEDUG("settings is loading");
-	STORAGE_STATUS status = storage.read(FILENAME, (uint8_t*)&device_settings_storage, sizeof(device_settings_storage), &cnt);
-	if (status == STORAGE_OK) {
-		SYSTEM_BEDUG("settings OK");
+	SettingsDB& settingsDB = SettingsDB::get();
+	GSettingsStatus status = settingsDB.load();
+	if (status == G_SETTINGS_OK) {
 		_stng_check();
 		fsm_gc_push_event(&stng_fsm, &stng_updated_e);
 
@@ -220,7 +211,7 @@ void _stng_load_s(void)
 
 		set_status(SYSTEM_SOFTWARE_READY);
 	} else {
-		SYSTEM_BEDUG("settings error");
+		SYSTEM_BEDUG("settings load error");
 	}
 }
 

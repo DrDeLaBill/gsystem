@@ -46,6 +46,7 @@ typedef enum _gSettingsStatus {
     G_SETTINGS_ERROR
 } GSettingsStatus;
 
+
 typedef struct __attribute__((packed)) _gs_settings_t {
     // Start code
     uint32_t bedacode;
