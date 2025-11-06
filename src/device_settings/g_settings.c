@@ -118,7 +118,7 @@ void _g_settings_reset(device_settings_storage_t* const other)
     settings_reset((settings_t* const)other->gs_settings.data);
 }
 
-void _g_settings_show()
+void device_settings_show()
 {
     printPretty("######################SETTINGS######################\n");
 	printPretty("Device version:                     %s\n", BUILD_VERSION);

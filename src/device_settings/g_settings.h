@@ -78,6 +78,9 @@ typedef union _device_settings_storage_t {
 extern settings_t* settings;
 
 
+void device_settings_show();
+
+
 uint32_t settings_size();
 
 settings_t* get_settings();

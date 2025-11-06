@@ -26,7 +26,6 @@
 static void _stng_check(void);
 static unsigned _get_new_hash();
 
-extern "C" void _g_settings_show();
 extern "C" bool _g_settings_check(device_settings_storage_t* const other);
 extern "C" void _g_settings_repair(device_settings_storage_t* const other);
 extern "C" void _g_settings_before_save(device_settings_storage_t* const other);
@@ -133,7 +132,7 @@ void _stng_init_s(void)
 	if (status == G_SETTINGS_OK) {
 		SYSTEM_BEDUG("settings OK");
 		reset_error(SETTINGS_LOAD_ERROR);
-		_g_settings_show();
+		device_settings_show();
 
 		set_status(SETTINGS_INITIALIZED);
 		set_status(SYSTEM_SOFTWARE_READY);
@@ -185,7 +184,7 @@ void _stng_save_s(void)
 		_stng_check();
 		fsm_gc_push_event(&stng_fsm, &stng_saved_e);
 
-		_g_settings_show();
+		device_settings_show();
 
 		reset_error(SETTINGS_LOAD_ERROR);
 		reset_status(NEED_SAVE_SETTINGS);
@@ -201,7 +200,7 @@ void _stng_load_s(void)
 		_stng_check();
 		fsm_gc_push_event(&stng_fsm, &stng_updated_e);
 
-		_g_settings_show();
+		device_settings_show();
 
 		reset_error(SETTINGS_LOAD_ERROR);
 		reset_status(NEED_LOAD_SETTINGS);
