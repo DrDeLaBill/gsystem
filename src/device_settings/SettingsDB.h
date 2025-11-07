@@ -5,6 +5,10 @@
 #include "gdefines.h"
 #include "gconfig.h"
 
+
+#ifndef GSYSTEM_NO_DEVICE_SETTINGS
+
+
 #include <cstdint>
 
 #include "g_settings.h"
@@ -39,6 +43,9 @@ public:
 
     bool needSave();
 };
+
+
+#endif
 
 
 #endif
