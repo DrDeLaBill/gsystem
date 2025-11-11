@@ -160,11 +160,9 @@ void _stng_idle_s(void)
 	) {
 		SYSTEM_BEDUG("settings needs save");
 		reset_status(SYSTEM_SOFTWARE_READY);
-		_stng_check();
 		fsm_gc_push_event(&stng_fsm, &stng_updated_e);
 	} else if (is_status(NEED_LOAD_SETTINGS)) {
 		reset_status(SYSTEM_SOFTWARE_READY);
-		_stng_check();
 		fsm_gc_push_event(&stng_fsm, &stng_saved_e);
 	}
 }
@@ -182,13 +180,13 @@ void _stng_save_s(void)
 	if (status == G_SETTINGS_OK) {
 		SYSTEM_BEDUG("settings saved");
 		_stng_check();
-		fsm_gc_push_event(&stng_fsm, &stng_saved_e);
 
 		device_settings_show();
 
 		reset_error(SETTINGS_LOAD_ERROR);
 		reset_status(NEED_SAVE_SETTINGS);
 	}
+	fsm_gc_push_event(&stng_fsm, &stng_saved_e);
 }
 
 void _stng_load_s(void)

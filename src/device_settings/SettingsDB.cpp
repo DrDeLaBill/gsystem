@@ -115,6 +115,7 @@ GSettingsStatus SettingsDB::load()
         needResaveFirst = true;
     }
 
+    cnt = 0;
     status = storage.read(FILENAME2, (uint8_t*)&tmpSettings2, size, &cnt);
     if (status != STORAGE_OK) {
         SYSTEM_BEDUG("STG BD load 2: find err=%02X", status);
