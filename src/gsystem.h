@@ -38,6 +38,7 @@ extern const uint32_t TIMER_VERIF_WORD;
 
 void system_init(void);
 void system_register(void (*task) (void), uint32_t delay_ms, bool realtime, bool work_with_error, int32_t weight_x100);
+void system_register_isr(void (*task) (void), uint32_t delay_ms, bool realtime, bool work_with_error, int32_t weight_x100);
 
 void set_system_timeout(uint32_t timeout_ms);
 void system_start(void);
@@ -47,6 +48,7 @@ const char* system_device_version();
 
 void system_post_load(void);
 void system_tick(void);
+void system_tick_isr(void);
 
 bool is_system_ready(void);
 bool is_software_ready(void);
