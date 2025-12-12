@@ -120,6 +120,7 @@ void _g_settings_reset(device_settings_storage_t* const other)
 
 void device_settings_show()
 {
+#if defined(GSYSTEM_BEDUG)
     printPretty("######################SETTINGS######################\n");
 	printPretty("Device version:                     %s\n", BUILD_VERSION);
 	printPretty("Device type:                        %u\n", device_settings_storage.gs_settings.dv_type);
@@ -129,6 +130,7 @@ void device_settings_show()
     settings_show();
 	printPretty("CRC16:                              %u\n", device_settings_storage.gs_settings.crc);
 	printPretty("######################SETTINGS######################\n");
+#endif // #if defined(GSYSTEM_BEDUG)
 }
 
 unsigned _get_settings_payload_size()
@@ -141,4 +143,4 @@ uint16_t _get_settings_hash(device_settings_storage_t* const other)
 	return (uint16_t)(util_hash(other->gs_settings_bytes.data, _get_settings_payload_size()) & 0xFFFF);
 }
 
-#endif
+#endif // #ifndef GSYSTEM_NO_DEVICE_SETTINGS

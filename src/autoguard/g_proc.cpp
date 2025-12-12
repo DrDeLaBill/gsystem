@@ -785,9 +785,11 @@ void _device_rev_show(void)
         rev
     );
 
+    #if !defined(GSYSTEM_NO_BEDUG)
     g_uart_print(str, (uint16_t)strlen(str));
+    #endif
 
-    #if !defined(GSYSTEM_NO_PRINTF)
+    #if !defined(GSYSTEM_NO_PRINTF) && !defined(GSYSTEM_NO_BEDUG)
     char* ptr = str;
     for (size_t DataIdx = 0; DataIdx < strlen(str); DataIdx++) {
         ITM_SendChar(*ptr++);

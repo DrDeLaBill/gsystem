@@ -39,7 +39,7 @@ extern "C" {
     #define BUILD_VERSION             "v0.0.0"
 #endif
 
-#ifdef DEBUG
+#if defined(DEBUG)
     #define GSYSTEM_BEDUG 1
 #elif defined(GBEDUG_FORCE)
     #define GSYSTEM_BEDUG 1
