@@ -180,10 +180,9 @@ void _reset_status(SOUL_STATUS status)
 									 break;
 char* get_status_name(SOUL_STATUS status)
 {
-	(void)status;
-#if defined(__G_SOUL_BEDUG)
 	static char name[35] = { 0 };
 	memset(name, 0, sizeof(name));
+#if defined(__G_SOUL_BEDUG)
 	switch (status) {
 	CASE_STATUS(SYSTEM_ERROR_HANDLER_CALLED)
 	CASE_STATUS(SYSTEM_HARDWARE_STARTED)
@@ -277,7 +276,8 @@ char* get_status_name(SOUL_STATUS status)
 	}
 	return name;
 #else
-	return (char*)SOUL_UNKNOWN_STATUS;
+	snprintf(name, sizeof(name) - 1, "[%03u] %s", status, SOUL_UNKNOWN_STATUS);
+	return name;
 #endif
 }
 
