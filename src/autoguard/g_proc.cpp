@@ -221,7 +221,10 @@ public:
         TPC_timer(SECOND_MS), TPC_counter(0), last_TPC_counter(0),
         isr_proc_idx(0)
     {
-		circle_buf_gc_init(&processes, (uint8_t*)processes_buf, sizeof(Process<>), __arr_len(processes_buf));
+        BEDUG_ASSERT(
+		    circle_buf_gc_init(&processes, (uint8_t*)processes_buf, sizeof(Process<>), __arr_len(processes_buf)),
+            "GSystem processes buffer initialization error"
+        )
         system_tasks_register(system_task_p{});
     }
 
