@@ -201,12 +201,64 @@ uint32_t g_get_freq()
 
 uint32_t* g_heap_start()
 {
-    return &_sdata;
+    return &sbrk(0);
 }
 
 uint32_t* g_stack_end()
 {
+    uint32_t *top;
+    __asm__ volatile ("mov %[top], sp" : [top] "=r" (top) : : );
+    return top;
+}
+
+uint32_t* g_ram_start()
+{
+    return &_sdata;
+}
+
+uint32_t* g_ram_end()
+{
     return &_estack;
+}
+
+void g_ram_fill()
+{
+    uint32_t *top, *start;
+    __asm__ volatile ("mov %[top], sp" : [top] "=r" (top) : : );
+    uint32_t *end_heap = (uint32_t*)sbrk(0);
+    start = end_heap;
+    start++;
+    while (start < top) {
+        *(start++) = SYSTEM_CANARY_WORD;
+    }
+}
+
+uint32_t g_ram_measure_free(void)
+{
+    unsigned *start, *end;
+	__asm__ volatile ("mov %[end], sp" : [end] "=r" (end) : : );
+	unsigned *end_heap = (unsigned*)sbrk(0);
+	start = end_heap;
+	start++;
+	unsigned heap_end = 0;
+	unsigned stack_end = 0;
+	unsigned last_counter = 0;
+	unsigned cur_counter = 0;
+	for (;start < end; start++) {
+		if ((*start) == SYSTEM_CANARY_WORD) {
+			cur_counter++;
+		}
+		if (cur_counter && (*start) != SYSTEM_CANARY_WORD) {
+			if (last_counter < cur_counter) {
+				last_counter = cur_counter;
+				heap_end     = (unsigned)start - cur_counter;
+				stack_end    = (unsigned)start;
+			}
+
+			cur_counter = 0;
+		}
+	}
+	return last_counter * sizeof(SYSTEM_CANARY_WORD);
 }
 
 bool g_pin_read(port_pin_t pin)

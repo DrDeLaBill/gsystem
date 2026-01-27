@@ -12,31 +12,32 @@ extern "C" {
 #include "gconfig.h"
 
 
-#define SYSTEM_CASE_STATUS(TARGET, STATUS) case STATUS:                 \
-                                               snprintf(                \
-                                                   TARGET,              \
-                                                   sizeof(TARGET) - 1,  \
-                                                   "%s",                \
-                                                   __STR_DEF__(STATUS)  \
-                                               );                       \
-                                               break;
+#define SYSTEM_CASE_STATUS(TARGET, STATUS) \
+                                        case STATUS:                 \
+                                            snprintf(                \
+                                                TARGET,              \
+                                                sizeof(TARGET) - 1,  \
+                                                "%s",                \
+                                                __STR_DEF__(STATUS)  \
+                                            );                       \
+                                            break;
 
-#define SYSTEM_CANARY_WORD                 ((uint32_t)0xBEDAC0DE)
+#define SYSTEM_CANARY_WORD              ((uint32_t)0xBEDAC0DE)
 
 #if !defined(STM32F1) && defined(GSYSTEM_NO_I2C_W)
     #undef GSYSTEM_NO_I2C_W
 #endif
 
 #ifndef GSYSTEM_ADC_VOLTAGE_COUNT
-    #define GSYSTEM_ADC_VOLTAGE_COUNT (1)
+    #define GSYSTEM_ADC_VOLTAGE_COUNT   (1)
 #endif
 
 #ifndef GSYSTEM_BUTTONS_COUNT
-    #define GSYSTEM_BUTTONS_COUNT     (10)
+    #define GSYSTEM_BUTTONS_COUNT       (10)
 #endif
 
 #ifndef BUILD_VERSION
-    #define BUILD_VERSION             "v0.0.0"
+    #define BUILD_VERSION               "v0.0.0"
 #endif
 
 #if defined(DEBUG)

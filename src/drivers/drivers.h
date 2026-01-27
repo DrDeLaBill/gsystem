@@ -55,8 +55,12 @@ void g_restart_check();
 
 uint32_t g_get_freq();
 
+uint32_t* g_ram_start();
+uint32_t* g_ram_end();
 uint32_t* g_heap_start();
 uint32_t* g_stack_end();
+void g_ram_fill();
+uint32_t g_ram_measure_free();
 
 bool g_pin_read(port_pin_t pin);
 

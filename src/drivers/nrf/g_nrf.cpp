@@ -4,24 +4,31 @@
 
 #ifdef NRF52
 
-    #ifdef ARDUINO
-        #include <Arduino.h>
-    #else
-        #error "Please select your framework"
-    #endif 
+#ifdef ARDUINO
+    #include <Arduino.h>
+#else
+    #error "Please select your framework"
+#endif 
+
+#include <unistd.h>
+
+#include "gconfig.h"
+#include "gdefines.h"
+
+#include "Timer.h"
+#include "gsystem.h"
 
 
-    #include "Timer.h"
-    #include "gsystem.h"
-
-
-    #define VECTOR_TABLE_SIZE  0xD8
-    #define VECTOR_TABLE_ALIGN __attribute__((aligned(0x200)))
+#define VECTOR_TABLE_SIZE  0xD8
+#define VECTOR_TABLE_ALIGN __attribute__((aligned(0x200)))
 
 
 extern "C" {
-	extern uint32_t __HeapBase;
-	extern uint32_t __StackTop;
+    extern uint32_t __data_start__;
+    extern uint32_t __HeapLimit;
+    extern uint32_t __HeapBase;
+    extern uint32_t __StackTop;
+    extern uint32_t __StackLimit;
 }
 
 extern "C" void g_reboot()
@@ -94,7 +101,16 @@ extern "C" uint32_t g_get_freq()
   return 64000000;
 }
 
-// TODO: check memory map rules
+extern "C" uint32_t* g_ram_start()
+{
+    return &__data_start__;
+}
+
+extern "C" uint32_t* g_ram_end()
+{
+    return &__StackTop;
+}
+
 extern "C" uint32_t* g_heap_start()
 {
     return &__HeapBase;
@@ -102,7 +118,33 @@ extern "C" uint32_t* g_heap_start()
 
 extern "C" uint32_t* g_stack_end()
 {
-    return &__StackTop;
+    return &__StackTop; // TODO: do lower
+}
+
+extern "C" void g_ram_fill()
+{
+    uint32_t *heap_end = (uint32_t*)sbrk(0);
+    uint32_t *stack_limit = (uint32_t*)&__StackLimit;
+    for (; heap_end < stack_limit; ++heap_end) {
+        *heap_end = SYSTEM_CANARY_WORD;
+    }
+}
+
+extern "C" uint32_t g_ram_measure_free()
+{
+    uint32_t *heap_end = (uint32_t*)sbrk(0);
+    uint32_t *stack_limit = (uint32_t*)&__StackLimit;
+    uint32_t cur = 0, max = 0;
+    for (uint32_t *p = heap_end; p < stack_limit; ++p) {
+        if (*p == SYSTEM_CANARY_WORD) {
+            cur += 4;
+        } else {
+            if (cur > max) max = cur;
+            cur = 0;
+        }
+    }
+    if (cur > max) max = cur;
+    return max;
 }
 
 extern "C" bool g_pin_read(port_pin_t pin)
@@ -152,5 +194,4 @@ extern "C" void g_delay_ms(const uint32_t ms)
     while (timer.wait());
 }
 
-
-#endif
+#endif // #ifdef NRF52
