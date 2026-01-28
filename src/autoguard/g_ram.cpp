@@ -115,14 +115,12 @@ void uart_print_ram_report(
 	gprint("%s", color);
 #endif
     SYSTEM_BEDUG(
-		"%s[RAM] 0x%08" PRIXPTR "..0x%08" PRIXPTR,
-		color,
+		"[RAM] 0x%08" PRIXPTR "..0x%08" PRIXPTR,
 		(uintptr_t)heap_addr, 
 		(uintptr_t)stack_addr
 	);
 	SYSTEM_BEDUG(
-		"%s[RAM] Total: %uB Used: %uB Free: %uB (%u.%u%%)",
-		color,
+		"[RAM] Total: %uB Used: %uB Free: %uB (%u.%u%%)",
 		(unsigned)total_bytes,
 		(unsigned)used,
 		(unsigned)free_bytes,
@@ -131,8 +129,7 @@ void uart_print_ram_report(
 
     if (pct_x10 <= threshold_warn_percent * 10) {
         SYSTEM_BEDUG(
-			"%s[RAM] WARNING: Low free memory (<%u%%)!", 
-			color, 
+			"[RAM] WARNING: Low free memory (<%u%%)!",
 			(unsigned)threshold_warn_percent
 		);
     }

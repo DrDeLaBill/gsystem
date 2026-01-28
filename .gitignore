@@ -45,3 +45,4 @@ build*
 *.bin
 *.hex
 src/gconfig.h
+*copilot-instructions.md
