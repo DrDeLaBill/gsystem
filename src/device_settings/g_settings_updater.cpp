@@ -80,7 +80,7 @@ extern "C" void settings_update()
 
 extern "C" bool settings_ready()
 {
-	return !is_status(SETTINGS_LOAD_ERROR) &&
+	return !is_error(SETTINGS_LOAD_ERROR) &&
            !is_status(NEED_SAVE_SETTINGS) &&
 		   !is_status(NEED_LOAD_SETTINGS) &&
 		   is_status(SETTINGS_INITIALIZED);

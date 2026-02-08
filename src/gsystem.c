@@ -1,4 +1,11 @@
-/* Copyright © 2025 Georgy E. All rights reserved. */
+/*
+ * @file gsystem.c
+ * @brief Core system bootstrap and runtime helpers.
+ *
+ * Initializes platform subsystems, starts the main loop and provides
+ * small runtime utilities (timers, reset handling, system info). Private
+ * helper functions and file-local state are documented below.
+ */
 
 #include "gsystem.h"
 
@@ -19,7 +26,7 @@
 #include "gversion.h"
 
 #if defined(GSYSTEM_DS130X_CLOCK)
-    #include "ds130x.h"
+#    include "ds130x.h"
 #endif
 
 
@@ -28,11 +35,19 @@ const char SYSTEM_TAG[] = "GSYS";
 #endif
 
 
+/* 
+ * @brief File-local helper: check and log whether the device was restarted recently
+ *                           (boot reason inspection). 
+ * @param None
+ * @return None
+ */
 static void _system_restart_check(void);
 
 
+/* @brief Verification word used by system timers. */
 const uint32_t TIMER_VERIF_WORD = 0xBEDAC1DE;
 
+/* @brief Run-time messages state. */
 static bool messages_enabled = true;
 
 static gversion_t build_ver = { 0 };
@@ -47,7 +62,7 @@ uint16_t SYSTEM_ADC_VOLTAGE[GSYSTEM_ADC_VOLTAGE_COUNT] = {0};
 
 
 #ifndef GSYSTEM_TIMER
-    #define GSYSTEM_TIMER (GSYS_DEFAULT_TIM)
+#    define GSYSTEM_TIMER (GSYS_DEFAULT_TIM)
 #endif
 
 

@@ -1,4 +1,14 @@
-/* Copyright © 2025 Georgy E. All rights reserved. */
+/*
+ * @file ds130x.h
+ * @brief Driver interface for DS1307/DS1302 real-time clock chips.
+ *
+ * Provides register definitions and high-level functions to initialize the
+ * external RTC, read and write time/date fields, and access small RTC RAM
+ * regions used for storing persistent data such as timezone or application
+ * state. Compiled only when GSYSTEM_DS130X_CLOCK is enabled.
+ *
+ * Copyright © 2025 Georgy E. All rights reserved.
+ */
 
 #ifndef _DS130X_H_
 #define _DS130X_H_

@@ -1,4 +1,15 @@
-/* Copyright © 2025 Georgy E. All rights reserved. */
+/*
+ * @file gdefines.h
+ * @brief Global configuration macros and debug utilities for gsystem.
+ *
+ * Defines compile-time configuration options (ADC count, button count, etc),
+ * debug/logging macros, status reporting utilities, and feature guards
+ * (GSYSTEM_NO_*_W) to conditionally include/exclude components.
+ *
+ * Debug output requires GSYSTEM_BEDUG to be enabled via DEBUG or GBEDUG_FORCE.
+ *
+ * Copyright © 2025 Georgy E. All rights reserved.
+ */
 
 #ifndef _DEFINES_H_
 #define _DEFINES_H_
@@ -11,7 +22,13 @@ extern "C" {
 
 #include "gconfig.h"
 
-
+/*
+ * @def SYSTEM_CASE_STATUS(TARGET, STATUS)
+ * @brief Helper macro used in switch statement in get_custom_status_name() 
+ *        to convert status enums into human-readable strings.
+ * @param TARGET (char[]) - Destination string buffer.
+ * @param STATUS (enum) - Status enum identifier to convert.
+ */
 #define SYSTEM_CASE_STATUS(TARGET, STATUS) \
                                         case STATUS:                 \
                                             snprintf(                \
@@ -22,7 +39,14 @@ extern "C" {
                                             );                       \
                                             break;
 
+
+/*
+ * @def SYSTEM_CANARY_WORD
+ * @brief Canary value used for simple integrity checks in memory structures.
+ *        Use this constant when embedding a sentinel word to detect corruption.
+ */
 #define SYSTEM_CANARY_WORD              ((uint32_t)0xBEDAC0DE)
+
 
 #if !defined(STM32F1) && defined(GSYSTEM_NO_I2C_W)
     #undef GSYSTEM_NO_I2C_W

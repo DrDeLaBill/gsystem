@@ -1,4 +1,14 @@
-/* Copyright © 2024 Georgy E. All rights reserved. */
+/*
+ * @file soul.c
+ * @brief Centralized status and error bitmap implementation.
+ *
+ * This compilation unit stores SOUL_STATUS bitmaps and provides accessor
+ * helpers used throughout the system to set/reset/check status and error
+ * flags. Internal data structures and debug flags are file-local to avoid
+ * accidental external manipulation.
+ * 
+ * Copyright © 2024 Georgy E. All rights reserved.
+ */
 
 #include "soul.h"
 
@@ -9,6 +19,7 @@
 
 #include "gdefines.h"
 #include "gconfig.h"
+#include "gsystem.h"
 
 #include "glog.h"
 #include "bmacro.h"
@@ -20,11 +31,21 @@
 
 
 #if defined(__G_SOUL_BEDUG)
+/* @brief Debug log tag for soul subsystem (only present in debug builds). */
 static const char TAG[] = "SOUL";
 #endif
 
 
+typedef enum _type_t {
+	TYPE_STATUS = 0,
+	TYPE_ERROR
+} type_t;
 
+
+/* 
+ * @brief Internal bitmap holding status flags and last error struct. Not exposed outside
+ *        this file. The layout uses a compact bitset for storage efficiency. 
+ */
 typedef struct _soul_t {
 #if defined(__G_SOUL_BEDUG)
 	bool has_new_error_data;
@@ -45,12 +66,14 @@ static soul_t soul = {
 };
 
 
+/* @brief Fallback name returned for unknown statuses when no custom name is set. */
 const char *SOUL_UNKNOWN_STATUS = "UNKNOWN_STATUS";
 
 
 bool _is_status(SOUL_STATUS status);
 void _set_status(SOUL_STATUS status);
 void _reset_status(SOUL_STATUS status);
+void _show_not_status(type_t type, SOUL_STATUS status, unsigned line);
 
 
 SOUL_STATUS get_last_error()
@@ -80,6 +103,7 @@ bool is_internal_error(SOUL_STATUS error)
 	if (error > ERRORS_START && error < ERRORS_END) {
 		return _is_status(error);
 	}
+	_show_not_status(TYPE_ERROR, error, __LINE__);
 	return false;
 }
 
@@ -92,6 +116,8 @@ void set_internal_error(SOUL_STATUS error)
 		}
 #endif
 		_set_status(error);
+	} else {
+		_show_not_status(TYPE_ERROR, error, __LINE__);
 	}
 }
 
@@ -104,6 +130,8 @@ void reset_internal_error(SOUL_STATUS error)
 		}
 #endif
 		_reset_status(error);
+	} else {
+		_show_not_status(TYPE_ERROR, error, __LINE__);
 	}
 }
 
@@ -122,6 +150,7 @@ bool is_internal_status(SOUL_STATUS status)
 	if (status > STATUSES_START && status < STATUSES_END) {
 		return _is_status(status);
 	}
+	_show_not_status(TYPE_STATUS, status, __LINE__);
 	return false;
 }
 
@@ -134,6 +163,8 @@ void set_internal_status(SOUL_STATUS status)
 		}
 #endif
 		_set_status(status);
+	} else {
+		_show_not_status(TYPE_STATUS, status, __LINE__);
 	}
 }
 
@@ -146,6 +177,8 @@ void reset_internal_status(SOUL_STATUS status)
 		}
 #endif
 		_reset_status(status);
+	} else {
+		_show_not_status(TYPE_STATUS, status, __LINE__);
 	}
 }
 
@@ -167,6 +200,25 @@ void _set_status(SOUL_STATUS status)
 void _reset_status(SOUL_STATUS status)
 {
 	soul.statuses[status / BITS_IN_BYTE] &= (uint8_t)~(0x01 << (status % BITS_IN_BYTE));
+}
+
+void _show_not_status(type_t type, SOUL_STATUS status, unsigned line)
+{
+	unsigned int_status = (unsigned)status;
+	BEDUG_ASSERT(status > SOUL_STATUSES_START && status < SOUL_STATUSES_END, "The value of the status is not in soul statuses array range");
+	char* type_name = NULL;
+	switch (type) {
+	case TYPE_STATUS:
+		type_name = __STR_DEF__(TYPE_STATUS);
+		break;
+	case TYPE_ERROR:
+		type_name = __STR_DEF__(TYPE_ERROR);
+		break;
+	default:
+		BEDUG_ASSERT(false, "Unknown type of soul statuses");
+		return;
+	}
+	SYSTEM_BEDUG("Soul status error: %s status is not %s. Line %u.", get_status_name(status), type_name, line);
 }
 
 #define CASE_STATUS(SOUL_STATUS) case SOUL_STATUS:                \

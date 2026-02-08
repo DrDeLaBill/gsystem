@@ -633,6 +633,11 @@ public:
     {
         return circle_buf_gc_full(&processes);
     }
+
+    unsigned proc_count()
+    {
+        return circle_buf_gc_count(&processes);
+    }
 };
 
 
@@ -724,6 +729,7 @@ extern "C" void system_register(void (*task) (void), uint32_t delay_ms, bool rea
         return;
     }
 	Process<> proc(task, delay_ms, realtime, work_with_error, weight_x100, false);
+    SYSTEM_BEDUG("add proccess[%02u] (addr=0x%08X delay_ms=%lu)", scheduler.proc_count(), task, delay_ms);
     scheduler.add_task(&proc);
 }
 

@@ -31,6 +31,10 @@
 *.out
 *.app
 
+# STM32CubeIDE
+*.prefs
+*.project
+
 # Custom
 Debug*
 Release*

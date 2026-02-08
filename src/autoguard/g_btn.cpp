@@ -3,6 +3,8 @@
 #include "gdefines.h"
 #include "gconfig.h"
 
+#include "gsystem.h"
+
 
 #if GSYSTEM_BUTTONS_COUNT
 
@@ -28,6 +30,7 @@ extern "C" void system_add_button(const port_pin_t pin, bool inverse)
     if (buttons_count >= __arr_len(buttons)) {
         return;
     }
+    SYSTEM_BEDUG("add button[%02u] (port=%u pin=%u)", buttons_count, pin.port, pin.pin);
     button_create(&buttons[buttons_count++], &pin, inverse, DEFAULT_HOLD_TIME_MS);
 }
 
