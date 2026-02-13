@@ -213,7 +213,9 @@ public:
             "GSystem jobs buffer initialization error"
         )
         for (unsigned i = 0 ; i < sys_jobs.size(); i++) {
-            add_task((Job*)((Job*)sys_jobs.begin() + i));
+            Job* job = (Job*)((Job*)sys_jobs.begin() + i);
+            job->system_task = true;
+            add_task(job);
         }
     }
 
