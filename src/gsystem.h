@@ -40,6 +40,10 @@ extern "C" {
 }
 
 
+#define GSYSTEM_PROCCESS_PRIORITY_DEFAULT ((uint8_t)100)
+#define GSYSTEM_PROCCESS_PRIORITY_MAX     ((uint8_t)200)
+
+
 typedef struct _system_timer_t {
     uint32_t    verif;
     hard_tim_t* tim;
@@ -66,7 +70,7 @@ void system_init(void);
  * @param delay_ms (uint32_t) - Delay in milliseconds between launches.
  * @param realtime (bool) - If true, the task is treated as realtime priority and won't be optimized by the scheduler.
  * @param work_with_error (bool) - If true, the task will run even if system has errors.
- * @param weight_x100 (int32_t) - Relative task weight (priority) scaled by 100. Used for scheduling decisions.
+ * @param priority (uint32_t) - Relative task priority. Used for scheduling decisions.
  * @return None
  * @example system_register(my_task, 1000, false, true, 100);
  */
@@ -75,7 +79,7 @@ void system_register(
     uint32_t delay_ms,
     bool realtime,
     bool work_with_error,
-    int32_t weight_x100
+    uint32_t priority
 );
 
 /*
@@ -84,7 +88,7 @@ void system_register(
  * @param delay_ms (uint32_t) - Delay in milliseconds between launches.
  * @param realtime (bool) - If true, the task is treated as realtime priority and won't be optimized by the scheduler.
  * @param work_with_error (bool) - If true, the task will run even if system has errors.
- * @param weight_x100 (int32_t) - Relative task weight (priority) scaled by 100. Used for scheduling decisions.
+ * @param priority (uint32_t) - Relative task priority.
  * @return None
  * @example system_register_isr(my_task, 1000, false, true, 100);
  * TODO: the sheduler is not implemented yet
@@ -94,7 +98,7 @@ void system_register_isr(
     uint32_t delay_ms,
     bool realtime,
     bool work_with_error,
-    int32_t weight_x100
+    uint32_t priority
 );
 
 /*

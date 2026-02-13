@@ -192,7 +192,7 @@ const char* system_device_version()
 #ifndef GSYSTEM_NO_ADC_W
 extern void adc_watchdog_check();
 #endif
-extern void sys_proc_init();
+extern void sys_jobs_init();
 void system_post_load(void)
 {
 #if GSYSTEM_BEDUG
@@ -265,7 +265,7 @@ void system_post_load(void)
     HAL_PWR_DisableBkUpAccess();
 #endif
 
-    sys_proc_init();
+    sys_jobs_init();
 
     SYSTEM_BEDUG("GSystem loaded");
 }

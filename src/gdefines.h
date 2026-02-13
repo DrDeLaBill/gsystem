@@ -117,6 +117,52 @@ extern const char SYSTEM_TAG[];
 #endif
 
 
+// Min gsystem proccesses counter
+#ifndef GSYSTEM_NO_MEMORY_W
+    #define __GC_CNT_MEMORY (1)
+#else
+    #define __GC_CNT_MEMORY (0)
+#endif
+#ifndef GSYSTEM_NO_SYS_TICK_W
+    #define __GC_CNT_SYS_TICK (1)
+#else
+    #define __GC_CNT_SYS_TICK (0)
+#endif
+#ifndef GSYSTEM_NO_RAM_W
+    #define __GC_CNT_RAM (1)
+#else
+    #define __GC_CNT_RAM (0)
+#endif
+#if !defined(GSYSTEM_NO_ADC_W)
+    #define __GC_CNT_ADC (1)
+#else
+    #define __GC_CNT_ADC (0)
+#endif
+#if defined(STM32F1) && !defined(GSYSTEM_NO_I2C_W)
+    #define __GC_CNT_I2C (1)
+#else
+    #define __GC_CNT_I2C (0)
+#endif
+#if !defined(GSYSTEM_NO_POWER_W) && !defined(GSYSTEM_NO_ADC_W)
+    #define __GC_CNT_POWER (1)
+#else
+    #define __GC_CNT_POWER (0)
+#endif
+#ifndef GSYSTEM_NO_RTC_W
+    #define __GC_CNT_RTC (1)
+#else
+    #define __GC_CNT_RTC (0)
+#endif
+#ifndef GSYSTEM_NO_DEVICE_SETTINGS
+    #define __GC_CNT_SETTINGS (1)
+#else
+    #define __GC_CNT_SETTINGS (0)
+#endif
+
+#define GSYSTEM_MIN_PROCCESS_CNT \
+    (4 + __GC_CNT_MEMORY + __GC_CNT_SYS_TICK + __GC_CNT_RAM + __GC_CNT_ADC + __GC_CNT_I2C + __GC_CNT_POWER + __GC_CNT_RTC + __GC_CNT_SETTINGS)
+
+
 #ifdef __cplusplus
 }
 #endif

@@ -1,4 +1,14 @@
- /* Copyright © 2025 Georgy E. All rights reserved. */
+
+/*
+ * @file g_job.cpp
+ * @brief Job scheduler and runtime statistics collector.
+ *
+ * Implements the adaptive scheduler used by the system to balance periodic
+ * tasks, collect execution timings and present lightweight profiling info
+ * in debug builds.
+ *
+ * Copyright © 2025 Georgy E. All rights reserved.
+ */
 
 #include "gdefines.h"
 #include "gconfig.h"
@@ -24,208 +34,187 @@
 #endif
 
 
+#define GSYSTEM_INTERNAL_PROCCESS_PRIORITY ((uint8_t)50)
+
+
 static void _device_rev_show();
 static void _scheduler_load_show();
 static void _scheduler_recompute_scaling();
 static void _scheduler_error_check();
 
 
-static constexpr uint32_t RECOMPUTE_MS             = 2 * SECOND_MS;
-static constexpr int32_t TARGET_UTIL_PCT100        = 70;   // Target CPU load (%)
-static constexpr int32_t EWMA_ALPHA_PCT100         = 10;   // Alpha EWMA part (%)
-static constexpr int32_t SCALE_SMOOTH_ALPHA_PCT100 = 20;   // Smooth scale (%)
-static constexpr int32_t MIN_SCALE_PCT100          = 100;  // Work time scaling min
-static constexpr int32_t MAX_SCALE_PCT100          = 2000; // Work time scaling max
-static constexpr uint32_t DEFAULT_WEIGHT_PCT100    = 100;
-static constexpr int32_t FIX                       = 100;
-static constexpr int32_t LOAD_SCALE                = 10000;
-static constexpr uint32_t LOAD_SHOW_DELAY_MS       = 10 * SECOND_MS;
+static constexpr uint32_t RECOMPUTE_MS         = 200;
+static constexpr uint32_t TARGET_CPU_LOAD_X100 = 7000;
+static constexpr uint32_t SCALE_SMOOTH_ALPHA   = 5;
+static constexpr uint32_t EXEC_SMOOTH_ALPHA    = 90;
+static constexpr uint32_t FIX                  = 100;
+static constexpr uint32_t LOAD_SCALE           = 10000;
+static constexpr uint32_t JOB_SCALE_MAX_X100   = 9000000;
+static constexpr uint32_t LOAD_SHOW_DELAY_MS   = SECOND_MS;
+static constexpr uint32_t JOBS_BUF_SIZE        = GSYSTEM_MIN_PROCCESS_CNT + GSYSTEM_POCESSES_COUNT;
 
 
-template<
-    void     (*ACTION) (void) = nullptr,
-    uint32_t DELAY_MS         = 0,
-    bool     REALTIME         = false,
-    bool     WORK_WITH_ERROR  = false,
-    uint32_t WEIGHT           = 100,
-    bool     ISR              = false
->
-struct Process {
+struct Job {
 	static constexpr uint32_t MAX_DELAY_MS = MINUTE_MS;
 
-    void       (*action)(void)     = ACTION;
-    uint32_t   orig_delay_ms       = DELAY_MS;        // Original period
-    uint32_t   current_delay_ms    = 0;               // Real period
-    utl::Timer timer               = {};              // Period timer
-    bool       work_with_error     = WORK_WITH_ERROR; // Work with error flag
-    bool       realtime            = REALTIME;        // Scale disable flag
-    bool       system_task         = false;           // System task flag
+    void       (*action)(void)     = NULL;
+    uint32_t   orig_delay_ms       = 0;      // Original period
+    uint32_t   current_delay_ms    = 0;      // Real calculated period
+    bool       work_with_error     = false;  // Work with error flag
+    bool       realtime            = false;  // Scale disable flag
+    bool       system_task         = false;  // System task flag
 
-    int64_t    exec_ewma_us_pct100 = 0;               // Average time EWMA
-    uint64_t   last_start_us       = 0;               // Start time
-    int32_t    weight_pct100       = WEIGHT;          // CPU load weight
+    uint64_t   last_start_us       = 0;      // Start time
+    uint64_t   last_end_us         = 0;      // End time
 
-    // Adaptive scaling:
-    int64_t   last_load_scaled     = 0;               // Last load (part)
-    int32_t   scale_raw_pct100     = 100;             // Raw scale value (without smooth) scale_i
-    int32_t   scale_smooth_pct100  = 100;             // Process smooth scale
+    uint32_t   last_exec_sum_us    = 0;
+    uint32_t   last_average_us     = 0;
+    uint32_t   exec_sum_us         = 0;
+    uint32_t   exec_sum_start_us   = 0;
+
+    uint32_t   scale_x100          = 0;
+    uint8_t    priority            = GSYSTEM_PROCCESS_PRIORITY_DEFAULT;
+
 #if !defined(GSYSTEM_NO_PROC_INFO)
-    uint32_t  max_exec_us          = 0;               // Max execution time
-
-    // Execution counter
-    uint32_t exec_counter          = 0;
-    uint32_t execs_per_sec_x100    = 0;
+    uint32_t   last_max_exec_us     = 0;
+    uint32_t   max_exec_us          = 0;     // Max execution time
 #endif
-    bool     isr                   = false;
+    uint32_t   last_exec_counter    = 0;
+    uint32_t   exec_counter         = 0;     // Execution counter
+    bool       isr                  = false;
 
 
-    Process(): timer(0) {}
+    Job() {}
 
-    Process(
-        void (*action)(void),
+    Job(
+        void     (*action)(void),
         uint32_t delay_ms,
-        bool realtime          = false,
-        bool work_with_error   = false,
-        int32_t weight_pct100  = 100,
-        bool isr               = false
+        bool     realtime        = false,
+        bool     work_with_error = false,
+        uint8_t  priority        = GSYSTEM_PROCCESS_PRIORITY_DEFAULT,
+        bool     isr             = false
     ):
-        action(action), orig_delay_ms(delay_ms), current_delay_ms(delay_ms), timer(delay_ms),
+        action(action), orig_delay_ms(delay_ms), current_delay_ms(delay_ms),
         work_with_error(work_with_error), realtime(realtime), system_task(false),
-        exec_ewma_us_pct100(0), last_start_us(0), weight_pct100(weight_pct100),
-        last_load_scaled(0), scale_raw_pct100(100), scale_smooth_pct100(100),
+        last_start_us(0), last_end_us(0), last_exec_sum_us(0), last_average_us(0),
+        exec_sum_us(0), exec_sum_start_us(0), scale_x100(0), priority(priority),
 #if !defined(GSYSTEM_NO_PROC_INFO)
-    	max_exec_us(0), exec_counter(0), execs_per_sec_x100(0),
+    	last_max_exec_us(0), max_exec_us(0),
 #endif
-        isr(isr)
+        last_exec_counter(0), exec_counter(0), isr(isr)
     {}
-
-    template<void (*_ACTION) (void) = nullptr, uint32_t _DELAY_MS = 0, bool _REALTIME = false, bool _WORK_WITH_ERROR = false, uint32_t _WEIGHT = 100, bool _ISR = false>
-    Process(const Process<_ACTION, _DELAY_MS, _REALTIME, _WORK_WITH_ERROR, _WEIGHT, _ISR>& right):
-        Process(right.action, right.orig_delay_ms, right.realtime, right.work_with_error, right.weight_pct100, right.isr)
-    {}
-};
-
-
-template<class... TASKS>
-struct TaskList {
-    static_assert(
-        !utl::empty(typename utl::typelist_t<TASKS...>::RESULT{}),
-        "empty tasks list"
-    );
-#if __cplusplus > 201402L
-    static_assert(
-        std::is_same_v<
-            typename utl::variant_factory<utl::typelist_t<TASKS...>>::VARIANT,
-            typename utl::variant_factory<utl::removed_duplicates_t<TASKS...>>::VARIANT
-        >,
-        "repeated tasks"
-    );
-#endif
-
-    using tasks_p = utl::simple_list_t<TASKS...>;
-
-    static constexpr unsigned COUNT = sizeof...(TASKS);
-};
-
-
-template<size_t USER_COUNT, class SYSTEM_TASK_LIST>
-class Scheduler {
-private:
-    static constexpr unsigned TASKS_COUNT = USER_COUNT + SYSTEM_TASK_LIST::COUNT;
-
-    using system_task_p = typename SYSTEM_TASK_LIST::tasks_p;
-    using proc_size_t   = typename utl::TypeSelector<TASKS_COUNT>::TYPE;
-
-	Process<> processes_buf[TASKS_COUNT];
-	circle_buf_gc_t processes;
-
-    uint32_t smooth_scale_x100;
-    uint32_t last_recompute_ms;
-    int32_t last_scale_x100;
-    utl::Timer err_timer;
-    utl::Timer TPC_timer;
-    uint32_t TPC_counter;
-    uint32_t last_TPC_counter;
-    proc_size_t isr_proc_idx;
-
-    bool denied(Process<>* const proc)
+    
+    bool denied()
     {
-        if (proc->system_task) {
+        if (system_task) {
             return false;
         }
         if (is_error(HARD_FAULT)) {
             return true;;
         }
-        if (is_status(SYSTEM_ERROR_HANDLER_CALLED) && !proc->work_with_error) {
+        if (is_status(SYSTEM_ERROR_HANDLER_CALLED) && !work_with_error) {
             return true;
         }
         return false;
     }
 
-    void newd_update(Process<>* const proc)
+    void updateCount(uint64_t now_us = getMicroseconds())
     {
-        int64_t newd = ((int64_t)proc->orig_delay_ms * proc->scale_smooth_pct100 + (FIX - 1)) / FIX;
-        if (newd < 1) {
-            newd = 1;
+        if (last_end_us + SECOND_US < now_us) {
+            last_exec_sum_us = (last_exec_sum_us * EXEC_SMOOTH_ALPHA) / 100;
         }
-        if ((uint32_t)newd > Process<>::MAX_DELAY_MS) {
-            newd = Process<>::MAX_DELAY_MS;
-        }
-        proc->current_delay_ms = (uint32_t)newd;
     }
+
+    void exec(uint64_t now_us = getMicroseconds())
+    {
+        last_start_us = now_us;
+        if (action) {
+            action();
+            exec_counter++;
+        }
+        last_end_us = getMicroseconds();
+
+        if (exec_sum_start_us + SECOND_US < last_end_us) {
+            uint32_t last_period = last_end_us > exec_sum_start_us ? last_end_us - exec_sum_start_us : SECOND_US;
+            last_exec_sum_us = (uint32_t)__proportion((uint64_t)exec_sum_us, 0, (uint64_t)last_period, 0, (uint64_t)SECOND_US);
+            last_average_us = exec_sum_us / (exec_counter > 0 ? exec_counter : 1);
+            exec_sum_start_us = last_end_us;
+            exec_sum_us = 0;
+            last_exec_counter = (uint32_t)__proportion((uint64_t)exec_counter, 0, (uint64_t)last_period, 0, (uint64_t)SECOND_US);
+            exec_counter = 0;
+        }
+
+        uint32_t dur_us = (last_end_us > last_start_us) ? (last_end_us - last_start_us) : 0;
+        exec_sum_us += dur_us;
+#if !defined(GSYSTEM_NO_PROC_INFO)
+        if (max_exec_us < dur_us) {
+            last_max_exec_us = dur_us;
+            max_exec_us = dur_us;
+        }
+#endif
+    }
+
+    uint32_t get_load_x100()
+    {
+        return __proportion((uint64_t)last_exec_sum_us, 0, (uint64_t)SECOND_US, 0, (uint64_t)LOAD_SCALE);
+    }
+};
+
+static circle_buf_gc_t jobs = {};
+static Job jobs_buf[JOBS_BUF_SIZE] = {};
+
+class Scheduler {
+private:
+    const uint32_t LOAD_WRN_X100 = 500;
+    const uint32_t LOAD_ERR_X100 = 1000;
+    const char* COLOR_DEFAULT    = "\x1b[0m";
+    const char* COLOR_WARN       = "\x1b[33m";
+    const char* COLOR_ERROR      = "\x1b[31m";
+
+	circle_buf_gc_t* const jobs;
+
+    uint32_t   smooth_scale_x100;
+    uint32_t   last_recompute_ms;
+    uint32_t   last_scale_x100;
+
+    utl::Timer err_timer;
+
+    utl::Timer TPC_timer;
+    uint32_t   TPC_counter;
+    uint32_t   last_TPC_counter;
+
+    uint32_t   isr_job_idx;
+
+    uint32_t   last_sum_reset_us;
+
+    uint32_t   jobs_scale_x100;
 
     void print_div_line()
     {
 #if defined(GSYSTEM_PROC_PROC_ENABLE)
-        printPretty("+----+-------------+-------------+-------------+----------+---------+-------------+-----------+--------+----------+----------+\n");
+        printPretty("+----+------------+----------+---------+---------+---------+------+----------+----------+\n");
 #endif
     }
-
-    int32_t calc_load_scaled(uint32_t exec_us, uint32_t period_ms) {
-        if (period_ms == 0) {
-            return 0;
-        }
-        int64_t num = (int64_t)exec_us * (int64_t)LOAD_SCALE;
-        int64_t den = (int64_t)period_ms * MILLIS_US;
-        return (int32_t)(num / den);
-    }
-
-    template<class SYS_PACK>
-    void add_sys_task(utl::getType<SYS_PACK>)
-    {
-		SYS_PACK proc;
-        add_task((Process<>*)&proc);
-    }
-
-#if __cplusplus > 201402L
-    template<class... SYS_PACKS>
-    void system_tasks_register(utl::simple_list_t<SYS_PACKS...>)
-    {
-        (add_sys_task(utl::getType<SYS_PACKS>{}), ...);
-    }
-#else
-    void system_tasks_register(utl::simple_list_t<>) {}
-
-    template<class FIRST, class... REST>
-    void system_tasks_register(utl::simple_list_t<FIRST, REST...>)
-    {
-        add_sys_task(utl::getType<FIRST>{});
-        system_tasks_register(utl::simple_list_t<REST...>{});
-    }
-#endif
 
 public:
-    Scheduler():
-        processes_buf(), processes(), smooth_scale_x100(100), last_recompute_ms(0),
+    Scheduler(
+        circle_buf_gc_t* const jobs,
+        Job* const jobs_buf,
+        const uint32_t jobs_cnt,
+        std::initializer_list<Job> sys_jobs
+    ):
+        jobs(jobs), smooth_scale_x100(100), last_recompute_ms(0),
         last_scale_x100(0), err_timer(0),
         TPC_timer(SECOND_MS), TPC_counter(0), last_TPC_counter(0),
-        isr_proc_idx(0)
+        isr_job_idx(0), last_sum_reset_us(0), jobs_scale_x100(0)
     {
         BEDUG_ASSERT(
-		    circle_buf_gc_init(&processes, (uint8_t*)processes_buf, sizeof(Process<>), __arr_len(processes_buf)),
-            "GSystem processes buffer initialization error"
+		    circle_buf_gc_init(jobs, (uint8_t*)jobs_buf, sizeof(Job), jobs_cnt),
+            "GSystem jobs buffer initialization error"
         )
-        system_tasks_register(system_task_p{});
+        for (unsigned i = 0 ; i < sys_jobs.size(); i++) {
+            add_task((Job*)((Job*)sys_jobs.begin() + i));
+        }
     }
 
     void init()
@@ -233,20 +222,22 @@ public:
         _device_rev_show();
     }
 
-    template<void (*ACTION) (void) = nullptr, uint32_t DELAY_MS = 0, bool REALTIME = false, bool WORK_WITH_ERROR = false, uint32_t WEIGHT = 100, bool ISR = false>
-    bool add_task(Process<ACTION, DELAY_MS, REALTIME, WORK_WITH_ERROR, WEIGHT, ISR>* const proc)
+    bool add_task(Job* const job)
     {
-        BEDUG_ASSERT(!full(), "GSystem user processes is out of range");
+        BEDUG_ASSERT(!full(), "GSystem jobs is out of range");
         if (full()) {
             return false;
         }
 
-		proc->current_delay_ms = proc->orig_delay_ms;
-        proc->timer.changeDelay(proc->current_delay_ms);
-        proc->timer.start();
-        proc->scale_smooth_pct100 = 100;
+		job->current_delay_ms = job->orig_delay_ms;
+        if (job->priority <= GSYSTEM_INTERNAL_PROCCESS_PRIORITY && !job->system_task) {
+            job->priority = GSYSTEM_INTERNAL_PROCCESS_PRIORITY + 1;
+        }
+        if (job->priority > GSYSTEM_PROCCESS_PRIORITY_MAX) {
+            job->priority = GSYSTEM_PROCCESS_PRIORITY_MAX;
+        }
 
-		circle_buf_gc_push_back(&processes, (uint8_t*)proc);
+		circle_buf_gc_push_back(jobs, (uint8_t*)job);
 
         return true;
     }
@@ -263,55 +254,30 @@ public:
             }
         }
 
-        proc_size_t len = circle_buf_gc_count(&processes);
-        if (isr_proc_idx >= len) {
-            isr_proc_idx = 0;
+        uint32_t len = circle_buf_gc_count(jobs);
+        if (isr_job_idx >= len) {
+            isr_job_idx = 0;
         }
-        proc_size_t i = isr ? isr_proc_idx : 0;
+        uint32_t i = isr ? isr_job_idx : 0;
         for (; i < len; i++) {
-            Process<>* proc = (Process<>*)circle_buf_gc_index(&processes, i);
-            if (isr != proc->isr) {
+            Job* job = (Job*)circle_buf_gc_index(jobs, i);
+            if (isr != job->isr) {
                 continue;
             }
 
-            if (proc->timer.wait()) {
+            uint64_t time_us = getMicroseconds();
+
+            job->updateCount(time_us);
+
+            if (job->last_end_us + job->current_delay_ms * MILLIS_US > time_us) {
                 continue;
             }
 
-            if (denied(proc)) {
+            if (job->denied()) {
                 continue;
             }
 
-            proc->last_start_us = getMicroseconds();
-            if (proc->action) {
-                proc->action();
-#if !defined(GSYSTEM_NO_PROC_INFO)
-                proc->exec_counter++;
-#endif
-            }
-            uint64_t after_us = getMicroseconds();
-
-            uint64_t dur_us = (after_us >= proc->last_start_us) ? (after_us - proc->last_start_us) : 0;
-#if !defined(GSYSTEM_NO_PROC_INFO)
-            if (proc->max_exec_us < dur_us) {
-                proc->max_exec_us = (uint32_t)dur_us;
-            }
-#endif
-
-            int64_t new_us100 = (int64_t)dur_us * FIX;
-            if (proc->exec_ewma_us_pct100 <= 0) {
-                proc->exec_ewma_us_pct100 = new_us100;
-            } else {
-                proc->exec_ewma_us_pct100 = (
-                    ((int64_t)(100 - EWMA_ALPHA_PCT100) * proc->exec_ewma_us_pct100 ) +
-                    ((int64_t)EWMA_ALPHA_PCT100 * new_us100)
-                ) / 100;
-            }
-
-            uint32_t delay_ms = proc->current_delay_ms ? proc->current_delay_ms : proc->orig_delay_ms;
-            proc->timer.changeDelay(delay_ms);
-            proc->timer.start();
-
+            job->exec(time_us);
 #if defined(GSYSTEM_PROC_INFO_ENABLE)
             if (isr) {
                 break;
@@ -323,20 +289,21 @@ public:
 #endif
         }
         if (isr) {
-            isr_proc_idx++;
+            isr_job_idx++;
         }
     }
 
     void print_status()
     {
 #if defined(GSYSTEM_PROC_PROC_ENABLE)
+        printf("\033[2J\033[H");
         SYSTEM_BEDUG("System scheduler info");
 
     #if !defined(GSYSTEM_NO_ADC_W)
         uint32_t voltage = get_system_power_v_x100();
     #endif
         printPretty(
-            "Build version: v%s  |  kTPC: %lu.%02lu"
+            "Build version: v%s | kTPC: %lu.%02lu"
     #if !defined(GSYSTEM_NO_ADC_W)
             "  |  CPU PWR: %lu.%02lu V"
     #endif
@@ -351,230 +318,171 @@ public:
     #endif
         );
 
-        const int32_t warn_threshold_x100 = 500;
-        static const char header[] = "| ID | PeriodO(ms) | PeriodC(ms) | ExecAvg(us) | Freq(Hz) | Load(%%) | MaxExec(us) | Weight(%%) | scaleR | scaleSmo | Realtime |\n";
+        static const char header[] = "| ID | Period(ms) | Freq(Hz) | Load(%%) | AVG(us) | Max(us) | Prio | Scale(%%) | Realtime |\n";
         print_div_line();
         printPretty(header);
         print_div_line();
 
-        int64_t sum_weighted_load = 0;
-        int64_t sum_weights = 0;
-
-        int64_t total_unweighted_load_scaled = 0;
-
-        auto show = [&] (Process<>* proc, proc_size_t index) {
-            uint32_t periodO = proc->orig_delay_ms;
-            uint32_t periodC = proc->current_delay_ms;
-
-            int64_t exec_us100  = proc->exec_ewma_us_pct100;
-            uint32_t exec_us_ewma = (uint32_t)(exec_us100 / FIX);
-
-            uint32_t exec_us_max = proc->max_exec_us;
-
-            int64_t load_scaled_ewma = 0;
-            if (periodC > 0) {
-                load_scaled_ewma = (exec_us100 * (int64_t)LOAD_SCALE) / ((int64_t)periodC * (int64_t)MILLIS_US * (int64_t)FIX);
+        uint32_t total_load_x100 = 0;
+        auto show = [&] (Job* job, uint32_t index) {
+            uint32_t load_percent_x100 = job->get_load_x100();
+            total_load_x100 += load_percent_x100;
+            uint32_t load_max_exec_us_x100 = __proportion((uint64_t)job->last_max_exec_us, 0, (uint64_t)SECOND_US, 0, (uint64_t)LOAD_SCALE);
+            uint32_t scale_x100 = job->scale_x100 + LOAD_SCALE;
+            if (!job->realtime) {
+                scale_x100 += jobs_scale_x100;
             }
-            proc->last_load_scaled = load_scaled_ewma;
 
-            int32_t load_percent_x100 = (int32_t)((load_scaled_ewma * 100) / LOAD_SCALE);
-
-            int32_t load_max_scaled = 0;
-            if (periodC > 0) {
-                load_max_scaled = (int32_t)(((int64_t)exec_us_max * (int64_t)LOAD_SCALE) / ((int64_t)periodC * (int64_t)MILLIS_US));
+            const char* color = COLOR_DEFAULT;
+            if (load_percent_x100 > LOAD_ERR_X100) {
+                color = COLOR_ERROR;
+            } else if (load_percent_x100 > LOAD_WRN_X100) {
+                color = COLOR_WARN;
             }
-            int32_t load_max_percent_x100 = (load_max_scaled * 100) / LOAD_SCALE;
-
-            sum_weighted_load += (int64_t)proc->weight_pct100 * load_scaled_ewma;
-            sum_weights += proc->weight_pct100;
-            total_unweighted_load_scaled += load_scaled_ewma;
             
-            proc->execs_per_sec_x100 = (uint32_t)(((uint64_t)proc->exec_counter * SECOND_MS * 100) / (uint64_t)LOAD_SHOW_DELAY_MS);
-            proc->exec_counter = 0;
-
+	        gprint("%s", color);
             printPretty("|");
             gprint(" %02u |", index);
-            gprint(" %11lu |", periodO);
-            gprint(" %11lu |", periodC);
-            gprint(" %11lu |", exec_us_ewma);
-            gprint(" %5lu.%02lu |", proc->execs_per_sec_x100 / 100, __abs(proc->execs_per_sec_x100 % 100));
+            gprint(" %10lu |", (job->current_delay_ms > job->orig_delay_ms && !job->realtime) ? job->current_delay_ms : job->orig_delay_ms);
+            gprint(" %8lu |", job->last_exec_counter);
             gprint(" %4lu.%02lu |", load_percent_x100 / FIX, __abs(load_percent_x100 % FIX));
-            gprint(" %11lu |", exec_us_max);
-            gprint(" %6lu.%02lu |", proc->weight_pct100 / FIX, __abs(proc->weight_pct100 % FIX));
-            gprint(" %3lu.%02lu |", proc->scale_raw_pct100 / FIX, __abs(proc->scale_raw_pct100 % FIX));
-            gprint(" %5lu.%02lu |",  proc->scale_smooth_pct100 / FIX, __abs(proc->scale_smooth_pct100 % FIX));
-            gprint(" %8s |", proc->realtime ? "YES" : "NO");
-            if ( load_max_percent_x100 > warn_threshold_x100 ) {
-                gprint(" WARNING!");
+            gprint(" %7lu |", job->last_average_us);
+            if (color == COLOR_DEFAULT && load_max_exec_us_x100 > LOAD_WRN_X100) {
+	            gprint("%s", COLOR_WARN);
             }
-            gprint("\n");
+            gprint(" %7lu", job->last_max_exec_us);
+            if (color == COLOR_DEFAULT && load_max_exec_us_x100 > LOAD_WRN_X100) {
+	            gprint("%s", COLOR_DEFAULT);
+            }
+            gprint(" | %4lu |", job->priority);
+            gprint(" %5lu.%02lu |", scale_x100 / FIX, __abs(scale_x100 % FIX));
+            gprint(" %8s |", job->realtime ? "YES" : "NO");
+	        gprint("%s\n", COLOR_DEFAULT);
+
+            job->last_max_exec_us = job->max_exec_us;
+            job->max_exec_us = 0;
         };
 
-        for (proc_size_t i = 0; i < circle_buf_gc_count(&processes); i++) {
-            Process<>* proc  = (Process<>*)circle_buf_gc_index(&processes, i);
-            if (i == SYSTEM_TASK_LIST::COUNT) {
+        for (uint32_t i = 0; i < circle_buf_gc_count(jobs); i++) {
+            Job* job  = (Job*)circle_buf_gc_index(jobs, i);
+            if (i == GSYSTEM_MIN_PROCCESS_CNT) {
                 print_div_line();
             }
-            if (!proc->isr) {
-                show(proc, i);
+            if (!job->isr) {
+                show(job, i);
             }
         }
         print_div_line();
 
         bool isr_printed = false;
-        for (proc_size_t i = 0; i < circle_buf_gc_count(&processes); i++) {
-            Process<>* proc  = (Process<>*)circle_buf_gc_index(&processes, i);
-            if (proc->isr) {
+        for (uint32_t i = 0; i < circle_buf_gc_count(jobs); i++) {
+            Job* job  = (Job*)circle_buf_gc_index(jobs, i);
+            if (job->isr) {
                 isr_printed = true;
-                show(proc, i);
+                show(job, i);
             }
         }
         if (isr_printed) {
             print_div_line();
         }
 
-        int64_t U_weighted_scaled = 0;
-        if (sum_weights > 0) {
-            U_weighted_scaled = sum_weighted_load / sum_weights;
+        const char* color = COLOR_DEFAULT;
+        if (total_load_x100 > TARGET_CPU_LOAD_X100 + LOAD_WRN_X100) {
+            color = COLOR_ERROR;
+        } else if (total_load_x100 > TARGET_CPU_LOAD_X100 - LOAD_ERR_X100) {
+            color = COLOR_WARN;
         }
-
-        int64_t total_unweighted_percent_x100 = (total_unweighted_load_scaled * 100) / LOAD_SCALE;
-        int64_t total_weighted_percent = U_weighted_scaled / 100;
-
+        uint32_t debug_scale_x100 = jobs_scale_x100 + LOAD_SCALE;
+        gprint("%s", color);
         printPretty(
-            "Total sum load: %ld.%02ld%%  |  Total weighted (avg): %ld%%  |  Target util: %d%%\n",
-            (int32_t)(total_unweighted_percent_x100/100), (int32_t)(__abs(total_unweighted_percent_x100%100)),
-            (int32_t)total_weighted_percent,
-            (int32_t)TARGET_UTIL_PCT100
-        );
-
-        for (proc_size_t i = 0; i < circle_buf_gc_count(&processes); i++) {
-            Process<>* proc = (Process<>*)circle_buf_gc_index(&processes, i);
-            int32_t load_s = calc_load_scaled(proc->max_exec_us, proc->current_delay_ms);
-            int load_percent_times100 = (load_s * 100) / LOAD_SCALE;
-            if (((int32_t)((proc->last_load_scaled * 100) / LOAD_SCALE)) > warn_threshold_x100) {
-                printPretty(
-                    "WARNING: task %u heavy: %u us (~%d.%02d%%)\n",
-                    i,
-                    proc->max_exec_us,
-                    load_percent_times100 / 100, load_percent_times100 % 100
-               );
-            }
-            proc->max_exec_us = 0;
-        }
+            "Total sum load: %ld.%02ld%% | Target load: %ld.%02ld%% | Jobs scale: %ld.%02ld%%\n",
+            (uint32_t)(total_load_x100 / 100), (uint32_t)(__abs(total_load_x100 % 100)),
+            (uint32_t)(TARGET_CPU_LOAD_X100 / 100), (uint32_t)(__abs(TARGET_CPU_LOAD_X100 % 100)),
+            (uint32_t)(debug_scale_x100 / 100), (uint32_t)(__abs(debug_scale_x100 % 100))
+        );  
+        gprint("%s", COLOR_DEFAULT);
 #endif
     }
 
     void recompute_scaling()
     {
-        int64_t sum_weighted_load = 0;
-        int64_t sum_weights = 0;
-
-        for (proc_size_t i = 0; i < circle_buf_gc_count(&processes); i++) {
-            Process<>* proc = (Process<>*)circle_buf_gc_index(&processes, i);
-            if (proc->realtime) {
-                proc->last_load_scaled = 0;
+        uint32_t total_load_x100 = 0;
+        uint32_t total_realtime_load_x100 = 0;
+        uint32_t jobs_cnt = circle_buf_gc_count(jobs);
+        uint32_t realtime_jobs_cnt = 0;
+        for (uint32_t i = 0; i < jobs_cnt; i++) {
+            Job* job = (Job*)circle_buf_gc_index(jobs, i);
+            uint32_t load_x100 = job->get_load_x100();
+            total_load_x100 += load_x100;
+            if (job->realtime) {
+                total_realtime_load_x100 += load_x100;
+                job->current_delay_ms = job->orig_delay_ms;
+                realtime_jobs_cnt++;
+                job->scale_x100 = 0;
                 continue;
             }
 
-            uint32_t period_ms = (proc->current_delay_ms ? proc->current_delay_ms : proc->orig_delay_ms);
+            uint32_t period_ms = job->orig_delay_ms;
             if (period_ms == 0) {
-                proc->last_load_scaled = 0;
-                continue;
+                period_ms = 1;
+            }
+            
+            if (load_x100 > LOAD_WRN_X100) {
+                uint32_t load_delta_x100 = load_x100 - LOAD_WRN_X100;
+                job->scale_x100 =
+                    ((uint64_t)job->last_exec_sum_us * 
+                    ((uint64_t)LOAD_SCALE + (uint64_t)load_delta_x100)) / 
+                    (uint64_t)LOAD_WRN_X100;
+            } else {
+                job->scale_x100 = job->scale_x100 > 0 ? (job->scale_x100 * (100 - SCALE_SMOOTH_ALPHA) / 100) : 0;
+            }
+            if (job->scale_x100 > JOB_SCALE_MAX_X100) {
+                job->scale_x100 = JOB_SCALE_MAX_X100;
             }
 
-            int64_t exec_us100 = proc->exec_ewma_us_pct100;
-            int64_t period_us  = period_ms * MILLIS_US;
-
-            int64_t load_scaled = 0;
-            if (period_ms > 0) {
-                load_scaled = (exec_us100 * (int64_t)LOAD_SCALE) / (period_us * (int64_t)FIX);
-            }else {
-                load_scaled = 0;
+            if (job->scale_x100) {
+                job->current_delay_ms = period_ms * (job->priority * FIX + job->scale_x100) / LOAD_SCALE;
+            } else {
+                job->current_delay_ms = job->orig_delay_ms;
             }
-            proc->last_load_scaled = (int32_t)load_scaled;
-
-            sum_weighted_load += (int64_t)proc->weight_pct100 * load_scaled;
-            sum_weights += proc->weight_pct100;
         }
-        if (sum_weights <= 0) {
-            sum_weights = 1;
-        }
 
-        int64_t U_weighted_scaled = sum_weighted_load / sum_weights;
-        int64_t target_scaled = (int64_t)TARGET_UTIL_PCT100 * (LOAD_SCALE / 100);
-        if (U_weighted_scaled <= TARGET_UTIL_PCT100) {
-			for (proc_size_t i = 0; i < circle_buf_gc_count(&processes); i++) {
-				Process<>* proc = (Process<>*)circle_buf_gc_index(&processes, i);
-                if (proc->realtime) {
-                    proc->current_delay_ms    = proc->orig_delay_ms;
-                    proc->scale_raw_pct100    = 100;
-                    proc->scale_smooth_pct100 = (
-                            (int32_t)((100 - SCALE_SMOOTH_ALPHA_PCT100) * (int64_t)proc->scale_smooth_pct100 +
-                            (int64_t)SCALE_SMOOTH_ALPHA_PCT100 * 100)
-                    ) / 100;
-                    continue;
-                }
-
-                proc->scale_raw_pct100    = 100;
-                proc->scale_smooth_pct100 = (int32_t)(
-                    ((100 - SCALE_SMOOTH_ALPHA_PCT100) * (int64_t)proc->scale_smooth_pct100 +
-                    (int64_t)SCALE_SMOOTH_ALPHA_PCT100 * (int64_t)proc->scale_raw_pct100)
-                ) / 100;
-
-                newd_update(proc);
-            }
+        if (jobs_cnt <= realtime_jobs_cnt) {
+            jobs_scale_x100 = 0;
             return;
         }
 
-        int64_t excess_scaled100 = (U_weighted_scaled * (int64_t)FIX) / target_scaled;
-        if (excess_scaled100 < 100) {
-            excess_scaled100 = 100;
-        }
-        int64_t max_excess_scaled100 = MAX_SCALE_PCT100;
-        if (excess_scaled100 > max_excess_scaled100) {
-            excess_scaled100 = max_excess_scaled100;
+        if (total_load_x100 <= TARGET_CPU_LOAD_X100) {
+            jobs_scale_x100 = jobs_scale_x100 > 0 ? (jobs_scale_x100 * (100 - SCALE_SMOOTH_ALPHA) / 100) : 0;
+            return;
         }
 
-        int64_t denom = 0;
-        for (proc_size_t i = 0; i < circle_buf_gc_count(&processes); i++) {
-            Process<>* proc = (Process<>*)circle_buf_gc_index(&processes, i);
-            denom += proc->weight_pct100 * proc->last_load_scaled;
-        }
-        if (denom <= 0) {
-            denom = 1;
+        uint32_t total_load_delta_x100 = total_load_x100 - TARGET_CPU_LOAD_X100;
+        jobs_scale_x100 = 
+            ((uint64_t)total_load_x100 * 
+            ((uint64_t)LOAD_SCALE + (uint64_t)total_load_delta_x100)) / 
+            (uint64_t)TARGET_CPU_LOAD_X100;
+        if (jobs_scale_x100 > JOB_SCALE_MAX_X100) {
+            jobs_scale_x100 = JOB_SCALE_MAX_X100;
         }
 
-        for (proc_size_t i = 0; i < circle_buf_gc_count(&processes); i++) {
-            Process<>* proc = (Process<>*)circle_buf_gc_index(&processes, i);
-            if (proc->realtime) {
-                proc->current_delay_ms    = proc->orig_delay_ms;
-                proc->scale_raw_pct100    = 100;
-                proc->scale_smooth_pct100 = (int32_t)(
-                    ((100 - SCALE_SMOOTH_ALPHA_PCT100) * (int64_t)proc->scale_smooth_pct100 +
-                    (int64_t)SCALE_SMOOTH_ALPHA_PCT100 * 100)
-                ) / 100;
+        for (uint32_t i = 0; i < jobs_cnt; i++) {
+            Job* job = (Job*)circle_buf_gc_index(jobs, i);
+            if (job->realtime) {
                 continue;
             }
 
-            int64_t contrib = (int64_t)proc->weight_pct100 * proc->last_load_scaled;
-            int64_t frac_pct100 = (contrib * (int64_t)FIX) / denom;
-            int64_t delta = excess_scaled100 - 100;
-            int64_t scale_raw_pct100 = 100 + (delta * frac_pct100) / 100;
-            if (scale_raw_pct100 < MIN_SCALE_PCT100) {
-                scale_raw_pct100 = MIN_SCALE_PCT100;
+            uint32_t period_ms = job->orig_delay_ms;
+            if (period_ms == 0) {
+                period_ms = 1;
             }
-            if (scale_raw_pct100 > MAX_SCALE_PCT100) {
-                scale_raw_pct100 = MAX_SCALE_PCT100;
+
+            if (jobs_scale_x100) {
+                uint32_t scale_x100 = jobs_scale_x100 + job->scale_x100;
+                job->current_delay_ms = period_ms * (job->priority * FIX + scale_x100) / LOAD_SCALE;
+            } else {
+                job->current_delay_ms = job->orig_delay_ms;
             }
-            proc->scale_raw_pct100 = (int32_t)scale_raw_pct100;
-
-            proc->scale_smooth_pct100 = (int32_t)(
-                ((100 - SCALE_SMOOTH_ALPHA_PCT100) * (int64_t)proc->scale_smooth_pct100 +
-                (int64_t)SCALE_SMOOTH_ALPHA_PCT100 * (int64_t)proc->scale_raw_pct100)
-            ) / 100;
-
-            newd_update(proc);
         }
     }
 
@@ -631,12 +539,12 @@ public:
 
     bool full()
     {
-        return circle_buf_gc_full(&processes);
+        return circle_buf_gc_full(jobs);
     }
 
-    unsigned proc_count()
+    unsigned job_count()
     {
-        return circle_buf_gc_count(&processes);
+        return circle_buf_gc_count(jobs);
     }
 };
 
@@ -668,42 +576,44 @@ extern "C" void settings_update();
 extern "C" void btn_watchdog_check();
 extern "C" void system_scheduler_init();
 
-static Scheduler<
-    GSYSTEM_POCESSES_COUNT,
-    TaskList<
-        Process<_scheduler_load_show,         LOAD_SHOW_DELAY_MS, true,  true, DEFAULT_WEIGHT_PCT100, false>,
-        Process<_scheduler_recompute_scaling, RECOMPUTE_MS,       true,  true, DEFAULT_WEIGHT_PCT100, false>,
-        Process<_scheduler_error_check,       SECOND_MS,          true,  true, DEFAULT_WEIGHT_PCT100, false>,
+static Scheduler scheduler(
+    &jobs,
+    jobs_buf,
+    __arr_len(jobs_buf),
+    {
+        {_scheduler_load_show,         LOAD_SHOW_DELAY_MS, true,  true, GSYSTEM_INTERNAL_PROCCESS_PRIORITY, false},
+        {_scheduler_recompute_scaling, RECOMPUTE_MS,       true,  true, GSYSTEM_INTERNAL_PROCCESS_PRIORITY, false},
+        {_scheduler_error_check,       200,                true,  true, GSYSTEM_INTERNAL_PROCCESS_PRIORITY, false},
 #ifndef GSYSTEM_NO_MEMORY_W
-        Process<memory_watchdog_check,        100,                false, true, DEFAULT_WEIGHT_PCT100, false>,
+        {memory_watchdog_check,        100,                false, true, GSYSTEM_INTERNAL_PROCCESS_PRIORITY, false},
 #endif
 #ifndef GSYSTEM_NO_SYS_TICK_W
-        Process<sys_clock_watchdog_check,     SECOND_MS / 10,     false, true, DEFAULT_WEIGHT_PCT100, false>,
+        {sys_clock_watchdog_check,     SECOND_MS / 10,     false, true, GSYSTEM_INTERNAL_PROCCESS_PRIORITY, false},
 #endif
 #ifndef GSYSTEM_NO_RAM_W
-        Process<ram_watchdog_check,           5 * SECOND_MS,      false, true, DEFAULT_WEIGHT_PCT100, false>,
+        {ram_watchdog_check,           5 * SECOND_MS,      false, true, GSYSTEM_INTERNAL_PROCCESS_PRIORITY, false},
 #endif
 #if !defined(GSYSTEM_NO_ADC_W)
-        Process<adc_watchdog_check,           1,                  true,  true, DEFAULT_WEIGHT_PCT100, false>,
+        {adc_watchdog_check,           1,                  true,  true, GSYSTEM_INTERNAL_PROCCESS_PRIORITY, false},
 #endif
 #if defined(STM32F1) && !defined(GSYSTEM_NO_I2C_W)
-        Process<i2c_watchdog_check,           5 * SECOND_MS,      false, true, DEFAULT_WEIGHT_PCT100, false>,
+        {i2c_watchdog_check,           5 * SECOND_MS,      false, true, GSYSTEM_INTERNAL_PROCCESS_PRIORITY, false},
 #endif
 #ifndef GSYSTEM_NO_RTC_W
-        Process<rtc_watchdog_check,           SECOND_MS,          false, true, DEFAULT_WEIGHT_PCT100, false>,
+        {rtc_watchdog_check,           SECOND_MS,          false, true, GSYSTEM_INTERNAL_PROCCESS_PRIORITY, false},
 #endif
 #if !defined(GSYSTEM_NO_POWER_W) && !defined(GSYSTEM_NO_ADC_W)
-        Process<power_watchdog_check,         1,                  true,  true, DEFAULT_WEIGHT_PCT100, false>,
+        {power_watchdog_check,         1,                  true,  true, GSYSTEM_INTERNAL_PROCCESS_PRIORITY, false},
 #endif
 #ifndef GSYSTEM_NO_DEVICE_SETTINGS
-        Process<settings_update,              500,                false, true, DEFAULT_WEIGHT_PCT100, false>,
+        {settings_update,              500,                false, true, GSYSTEM_INTERNAL_PROCCESS_PRIORITY, false},
 #endif
-        Process<btn_watchdog_check,           5,                  false, true, DEFAULT_WEIGHT_PCT100, false>
-    >
-> scheduler;
+        {btn_watchdog_check,           5,                  false, true, GSYSTEM_INTERNAL_PROCCESS_PRIORITY, false}
+    }
+);
 
 
-extern "C" void sys_proc_init()
+extern "C" void sys_jobs_init()
 {
     scheduler.init();
 }
@@ -718,33 +628,33 @@ extern "C" void system_tick_isr()
     scheduler.tick(true);
 }
 
-extern "C" void system_register(void (*task) (void), uint32_t delay_ms, bool realtime, bool work_with_error, int32_t weight_x100)
+extern "C" void system_register(void (*task) (void), uint32_t delay_ms, bool realtime, bool work_with_error, uint32_t priority)
 {
     if (!task) {
         BEDUG_ASSERT(false, "Empty task");
         return;
     }
     if (scheduler.full()) {
-        BEDUG_ASSERT(false, "GSystem user processes is out of range");
+        BEDUG_ASSERT(false, "GSystem user jobs is out of range");
         return;
     }
-	Process<> proc(task, delay_ms, realtime, work_with_error, weight_x100, false);
-    SYSTEM_BEDUG("add proccess[%02u] (addr=0x%08X delay_ms=%lu)", scheduler.proc_count(), task, delay_ms);
-    scheduler.add_task(&proc);
+	Job job(task, delay_ms, realtime, work_with_error, priority, false);
+    SYSTEM_BEDUG("add job[%02u] (addr=0x%08X delay_ms=%lu)", scheduler.job_count(), task, delay_ms);
+    scheduler.add_task(&job);
 }
 
-void system_register_isr(void (*task) (void), uint32_t delay_ms, bool realtime, bool work_with_error, int32_t weight_x100)
+void system_register_isr(void (*task) (void), uint32_t delay_ms, bool realtime, bool work_with_error, uint32_t weight_x100)
 {
     if (!task) {
         BEDUG_ASSERT(false, "Empty task");
         return;
     }
     if (scheduler.full()) {
-        BEDUG_ASSERT(false, "GSystem user processes is out of range");
+        BEDUG_ASSERT(false, "GSystem user jobs is out of range");
         return;
     }
-	Process<> proc(task, delay_ms, realtime, work_with_error, weight_x100, true);
-    scheduler.add_task(&proc);
+	Job job(task, delay_ms, realtime, work_with_error, weight_x100, true);
+    scheduler.add_task(&job);
 }
 
 extern "C" void set_system_timeout(uint32_t timeout_ms)
@@ -822,4 +732,3 @@ void _scheduler_error_check()
 {
     scheduler.error_check();
 }
-

@@ -204,7 +204,6 @@ void _reset_status(SOUL_STATUS status)
 
 void _show_not_status(type_t type, SOUL_STATUS status, unsigned line)
 {
-	unsigned int_status = (unsigned)status;
 	BEDUG_ASSERT(status > SOUL_STATUSES_START && status < SOUL_STATUSES_END, "The value of the status is not in soul statuses array range");
 	char* type_name = NULL;
 	switch (type) {
