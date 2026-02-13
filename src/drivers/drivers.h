@@ -28,6 +28,8 @@ extern "C" {
 
 #define SECOND_MS                    ((uint32_t)(1000))
 
+#define SECOND_US                    ((uint32_t)MILLIS_US * SECOND_MS)
+
 #define MINUTE_S                     ((uint32_t)(60))
 #define MINUTE_MS                    ((uint32_t)(MINUTE_S * SECOND_MS))
 
