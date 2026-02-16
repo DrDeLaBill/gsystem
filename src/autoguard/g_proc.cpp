@@ -70,7 +70,7 @@ struct Job {
     uint32_t   last_exec_sum_us    = 0;
     uint32_t   last_average_us     = 0;
     uint32_t   exec_sum_us         = 0;
-    uint32_t   exec_sum_start_us   = 0;
+    uint64_t   exec_sum_start_us   = 0;
 
     uint32_t   scale_x100          = 0;
     uint8_t    priority            = GSYSTEM_PROCCESS_PRIORITY_DEFAULT;
@@ -135,7 +135,7 @@ struct Job {
         last_end_us = getMicroseconds();
 
         if (exec_sum_start_us + SECOND_US < last_end_us) {
-            uint32_t last_period = last_end_us > exec_sum_start_us ? last_end_us - exec_sum_start_us : SECOND_US;
+            uint32_t last_period = (uint32_t)(last_end_us > exec_sum_start_us ? last_end_us - exec_sum_start_us : SECOND_US);
             last_exec_sum_us = (uint32_t)__proportion((uint64_t)exec_sum_us, 0, (uint64_t)last_period, 0, (uint64_t)SECOND_US);
             last_average_us = exec_sum_us / (exec_counter > 0 ? exec_counter : 1);
             exec_sum_start_us = last_end_us;
@@ -144,7 +144,7 @@ struct Job {
             exec_counter = 0;
         }
 
-        uint32_t dur_us = (last_end_us > last_start_us) ? (last_end_us - last_start_us) : 0;
+        uint32_t dur_us = (uint32_t)((last_end_us > last_start_us) ? (last_end_us - last_start_us) : 0);
         exec_sum_us += dur_us;
 #if !defined(GSYSTEM_NO_PROC_INFO)
         if (max_exec_us < dur_us) {
@@ -156,7 +156,7 @@ struct Job {
 
     uint32_t get_load_x100()
     {
-        return __proportion((uint64_t)last_exec_sum_us, 0, (uint64_t)SECOND_US, 0, (uint64_t)LOAD_SCALE);
+        return (uint32_t)__proportion((uint64_t)last_exec_sum_us, 0, (uint64_t)SECOND_US, 0, (uint64_t)LOAD_SCALE);
     }
 };
 
@@ -329,7 +329,7 @@ public:
         auto show = [&] (Job* job, uint32_t index) {
             uint32_t load_percent_x100 = job->get_load_x100();
             total_load_x100 += load_percent_x100;
-            uint32_t load_max_exec_us_x100 = __proportion((uint64_t)job->last_max_exec_us, 0, (uint64_t)SECOND_US, 0, (uint64_t)LOAD_SCALE);
+            uint32_t load_max_exec_us_x100 = (uint32_t)__proportion((uint64_t)job->last_max_exec_us, 0, (uint64_t)SECOND_US, 0, (uint64_t)LOAD_SCALE);
             uint32_t scale_x100 = job->scale_x100 + LOAD_SCALE;
             if (!job->realtime) {
                 scale_x100 += jobs_scale_x100;
@@ -431,10 +431,11 @@ public:
             
             if (load_x100 > LOAD_WRN_X100) {
                 uint32_t load_delta_x100 = load_x100 - LOAD_WRN_X100;
-                job->scale_x100 =
+                job->scale_x100 = (uint32_t)(
                     ((uint64_t)job->last_exec_sum_us * 
                     ((uint64_t)LOAD_SCALE + (uint64_t)load_delta_x100)) / 
-                    (uint64_t)LOAD_WRN_X100;
+                    (uint64_t)LOAD_WRN_X100
+				);
             } else {
                 job->scale_x100 = job->scale_x100 > 0 ? (job->scale_x100 * (100 - SCALE_SMOOTH_ALPHA) / 100) : 0;
             }
@@ -460,10 +461,11 @@ public:
         }
 
         uint32_t total_load_delta_x100 = total_load_x100 - TARGET_CPU_LOAD_X100;
-        jobs_scale_x100 = 
+        jobs_scale_x100 = (uint32_t)(
             ((uint64_t)total_load_x100 * 
             ((uint64_t)LOAD_SCALE + (uint64_t)total_load_delta_x100)) / 
-            (uint64_t)TARGET_CPU_LOAD_X100;
+            (uint64_t)TARGET_CPU_LOAD_X100
+		);
         if (jobs_scale_x100 > JOB_SCALE_MAX_X100) {
             jobs_scale_x100 = JOB_SCALE_MAX_X100;
         }
@@ -640,12 +642,12 @@ extern "C" void system_register(void (*task) (void), uint32_t delay_ms, bool rea
         BEDUG_ASSERT(false, "GSystem user jobs is out of range");
         return;
     }
-	Job job(task, delay_ms, realtime, work_with_error, priority, false);
+	Job job(task, delay_ms, realtime, work_with_error, (uint8_t)priority, false);
     SYSTEM_BEDUG("add job[%02u] (addr=0x%08X delay_ms=%lu)", scheduler.job_count(), task, delay_ms);
     scheduler.add_task(&job);
 }
 
-void system_register_isr(void (*task) (void), uint32_t delay_ms, bool realtime, bool work_with_error, uint32_t weight_x100)
+void system_register_isr(void (*task) (void), uint32_t delay_ms, bool realtime, bool work_with_error, uint32_t priority)
 {
     if (!task) {
         BEDUG_ASSERT(false, "Empty task");
@@ -655,7 +657,7 @@ void system_register_isr(void (*task) (void), uint32_t delay_ms, bool realtime, 
         BEDUG_ASSERT(false, "GSystem user jobs is out of range");
         return;
     }
-	Job job(task, delay_ms, realtime, work_with_error, weight_x100, true);
+	Job job(task, delay_ms, realtime, work_with_error, (uint8_t)priority, true);
     scheduler.add_task(&job);
 }
 

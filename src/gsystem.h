@@ -420,6 +420,10 @@ uint32_t get_system_freq(void);
  */
 void system_delay_us(uint64_t us);
 
+
+void SYSTEM_BEDUG(const char* format, ...);
+
+
 #if defined(ARDUINO) && !defined(GSYSTEM_NO_VTOR_REWRITE)
 
 void NMI_Handler(void);

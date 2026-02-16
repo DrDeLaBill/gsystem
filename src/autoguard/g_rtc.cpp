@@ -182,9 +182,7 @@ extern "C" void rtc_watchdog_check()
 		return;
 	}
 
-    #if GSYSTEM_BEDUG
-	printTagLog(SYSTEM_TAG, "RTC testing in progress...");
-    #endif
+	SYSTEM_BEDUG("RTC testing in progress...");
 
 	uint8_t ram_dump = 0;
 	if (!get_clock_ram(0, &ram_dump)) {
@@ -361,9 +359,7 @@ extern "C" void rtc_watchdog_check()
 		goto do_error;
 	}
 
-    #if GSYSTEM_BEDUG
-	printTagLog(SYSTEM_TAG, "RTC testing done");
-    #endif
+	SYSTEM_BEDUG("RTC testing done");
 
 	return;
 

@@ -551,7 +551,7 @@ flash_status_t w25qxx_erase_addresses(const uint32_t* addrs, const uint32_t coun
 	}
 
 #if W25Q_BEDUG
-	printTagLog(W25Q_TAG, "erase flash addresses: ")
+	printTagLog(W25Q_TAG, "erase flash addresses: ");
 	for (uint32_t i = 0; i < count; i++) {
 		printPretty("%08lX\n", addrs[i]);
 	}

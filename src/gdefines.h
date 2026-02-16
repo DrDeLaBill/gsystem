@@ -85,16 +85,6 @@ extern const char SYSTEM_TAG[];
     #define GSYSTEM_RESET_TIMEOUT_MS (30 * SECOND_MS)
 #endif
 
-#if GSYSTEM_BEDUG
-    #if __cplusplus >= 202002L
-        #define SYSTEM_BEDUG(FORMAT, ...) if (gsystem_messages_enabled()) printTagLog(SYSTEM_TAG, FORMAT __VA_OPT__(,) __VA_ARGS__);
-    #else
-        #define SYSTEM_BEDUG(FORMAT, ...) if (gsystem_messages_enabled()) printTagLog(SYSTEM_TAG, FORMAT, ##__VA_ARGS__);
-    #endif
-#else
-    #define SYSTEM_BEDUG(FORMAT, ...) {}
-#endif
-
 #if defined(GSYSTEM_BEDUG_UART) && !GSYSTEM_BEDUG
     #undef GSYSTEM_BEDUG_UART
 #endif

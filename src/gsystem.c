@@ -195,9 +195,6 @@ extern void adc_watchdog_check();
 extern void sys_jobs_init();
 void system_post_load(void)
 {
-#if GSYSTEM_BEDUG
-    gprint("\n\n\n");
-#endif
     SYSTEM_BEDUG("GSystem is loading");
 
     set_status(SYSTEM_SOFTWARE_STARTED);
@@ -318,7 +315,7 @@ void system_error_handler(SOUL_STATUS error)
     if (is_soul_bedug_enable() && !is_error(POWER_ERROR)) {
         SYSTEM_BEDUG("GSystem_error_handler called error=%s", get_status_name(error));
     } else if (!is_error(POWER_ERROR)) {
-        SYSTEM_BEDUG("GSystem_error_handler called error");
+        SYSTEM_BEDUG("GSystem_error_handler called error=%u", error);
     }
 
 #ifndef GSYSTEM_NO_SYS_TICK_W
@@ -404,7 +401,7 @@ void system_error_handler(SOUL_STATUS error)
 
 #if GSYSTEM_BEDUG
     system_timer_start(&s_timer, GSYSTEM_TIMER, SECOND_MS);
-    SYSTEM_BEDUG("GSystem reset");
+    SYSTEM_BEDUG("GSystem reset\n\n\n");
     while(system_timer_wait(&s_timer));
     system_timer_stop(&s_timer);
 #endif
@@ -833,6 +830,20 @@ void system_delay_us(uint64_t us)
 {
     uint64_t start = getMicroseconds();
     while (start + us > getMicroseconds());
+}
+
+void SYSTEM_BEDUG(const char* format, ...)
+{
+#if GSYSTEM_BEDUG
+    if (gsystem_messages_enabled()) {
+        __g_print_tag(SYSTEM_TAG);
+        va_list args;
+        va_start(args, format);
+        printMessage(format, args);
+        va_end(args);
+        gprint("\n");
+    }
+#endif
 }
 
 void _system_restart_check(void)

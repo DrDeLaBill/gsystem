@@ -113,13 +113,9 @@ extern "C" void memory_watchdog_check()
 #   ifndef GSYSTEM_NO_STORAGE_AT
 			storage.setPagesCount(w25qxx_get_pages_count());
 #   endif
-#   ifdef GSYSTEM_BEDUG
-			printTagLog(SYSTEM_TAG, "flash init success (%lu pages)", w25qxx_get_pages_count());
-#   endif
+			SYSTEM_BEDUG("flash init success (%lu pages)", w25qxx_get_pages_count());
 		} else {
-#   ifdef GSYSTEM_BEDUG
-			printTagLog(SYSTEM_TAG, "flash init error");
-#   endif
+			SYSTEM_BEDUG("flash init error");
 		}
 		return;
 	}
