@@ -220,20 +220,15 @@ void _show_not_status(type_t type, SOUL_STATUS status, unsigned line)
 	SYSTEM_BEDUG("Soul status error: %s status is not %s. Line %u.", get_status_name(status), type_name, line);
 }
 
-#define CASE_STATUS(SOUL_STATUS) case SOUL_STATUS:                \
-	                                 snprintf(                    \
-									     name,                    \
-									     sizeof(name) - 1,        \
-									     "[%03u] %s",             \
-									     SOUL_STATUS,             \
-									     __STR_DEF__(SOUL_STATUS) \
-									 );                           \
+#define CASE_STATUS(SOUL_STATUS) case SOUL_STATUS:                   \
+									 ptr = __STR_DEF__(SOUL_STATUS); \
 									 break;
 char* get_status_name(SOUL_STATUS status)
 {
 	static char name[35] = { 0 };
 	memset(name, 0, sizeof(name));
 #if defined(__G_SOUL_BEDUG)
+	char* ptr = NULL;
 	switch (status) {
 	CASE_STATUS(SYSTEM_ERROR_HANDLER_CALLED)
 	CASE_STATUS(SYSTEM_HARDWARE_STARTED)
@@ -325,9 +320,20 @@ char* get_status_name(SOUL_STATUS status)
 		snprintf(name, sizeof(name) - 1, "[%03u] %s", status, get_custom_status_name(status));
 		break;
 	}
+	if (ptr) {
+		snprintf(
+			name,
+			sizeof(name) - 1,
+			"[%03u] %s",
+			(unsigned)status,
+			ptr
+		);
+	} else {
+		snprintf(name, sizeof(name) - 1, "[%03u]", status);
+	}
 	return name;
 #else
-	snprintf(name, sizeof(name) - 1, "[%03u] %s", status, SOUL_UNKNOWN_STATUS);
+	snprintf(name, sizeof(name) - 1, "[%03u]", status);
 	return name;
 #endif
 }

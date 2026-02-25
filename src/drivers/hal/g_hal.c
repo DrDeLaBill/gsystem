@@ -35,7 +35,8 @@ void g_reboot()
     NVIC_SystemReset();
 }
 
-void g_timer_start(system_timer_t* timer, hard_tim_t* fw_tim, uint32_t delay_ms)
+// TODO: change to HW ttimers
+void g_sys_timer_start(system_timer_t* timer, hard_tim_t* fw_tim, uint32_t delay_ms)
 {
     // TODO: timers after system_timer_start don't work
     memset(timer, 0, sizeof(system_timer_t));
@@ -124,7 +125,7 @@ void g_timer_start(system_timer_t* timer, hard_tim_t* fw_tim, uint32_t delay_ms)
     timer->verif = TIMER_VERIF_WORD;
 }
 
-bool g_timer_wait(system_timer_t* timer)
+bool g_sys_timer_wait(system_timer_t* timer)
 {
     if (timer->tim->SR & TIM_SR_CC1IF) {
         timer->count++;
@@ -135,7 +136,7 @@ bool g_timer_wait(system_timer_t* timer)
     return timer->count < timer->end;
 }
 
-void g_timer_stop(system_timer_t* timer)
+void g_sys_timer_stop(system_timer_t* timer)
 {
     timer->tim->SR &= ~(TIM_SR_UIF | TIM_SR_CC1IF);
     timer->tim->CNT = 0;

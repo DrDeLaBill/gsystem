@@ -60,10 +60,8 @@ static bool system_hsi_initialized = false;
 uint16_t SYSTEM_ADC_VOLTAGE[GSYSTEM_ADC_VOLTAGE_COUNT] = {0};
 #endif
 
-
-#ifndef GSYSTEM_TIMER
-#    define GSYSTEM_TIMER (GSYS_DEFAULT_TIM)
-#endif
+uint32_t sys_time_ms = 0;
+bool sys_timer_rdy = false;
 
 
 #if !defined(GSYSTEM_NO_RTC_W)
@@ -81,6 +79,10 @@ void system_init(void)
 
     sys_fill_ram();
 
+#if defined(GSYSTEM_TIMER)
+    sys_timer_rdy = g_sys_tick_start(GSYSTEM_TIMER);
+#endif
+
 	if (!gversion_from_string(BUILD_VERSION, strlen(BUILD_VERSION), &build_ver)) {
 		memset((void*)&build_ver, 0, sizeof(build_ver));
 	}
@@ -89,7 +91,7 @@ void system_init(void)
 #ifndef GSYSTEM_NO_SYS_TICK_W
     RCC->CR |= RCC_CR_HSEON;
 
-    system_timer_start(&timer, GSYSTEM_TIMER, SECOND_MS);
+    system_timer_start(&timer, SECOND_MS);
     while (system_timer_wait(&timer)) {
         if (RCC->CR & RCC_CR_HSERDY) {
             break;
@@ -116,7 +118,7 @@ void system_init(void)
     #    endif
 
     __HAL_RCC_PLL_DISABLE();
-    system_timer_start(&timer, GSYSTEM_TIMER, SECOND_MS);
+    system_timer_start(&timer, SECOND_MS);
     while (system_timer_wait(&timer)) {
         if (__HAL_RCC_GET_FLAG(RCC_FLAG_PLLRDY) == RESET) {
             break;
@@ -140,7 +142,7 @@ void system_init(void)
     #    endif
     __HAL_RCC_PLL_ENABLE();
 
-    system_timer_start(&timer, GSYSTEM_TIMER, SECOND_MS);
+    system_timer_start(&timer, SECOND_MS);
     while (system_timer_wait(&timer)) {
         if (__HAL_RCC_GET_FLAG(RCC_FLAG_PLLRDY) != RESET) {
             break;
@@ -177,7 +179,7 @@ void system_init(void)
 
 #endif
 
-    system_timer_start(&timer, GSYSTEM_TIMER, 20);
+    system_timer_start(&timer, 20);
     while (system_timer_wait(&timer));
     system_timer_stop(&timer);
 
@@ -211,7 +213,7 @@ void system_post_load(void)
     system_timer_t s_timer = {0};
     bool need_error_timer = is_status(SYS_TICK_FAULT);
     if (need_error_timer) {
-        system_timer_start(&s_timer, GSYSTEM_TIMER, delay_ms);
+        system_timer_start(&s_timer, delay_ms);
     } else {
         gtimer_start(&timer, delay_ms);
     }
@@ -301,7 +303,12 @@ void system_error_handler(SOUL_STATUS error)
 
     set_error(error);
 
-    bool need_error_timer = is_status(SYS_TICK_FAULT) || is_error(HARD_FAULT);
+    bool has_mcu_internal_error = 
+        is_error(NON_MASKABLE_INTERRUPT) || is_error(HARD_FAULT) || 
+        is_error(MEM_MANAGE) || is_error(BUS_FAULT) ||
+        is_error(USAGE_FAULT) || is_error(ERROR_HANDLER_CALLED);
+
+    bool need_error_timer = is_status(SYS_TICK_FAULT) || has_mcu_internal_error;
     if (need_error_timer) {
         fsm_gc_disable_all_messages();
         messages_enabled = false;
@@ -312,10 +319,12 @@ void system_error_handler(SOUL_STATUS error)
         error = INTERNAL_ERROR;
     }
 
-    if (is_soul_bedug_enable() && !is_error(POWER_ERROR)) {
-        SYSTEM_BEDUG("GSystem_error_handler called error=%s", get_status_name(error));
-    } else if (!is_error(POWER_ERROR)) {
-        SYSTEM_BEDUG("GSystem_error_handler called error=%u", error);
+    if (!has_mcu_internal_error) {
+        if (is_soul_bedug_enable() && !is_error(POWER_ERROR)) {
+            SYSTEM_BEDUG("GSystem_error_handler called error=%s", get_status_name(error));
+        } else if (!is_error(POWER_ERROR)) {
+            SYSTEM_BEDUG("GSystem_error_handler called error=%u", error);
+        }
     }
 
 #ifndef GSYSTEM_NO_SYS_TICK_W
@@ -374,11 +383,15 @@ void system_error_handler(SOUL_STATUS error)
 #endif
     }
 
+    if (has_mcu_internal_error) {
+        g_reboot();
+    }
+
     uint32_t delay_ms = GSYSTEM_RESET_TIMEOUT_MS;
     gtimer_t timer = {0};
     system_timer_t s_timer = {0};
     if (need_error_timer) {
-        system_timer_start(&s_timer, GSYSTEM_TIMER, delay_ms);
+        system_timer_start(&s_timer, delay_ms);
     } else {
         gtimer_start(&timer, delay_ms);
     }
@@ -400,7 +413,7 @@ void system_error_handler(SOUL_STATUS error)
     system_before_reset();
 
 #if GSYSTEM_BEDUG
-    system_timer_start(&s_timer, GSYSTEM_TIMER, SECOND_MS);
+    system_timer_start(&s_timer, SECOND_MS);
     SYSTEM_BEDUG("GSystem reset\n\n\n");
     while(system_timer_wait(&s_timer));
     system_timer_stop(&s_timer);
@@ -411,34 +424,51 @@ void system_error_handler(SOUL_STATUS error)
 
 __attribute__((weak)) void system_before_reset(void) {}
 
-extern void g_timer_start(system_timer_t* timer, hard_tim_t* fw_tim, uint32_t delay_ms);
-void system_timer_start(system_timer_t* timer, hard_tim_t* fw_tim, uint32_t delay_ms)
+void system_timer_start(system_timer_t* timer, uint32_t delay_ms)
 {
-    if (!timer || !fw_tim || !delay_ms) {
-        SYSTEM_BEDUG("System timer bad parameters");
+    if (!timer) {
+        BEDUG_ASSERT(false, "Timer must not be NULL");
         return;
     }
-    g_timer_start(timer, fw_tim, delay_ms);
+    timer->started  = 1;
+    timer->delay_ms = delay_ms;
+    timer->start_ms = g_get_millis();
 }
 
-extern bool g_timer_wait(system_timer_t* timer);
-bool system_timer_wait(system_timer_t* timer)
+bool system_timer_wait(const system_timer_t* timer)
 {
-    if (!timer->tim || timer->verif != TIMER_VERIF_WORD) {
-        SYSTEM_BEDUG("System timer has not initialized");
+    if (!timer) {
+        BEDUG_ASSERT(false, "Timer must not be NULL");
         return false;
     }
-    return g_timer_wait(timer);
+    return timer->started && timer->start_ms + timer->delay_ms < g_get_millis();
 }
 
-extern void g_timer_stop(system_timer_t* timer);
 void system_timer_stop(system_timer_t* timer)
 {
-    if (!timer->tim || timer->verif != TIMER_VERIF_WORD) {
-        BEDUG_ASSERT(false, "GSYSTEM TIM WAS NOT SELECTED");
+    if (!timer) {
+        BEDUG_ASSERT(false, "Timer must not be NULL");
         return;
     }
-    g_timer_stop(timer);
+    timer->started = false;
+}
+
+bool system_hw_timer_start(hard_tim_t* timer, void (*callback) (void), uint32_t presc, uint32_t cnt)
+{
+    if (!timer || !callback) {
+        BEDUG_ASSERT(false, "Timer and callback must not be NULL");
+        return false;
+    }
+    return g_hw_timer_start(timer, callback, presc, cnt);
+}
+
+void system_hw_timer_stop(hard_tim_t* timer)
+{
+    if (!timer) {
+        BEDUG_ASSERT(false, "Timer must not be NULL");
+        return;
+    }
+    g_hw_timer_stop(timer);
 }
 
 #ifndef GSYSTEM_NO_ADC_W
@@ -750,12 +780,12 @@ void system_sys_tick_reanimation(void)
     RCC->CIR |= RCC_CIR_CSSC;
 
     system_timer_t timer = {0};
-    system_timer_start(&timer, GSYSTEM_TIMER, 5 * SECOND_MS);
+    system_timer_start(&timer, 5 * SECOND_MS);
     while (system_timer_wait(&timer));
     system_timer_stop(&timer);
 
     RCC->CR |= RCC_CR_HSEON;
-    system_timer_start(&timer, GSYSTEM_TIMER, 5 * SECOND_MS);
+    system_timer_start(&timer, 5 * SECOND_MS);
     while (system_timer_wait(&timer)) {
         if (RCC->CR & RCC_CR_HSERDY) {
             reset_error(SYS_TICK_FAULT);
@@ -844,6 +874,22 @@ void SYSTEM_BEDUG(const char* format, ...)
         gprint("\n");
     }
 #endif
+}
+
+uint64_t system_micros()
+{
+    if (sys_timer_rdy) {
+        return g_get_micros();
+    }
+    return getMicroseconds();
+}
+
+uint32_t system_millis()
+{
+    if (sys_timer_rdy) {
+        return g_get_millis();
+    }
+    return getMillis();
 }
 
 void _system_restart_check(void)

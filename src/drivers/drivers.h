@@ -51,6 +51,18 @@ typedef struct _port_pin_t {
 } port_pin_t;
 
 
+typedef struct _system_timer_t {
+    bool     started;
+    uint32_t start_ms;
+    uint32_t delay_ms;
+} system_timer_t;
+
+
+/*
+ * @brief Trigger a platform reboot/reset.
+ * @param None
+ * @return None
+ */
 void g_reboot();
 
 void g_restart_check();
@@ -74,6 +86,16 @@ void g_uart_print(const char* data, const uint16_t len);
 void g_delay_ms(const uint32_t ms);
 
 uint32_t g_system_freq(void);
+
+bool g_sys_tick_start(hard_tim_t* timer);
+
+uint64_t g_get_micros(void);
+
+uint32_t g_get_millis(void);
+
+bool g_hw_timer_start(hard_tim_t* timer, void (*callback) (void), uint32_t presc, uint32_t cnt);
+
+void g_hw_timer_stop(hard_tim_t* timer);
 
 
 #ifdef __cplusplus

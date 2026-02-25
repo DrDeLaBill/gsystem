@@ -44,16 +44,8 @@ extern "C" {
 #define GSYSTEM_PROCCESS_PRIORITY_MAX     ((uint8_t)200)
 
 
-typedef struct _system_timer_t {
-    uint32_t    verif;
-    hard_tim_t* tim;
-    hard_tim_t  bkup_tim;
-    bool        enabled;
-    uint32_t    end;
-    uint32_t    count;
-} system_timer_t;
 
-extern const uint32_t TIMER_VERIF_WORD;
+extern const uint32_t TIMER_VERIF_WORD; // TODO
 
 
 /*
@@ -233,22 +225,20 @@ char* get_system_serial_str(void);
 void system_error_loop(void);
 
 /*
- * @brief Start a simple software timer backed by provided hardware timer.
- *        Typically used when system is in error state to track timeouts.
+ * @brief Start a simple software timer.
  * @param timer (system_timer_t*) - Pointer to timer struct to start you need to create.
- * @param fw_tim (hard_tim_t*) - Hardware timer reference (may be null).
  * @param delay_ms (uint32_t) - Delay in milliseconds before timer expiry.
  * @return None
  * @example static system_timer_t timer = {}; system_timer_start(&timer, fw_tim, 500);
  */
-void system_timer_start(system_timer_t* timer, hard_tim_t* fw_tim, uint32_t delay_ms);
+void system_timer_start(system_timer_t* timer, uint32_t delay_ms);
 
 /*
  * @brief Check if the software timer has expired.
  * @param timer (system_timer_t*) - Pointer to the timer struct to check.
  * @return bool - true if timer expired.
  */
-bool system_timer_wait(system_timer_t* timer);
+bool system_timer_wait(const system_timer_t* timer);
 
 /*
  * @brief Stop and invalidate the software timer.
@@ -257,6 +247,10 @@ bool system_timer_wait(system_timer_t* timer);
  * @return None
  */
 void system_timer_stop(system_timer_t* timer);
+
+bool system_hw_timer_start(hard_tim_t* timer, void (*callback) (void), uint32_t presc, uint32_t cnt);
+
+void system_hw_timer_stop(hard_tim_t* timer);
 
 /*
  * @brief Register a button pin to be handled by the system button subsystem.
@@ -422,6 +416,10 @@ void system_delay_us(uint64_t us);
 
 
 void SYSTEM_BEDUG(const char* format, ...);
+
+uint64_t system_micros();
+
+uint32_t system_millis();
 
 
 #if defined(ARDUINO) && !defined(GSYSTEM_NO_VTOR_REWRITE)

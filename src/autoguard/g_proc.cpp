@@ -118,21 +118,21 @@ struct Job {
         return false;
     }
 
-    void updateCount(uint64_t now_us = getMicroseconds())
+    void updateCount(uint64_t now_us = system_micros())
     {
         if (last_end_us + SECOND_US < now_us) {
             last_exec_sum_us = (last_exec_sum_us * EXEC_SMOOTH_ALPHA) / 100;
         }
     }
 
-    void exec(uint64_t now_us = getMicroseconds())
+    void exec(uint64_t now_us = system_micros())
     {
         last_start_us = now_us;
         if (action) {
             action();
             exec_counter++;
         }
-        last_end_us = getMicroseconds();
+        last_end_us = system_micros();
 
         if (exec_sum_start_us + SECOND_US < last_end_us) {
             uint32_t last_period = (uint32_t)(last_end_us > exec_sum_start_us ? last_end_us - exec_sum_start_us : SECOND_US);
@@ -250,7 +250,7 @@ public:
             TPC_counter++;
 
             if (!TPC_timer.wait()) {
-                last_TPC_counter = __proportion(TPC_timer.end(), TPC_timer.getStart(), (uint32_t)getMillis(), 0, TPC_counter);
+                last_TPC_counter = __proportion(TPC_timer.end(), TPC_timer.getStart(), (uint32_t)system_millis(), 0, TPC_counter);
                 TPC_timer.start();
                 TPC_counter = 0;
             }
@@ -267,7 +267,7 @@ public:
                 continue;
             }
 
-            uint64_t time_us = getMicroseconds();
+            uint64_t time_us = system_micros();
 
             job->updateCount(time_us);
 

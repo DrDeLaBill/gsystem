@@ -1,4 +1,12 @@
-/* Copyright © 2024 Georgy E. All rights reserved. */
+/*
+ * @file g_ram.cpp
+ * @brief RAM/stack/heap inspection helpers and watchdog.
+ *
+ * Provides reporting and basic monitoring of runtime memory usage. The
+ * watchdog integrates with the system error flags when low-RAM conditions
+ * are detected. Helper functions that build human-readable reports are
+ * documented in this file.
+ */
 
 #include "gdefines.h"
 #include "gconfig.h"
@@ -37,11 +45,9 @@ extern "C" void ram_watchdog_check()
     uint32_t totalBytes = (uint32_t)(ram_end - ram_start);
     unsigned freePercent = (totalBytes == 0) ? 0 : (unsigned)((freeRamBytes * 100U) / totalBytes);
 
-#if GSYSTEM_BEDUG
     if (lastFree != freeRamBytes) {
         uart_print_ram_report(ram_start, ram_end, freeRamBytes, totalBytes);
     }
-#endif
 
     lastFree = freeRamBytes;
 
@@ -67,6 +73,12 @@ extern "C" void sys_fill_ram()
 
 void make_progress_bar(char *buf, size_t buflen, uint32_t free_bytes, uint32_t total_bytes, const int WIDTH)
 {
+	(void)buf;
+	(void)buflen;
+	(void)free_bytes;
+	(void)total_bytes;
+	(void)WIDTH;
+#if GSYSTEM_BEDUG
     if (buflen == 0) return;
     if (total_bytes == 0) {
         buf[0] = '\0';
@@ -92,6 +104,7 @@ void make_progress_bar(char *buf, size_t buflen, uint32_t free_bytes, uint32_t t
     }
     strncpy(buf, s, buflen - 1);
     buf[buflen - 1] = '\0';
+#endif
 }
 
 void uart_print_ram_report(
@@ -101,6 +114,12 @@ void uart_print_ram_report(
 	uint32_t total_bytes,
 	uint32_t threshold_warn_percent
 ) {
+	(void)heap_addr;
+	(void)stack_addr;
+	(void)free_bytes;
+	(void)total_bytes;
+	(void)threshold_warn_percent;
+#if GSYSTEM_BEDUG
     uint32_t used = (total_bytes > free_bytes) ? (total_bytes - free_bytes) : 0;
     uint32_t pct_x10 = (total_bytes == 0) ? 0 : (uint32_t)((uint64_t)free_bytes * 1000ULL / (uint64_t)total_bytes);
 
@@ -110,10 +129,7 @@ void uart_print_ram_report(
     } else if (pct_x10 <= threshold_warn_percent * 10) {
         color = "\x1b[33m"; // yellow
     }
-
-#if GSYSTEM_BEDUG
 	gprint("%s", color);
-#endif
     SYSTEM_BEDUG(
 		"[RAM] 0x%08" PRIXPTR "..0x%08" PRIXPTR,
 		(uintptr_t)heap_addr, 
@@ -144,6 +160,7 @@ void uart_print_ram_report(
 		cfree,
 		(unsigned)free_bytes
 	);
+#endif
 }
 
 #else
