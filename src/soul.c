@@ -317,7 +317,7 @@ char* get_status_name(SOUL_STATUS status)
 	case RESERVED_ERROR_14:
 	case RESERVED_ERROR_15:
 	default:
-		snprintf(name, sizeof(name) - 1, "[%03u] %s", status, get_custom_status_name(status));
+		ptr = get_custom_status_name(status);
 		break;
 	}
 	if (ptr) {
