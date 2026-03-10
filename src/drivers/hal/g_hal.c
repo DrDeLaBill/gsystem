@@ -30,9 +30,178 @@ extern uint32_t _estack;
 static const uint32_t TIMER_FREQ_MUL   = 2;
 
 
+typedef struct _tim_inst_t {
+	hard_tim_t* tim;
+	uint32_t (*get_freq) (void);
+	int irq;
+	void (*callback)(void);
+} tim_inst_t;
+
+
+tim_inst_t tims[] = {
+#if defined(STM32F1)
+	{TIM1, HAL_RCC_GetPCLK2Freq, TIM1_UP_IRQn, NULL},
+	{TIM2, HAL_RCC_GetPCLK1Freq, TIM2_IRQn,    NULL},
+	{TIM3, HAL_RCC_GetPCLK1Freq, TIM3_IRQn,    NULL},
+	{TIM4, HAL_RCC_GetPCLK1Freq, TIM4_IRQn,    NULL},
+#else
+	#error "Do it better"
+#endif
+};
+
+
+static hard_tim_t* sys_timer = NULL;
+
+
+static inline void _enable_timer_clock(hard_tim_t* timer) {
+#if defined(STM32F1)
+    if (timer == TIM1) {
+        RCC->APB2ENR |= RCC_APB2ENR_TIM1EN;
+    } else if (timer == TIM2) {
+        RCC->APB1ENR |= RCC_APB1ENR_TIM2EN;
+    } else if (timer == TIM3) {
+        RCC->APB1ENR |= RCC_APB1ENR_TIM3EN;
+    } else if (timer == TIM4) {
+        RCC->APB1ENR |= RCC_APB1ENR_TIM4EN;
+    }
+#else
+	#error "Do it better"
+#endif
+}
+
+static inline void _disable_timer_clock(hard_tim_t* timer) {
+#if defined(STM32F1)
+    if (timer == TIM1) {
+        RCC->APB2ENR &= ~RCC_APB2ENR_TIM1EN;
+    } else if (timer == TIM2) {
+        RCC->APB1ENR &= ~RCC_APB1ENR_TIM2EN;
+    } else if (timer == TIM3) {
+        RCC->APB1ENR &= ~RCC_APB1ENR_TIM3EN;
+    } else if (timer == TIM4) {
+        RCC->APB1ENR &= ~RCC_APB1ENR_TIM4EN;
+    }
+#else
+	#error "Do it better"
+#endif
+}
+
+static int _get_timer_index(const hard_tim_t* timer)
+{
+	for (int i = 0; i < (int)__arr_len(tims); i++) {
+		if (timer == tims[i].tim) {
+			return i;
+		}
+	}
+    return -1;
+}
+
+static uint32_t _get_bus_freq(hard_tim_t* timer)
+{
+    int idx = _get_timer_index(timer);
+    if (idx < 0) {
+    	return 0;
+    }
+    uint32_t pclk = tims[idx].get_freq();
+#if defined(STM32F1)
+    const uint32_t ppre1 = (RCC->CFGR >> 8) & 0x7u;
+    const uint32_t ppre2 = (RCC->CFGR >> 11) & 0x7u;
+
+    bool apb1_div_by_1 = (ppre1 == 0);
+    bool apb2_div_by_1 = (ppre2 == 0);
+
+    if (timer == TIM1) {
+        return (int)(apb2_div_by_1 ? pclk : (pclk * 2U));
+    }
+
+	return (int)(apb1_div_by_1 ? pclk : (pclk * 2U));
+#else
+	#error "Do it better"
+#endif
+}
+
+extern uint32_t sys_time_ms;
+static void _sys_timer_callback()
+{
+    sys_time_ms++;
+}
+
 void g_reboot()
 {
     NVIC_SystemReset();
+}
+
+bool g_sys_tick_start(hard_tim_t* timer)
+{
+    if (sys_timer) {
+        BEDUG_ASSERT(false, "System timer already started");
+        return false;
+    }
+
+    int idx = _get_timer_index(timer);
+    if (idx < 0) {
+        BEDUG_ASSERT(false, "Unknown system timer");
+    	return false;
+    }
+
+    uint32_t freq = _get_bus_freq(timer);
+    if (!freq) {
+        BEDUG_ASSERT(false, "System timer frequency errors");
+    	return false;
+    }
+
+    uint32_t count = 1000;
+    while (freq % count) {
+    	count--;
+    }
+    uint32_t presc = freq / count;
+    while (presc - 1 > 0xFFFF) {
+    	presc--;
+    	count++;
+    }
+    if (count - 1 > 0xFFFF) {
+        BEDUG_ASSERT(false, "g_sys_tick_start not started successfully");
+		return false;
+    }
+
+    sys_timer = timer;
+    return g_hw_timer_start(timer, _sys_timer_callback, presc - 1, count - 1);
+}
+
+bool g_hw_timer_start(hard_tim_t* timer, void (*callback) (void), uint32_t presc, uint32_t cnt)
+{
+    int idx = _get_timer_index(timer);
+    if (idx < 0) {
+        BEDUG_ASSERT(false, "Unknown STM32 TIMER");
+        return false;
+    }
+
+}
+
+void g_hw_timer_stop(hard_tim_t* timer)
+{
+
+}
+
+uint32_t g_get_millis(void)
+{
+#if defined(GSYSTEM_TIMER)
+    return sys_time_ms;
+#else
+    return getMillis();
+#endif
+}
+
+uint64_t g_get_micros(void)
+{
+#if defined(GSYSTEM_TIMER)
+	uint64_t cnt = sys_timer->CNT;
+	if (sys_timer->ARR == 1000 - 1) {
+		return (uint64_t)sys_time_ms * (uint64_t)MILLIS_US + cnt;
+	}
+	return (uint64_t)sys_time_ms * (uint64_t)MILLIS_US + (cnt * 1000ULL / (uint64_t)(sys_timer->ARR + 1));
+#else
+    return getMicroseconds();
+#endif
 }
 
 // TODO: change to HW ttimers
@@ -123,17 +292,6 @@ void g_sys_timer_start(system_timer_t* timer, hard_tim_t* fw_tim, uint32_t delay
     timer->tim->CR1 |= TIM_CR1_CEN;
 
     timer->verif = TIMER_VERIF_WORD;
-}
-
-bool g_sys_timer_wait(system_timer_t* timer)
-{
-    if (timer->tim->SR & TIM_SR_CC1IF) {
-        timer->count++;
-        timer->tim->SR   = 0;
-        timer->tim->CNT  = 0;
-        timer->tim->CR1 |= TIM_CR1_CEN;
-    }
-    return timer->count < timer->end;
 }
 
 void g_sys_timer_stop(system_timer_t* timer)

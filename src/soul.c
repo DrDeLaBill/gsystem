@@ -145,6 +145,13 @@ SOUL_STATUS get_first_error()
 	return NO_ERROR;
 }
 
+bool is_mcu_internal_error()
+{
+	return is_error(NON_MASKABLE_INTERRUPT) || is_error(HARD_FAULT) || 
+           is_error(MEM_MANAGE) || is_error(BUS_FAULT) ||
+           is_error(USAGE_FAULT) || is_error(ERROR_HANDLER_CALLED);
+}
+
 bool is_internal_status(SOUL_STATUS status)
 {
 	if (status > STATUSES_START && status < STATUSES_END) {

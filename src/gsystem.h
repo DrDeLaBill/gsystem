@@ -33,6 +33,18 @@ extern "C" {
 #include "g_settings.h"
 
 
+/** TODO: 
+ * 1. Add versioning for the library.
+ * 2. Show version in the logs, error logs, and device revision debug, save it to system files.
+ * 3. TODO list in soul.h
+ * 4. Add Publisher-subscriber (and its broker) pattern for system events (errors, resets, button events, periphm etc.).
+ * 5. Add MVC pattern for system services and tasks.
+ * 6. Platform driver disable in gconfig.h for user driver implementations.
+ * 7. Add system services and tasks management API (start, stop, restart, status).
+ */
+#define GSYSTEM_VERSION 1
+
+
 #define GSYS_CALL_HARD_FAULT() { \
     volatile int _gsys_val1 = 1, _gsys_val2 = 1; \
     while(--_gsys_val1) _gsys_val2++; \

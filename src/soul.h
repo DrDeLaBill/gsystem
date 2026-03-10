@@ -84,7 +84,22 @@ extern "C" {
 #endif
 
 
-typedef enum _SOUK_STATUS {
+// TODO: Implement versioning for status codes.
+// is_software_ready(): need to add an array of software ready statuses for more logs.
+// need to add warning statuses for non-critical issues that don't require a reboot but should be logged.
+// need to add a sys_tick_timer error and check (reboot and log if hw timer was used by another (not gsystem) code). 
+// if memory enabled, need to write the cause of the reboot or error, write it with versions.
+// save all soul status enum versions for debug logs or save the names of statuses instead of numbers.
+// add to error logs (or in file name) build time.
+// error log line structure: 
+// timestamp (if clocks available else 0); internal time ms; fw build time; gsystem version; soul version; device version; all statuses at the moment of reboot in array of strings; 
+// also need to add the error log file size limit.
+// also add to error logs full memory rewrite or the first settings write.
+// rename error logs to soul logs
+#define SOUL_STATUS_VERSION 1
+
+
+typedef enum _SOUL_STATUS {
 	SOUL_STATUSES_START = 0,
 	/* Device statuses start */
 	STATUSES_START,
@@ -248,6 +263,13 @@ void reset_internal_error(SOUL_STATUS error);
  * @return SOUL_STATUS - First error code.
  */
 SOUL_STATUS get_first_error();
+
+/*
+ * @brief Check if the device has recorded an MCU internal error.
+ * @param None
+ * @return bool - true if the device has an MCU internal error.
+ */
+bool is_mcu_internal_error();
 
 /*
  * @brief Check if a status value is considered an internal status flag.

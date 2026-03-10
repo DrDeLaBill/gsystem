@@ -303,11 +303,7 @@ void system_error_handler(SOUL_STATUS error)
 
     set_error(error);
 
-    bool has_mcu_internal_error = 
-        is_error(NON_MASKABLE_INTERRUPT) || is_error(HARD_FAULT) || 
-        is_error(MEM_MANAGE) || is_error(BUS_FAULT) ||
-        is_error(USAGE_FAULT) || is_error(ERROR_HANDLER_CALLED);
-
+    bool has_mcu_internal_error = is_mcu_internal_error();
     bool need_error_timer = is_status(SYS_TICK_FAULT) || has_mcu_internal_error;
     if (need_error_timer) {
         fsm_gc_disable_all_messages();

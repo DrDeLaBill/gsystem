@@ -106,16 +106,14 @@ struct Job {
     
     bool denied()
     {
+        bool _denied = is_status(SYSTEM_ERROR_HANDLER_CALLED) && !work_with_error;
         if (system_task) {
-            return false;
+            return _denied;
         }
-        if (is_error(HARD_FAULT)) {
-            return true;;
-        }
-        if (is_status(SYSTEM_ERROR_HANDLER_CALLED) && !work_with_error) {
+        if (is_mcu_internal_error()) {
             return true;
         }
-        return false;
+        return _denied;
     }
 
     void updateCount(uint64_t now_us = system_micros())
@@ -585,34 +583,34 @@ static Scheduler scheduler(
     jobs_buf,
     __arr_len(jobs_buf),
     {
-        {_scheduler_load_show,         LOAD_SHOW_DELAY_MS, true,  true, GSYSTEM_INTERNAL_PROCCESS_PRIORITY, false},
-        {_scheduler_recompute_scaling, RECOMPUTE_MS,       true,  true, GSYSTEM_INTERNAL_PROCCESS_PRIORITY, false},
-        {_scheduler_error_check,       200,                true,  true, GSYSTEM_INTERNAL_PROCCESS_PRIORITY, false},
+        {_scheduler_load_show,         LOAD_SHOW_DELAY_MS, true,  true,  GSYSTEM_INTERNAL_PROCCESS_PRIORITY, false},
+        {_scheduler_recompute_scaling, RECOMPUTE_MS,       true,  true,  GSYSTEM_INTERNAL_PROCCESS_PRIORITY, false},
+        {_scheduler_error_check,       200,                true,  true,  GSYSTEM_INTERNAL_PROCCESS_PRIORITY, false},
 #ifndef GSYSTEM_NO_MEMORY_W
-        {memory_watchdog_check,        100,                false, true, GSYSTEM_INTERNAL_PROCCESS_PRIORITY, false},
+        {memory_watchdog_check,        100,                false, true,  GSYSTEM_INTERNAL_PROCCESS_PRIORITY, false},
 #endif
 #ifndef GSYSTEM_NO_SYS_TICK_W
-        {sys_clock_watchdog_check,     SECOND_MS / 10,     false, true, GSYSTEM_INTERNAL_PROCCESS_PRIORITY, false},
+        {sys_clock_watchdog_check,     SECOND_MS / 10,     false, true,  GSYSTEM_INTERNAL_PROCCESS_PRIORITY, false},
 #endif
 #ifndef GSYSTEM_NO_RAM_W
-        {ram_watchdog_check,           5 * SECOND_MS,      false, true, GSYSTEM_INTERNAL_PROCCESS_PRIORITY, false},
+        {ram_watchdog_check,           5 * SECOND_MS,      false, true,  GSYSTEM_INTERNAL_PROCCESS_PRIORITY, false},
 #endif
 #if !defined(GSYSTEM_NO_ADC_W)
-        {adc_watchdog_check,           1,                  true,  true, GSYSTEM_INTERNAL_PROCCESS_PRIORITY, false},
+        {adc_watchdog_check,           1,                  true,  true,  GSYSTEM_INTERNAL_PROCCESS_PRIORITY, false},
 #endif
 #if defined(STM32F1) && !defined(GSYSTEM_NO_I2C_W)
-        {i2c_watchdog_check,           5 * SECOND_MS,      false, true, GSYSTEM_INTERNAL_PROCCESS_PRIORITY, false},
+        {i2c_watchdog_check,           5 * SECOND_MS,      false, true,  GSYSTEM_INTERNAL_PROCCESS_PRIORITY, false},
 #endif
 #ifndef GSYSTEM_NO_RTC_W
-        {rtc_watchdog_check,           SECOND_MS,          false, true, GSYSTEM_INTERNAL_PROCCESS_PRIORITY, false},
+        {rtc_watchdog_check,           SECOND_MS,          false, true,  GSYSTEM_INTERNAL_PROCCESS_PRIORITY, false},
 #endif
 #if !defined(GSYSTEM_NO_POWER_W) && !defined(GSYSTEM_NO_ADC_W)
-        {power_watchdog_check,         1,                  true,  true, GSYSTEM_INTERNAL_PROCCESS_PRIORITY, false},
+        {power_watchdog_check,         1,                  true,  true,  GSYSTEM_INTERNAL_PROCCESS_PRIORITY, false},
 #endif
 #ifndef GSYSTEM_NO_DEVICE_SETTINGS
-        {settings_update,              500,                false, true, GSYSTEM_INTERNAL_PROCCESS_PRIORITY, false},
+        {settings_update,              500,                false, false, GSYSTEM_INTERNAL_PROCCESS_PRIORITY, false},
 #endif
-        {btn_watchdog_check,           5,                  false, true, GSYSTEM_INTERNAL_PROCCESS_PRIORITY, false}
+        {btn_watchdog_check,           5,                  false, true,  GSYSTEM_INTERNAL_PROCCESS_PRIORITY, false}
     }
 );
 
@@ -666,30 +664,49 @@ extern "C" void set_system_timeout(uint32_t timeout_ms)
     scheduler.set_timeout(timeout_ms);
 }
 
+void _device_rev_print(const char* str)
+{
+#if !defined(GSYSTEM_NO_BEDUG)
+    g_uart_print(str, (uint16_t)strlen(str));
+#endif
+
+#if !defined(GSYSTEM_NO_PRINTF) && !defined(GSYSTEM_NO_BEDUG)
+    char* ptr = str;
+    for (size_t DataIdx = 0; DataIdx < strlen(str); DataIdx++) {
+        ITM_SendChar(*ptr++);
+    }
+#endif 
+}
+
 void _device_rev_show(void)
 {
 #if !defined(GSYSTEM_NO_REVISION)
+    static const char* RIGHT_ARROW = "----------------------------> ";
+    static const char* LEFT_ARROW = " <----------------------------\n";
 
-    char rev[100] = "";
-    char ser[100] = "";
-    char str[322] = "";
+    char str[100] = "";
 
     snprintf(
-        rev,
-        sizeof(rev) - 1,
+        str,
+        sizeof(str) - 1,
         "REVISION %s (%s %s)",
         system_device_version(),
         __DATE__,
         __TIME__
     );
 
-    const char SERIAL_START[] = "CPU SERIAL ";
+    _device_rev_print(RIGHT_ARROW);
+    _device_rev_print(str);
+    _device_rev_print(LEFT_ARROW);
+
+    const char SERIAL_START[] = "CPU SERIAL 0x";
     char const* serial_num = get_system_serial_str();
-    uint16_t offset = (uint16_t)(strlen(rev) - strlen(SERIAL_START));
+    uint16_t offset = (uint16_t)(strlen(str) - strlen(SERIAL_START));
     offset = (uint16_t)((strlen(serial_num) < offset) ? offset - strlen(serial_num) : 0);
+    memset((uint8_t*)str, ' ', sizeof(str));
     snprintf(
-        ser,
-        sizeof(ser) - 1,
+        str,
+        sizeof(str) - 1,
         "%*s%s%s%*s",
         offset / 2,
         "",
@@ -699,25 +716,9 @@ void _device_rev_show(void)
         ""
     );
 
-    snprintf(
-        str,
-        sizeof(str) - 1,
-        "----------------------------> %s <----------------------------\n"
-        "----------------------------> %s <----------------------------\n",
-        ser,
-        rev
-    );
-
-    #if !defined(GSYSTEM_NO_BEDUG)
-    g_uart_print(str, (uint16_t)strlen(str));
-    #endif
-
-    #if !defined(GSYSTEM_NO_PRINTF) && !defined(GSYSTEM_NO_BEDUG)
-    char* ptr = str;
-    for (size_t DataIdx = 0; DataIdx < strlen(str); DataIdx++) {
-        ITM_SendChar(*ptr++);
-    }
-    #endif
+    _device_rev_print(RIGHT_ARROW);
+    _device_rev_print(str);
+    _device_rev_print(LEFT_ARROW);
 
 #endif
 }

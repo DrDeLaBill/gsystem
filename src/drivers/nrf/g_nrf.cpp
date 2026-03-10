@@ -92,7 +92,7 @@ bool g_sys_tick_start(hard_tim_t* timer)
         return false;
     }
     sys_timer = timer;
-    return system_hw_timer_start(timer, _sys_timer_callback, 4, 1000);
+    return g_hw_timer_start(timer, _sys_timer_callback, 4, 1000);
 }
 
 bool g_hw_timer_start(hard_tim_t* timer, void (*callback) (void), uint32_t presc, uint32_t cnt)
@@ -173,7 +173,26 @@ extern "C" uint64_t g_get_micros(void)
 #endif
 }
 
-extern "C" void g_restart_check() {}
+extern "C" void g_restart_check() 
+{
+    uint32_t reset_reason = NRF_POWER->RESETREAS;
+    if (!reset_reason) {
+        return;
+    }
+
+    SYSTEM_BEDUG("Reset Reason Register: 0x%08lX", reset_reason);
+
+    if (reset_reason & 0x00000001) SYSTEM_BEDUG("Reason: Hardware Pin Reset");
+    if (reset_reason & 0x00000002) SYSTEM_BEDUG("Reason: Watchdog");
+    if (reset_reason & 0x00000004) SYSTEM_BEDUG("Reason: Soft Reset (NVIC_SystemReset)");
+    if (reset_reason & 0x00000008) SYSTEM_BEDUG("Reason: CPU Lockup");
+    
+    if (reset_reason & 0x00000010) SYSTEM_BEDUG("Reason: System OFF Wakeup");
+    if (reset_reason & 0x00000020) SYSTEM_BEDUG("Reason: LPCOMP (Low Power Comparator Wakeup)");
+    if (reset_reason & 0x00010000) SYSTEM_BEDUG("Reason: NFC Wakeup");
+
+    NRF_POWER->RESETREAS = 0xFFFFFFFF;
+}
 
 extern "C" uint32_t g_get_freq()
 {
@@ -231,12 +250,19 @@ extern "C" bool g_pin_read(port_pin_t pin)
     return digitalRead(pin.pin);
 }
 
+static bool _temp_evnets_datardy()
+{
+    return NRF_TEMP->EVENTS_DATARDY == 0;
+}
+
 extern "C" float g_temperature() { // TODO
-  NRF_TEMP->TASKS_START = 1;
-  while (NRF_TEMP->EVENTS_DATARDY == 0);
-  NRF_TEMP->EVENTS_DATARDY = 0;
-  int32_t raw_temp = NRF_TEMP->TEMP;
-  return (raw_temp * 0.25f);
+    NRF_TEMP->TASKS_START = 1;
+    if (!util_wait_event(_temp_evnets_datardy, 10)) {
+        return -1.0f;
+    }
+    NRF_TEMP->EVENTS_DATARDY = 0;
+    int32_t raw_temp = NRF_TEMP->TEMP;
+    return (raw_temp * 0.25f);
 }
 
 extern "C" uint64_t g_serial()

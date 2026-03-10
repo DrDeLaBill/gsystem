@@ -76,7 +76,49 @@ extern "C" void __attribute__((naked)) gsys_UsageFault_Handler(void)
 }
 
 
-#if defined(ARDUINO)
+#if defined(STM32F1)
+
+extern "C" void TIM1_UP_IRQHandler(void);
+extern "C" void TIM2_IRQHandler(void);
+extern "C" void TIM3_IRQHandler(void);
+extern "C" void TIM4_IRQHandler(void);
+
+
+extern "C" void gsys_TIM1_UP_IRQHandler(void) {
+    if (TIM1->SR & TIM_SR_UIF) {
+        TIM1->SR &= ~TIM_SR_UIF;
+        TIM1_UP_IRQHandler();
+    }
+}
+
+extern "C" void gsys_TIM2_IRQHandler(void) {
+    if (TIM2->SR & TIM_SR_UIF) {
+        TIM2->SR &= ~TIM_SR_UIF;
+        TIM2_IRQHandler();
+    }
+}
+
+extern "C" void gsys_TIM3_IRQHandler(void) {
+    if (TIM3->SR & TIM_SR_UIF) {
+        TIM3->SR &= ~TIM_SR_UIF;
+        TIM3_IRQHandler();
+    }
+}
+
+extern "C" void gsys_TIM4_IRQHandler(void) {
+    if (TIM4->SR & TIM_SR_UIF) {
+        TIM4->SR &= ~TIM_SR_UIF;
+        TIM4_IRQHandler();
+    }
+}
+
+#elif !defined(STM32)
+#else
+	#error "Do it better"
+#endif
+
+
+#if defined(ARDUINO) || defined(NRF52)
 
 void NMI_Handler(void)
 {
@@ -245,7 +287,6 @@ static void _change_addr(void (*original_ptr) (void), void (*target_ptr) (void))
 extern "C" void sys_isr_register()
 {
 #if defined(USE_HAL_DRIVER)
-
     if (!MCUcheck()) {
 		system_error_handler(MCU_ERROR);
 	}
@@ -258,6 +299,15 @@ extern "C" void sys_isr_register()
 	_change_addr(BusFault_Handler,   gsys_BusFault_Handler);
 	_change_addr(UsageFault_Handler, gsys_UsageFault_Handler);
 
+    #if defined(STM32F1)
+	_change_addr(TIM1_UP_IRQHandler, gsys_TIM1_UP_IRQHandler);
+	_change_addr(TIM2_IRQHandler,    gsys_TIM2_IRQHandler);
+	_change_addr(TIM3_IRQHandler,    gsys_TIM3_IRQHandler);
+	_change_addr(TIM4_IRQHandler,    gsys_TIM4_IRQHandler);
+	#else
+		#error "Do it better"
+	#endif
+
     #ifdef USE_FLASH_DMA
 	_change_addr(DMA_RX_FUNC,        __concat(gsys_, DMA_RX_FUNC));
 	_change_addr(DMA_TX_FUNC,        __concat(gsys_, DMA_TX_FUNC));
@@ -268,7 +318,6 @@ extern "C" void sys_isr_register()
 	__enable_irq();
 	__DSB();
 	__ISB();
-    
 #endif
 }
 
