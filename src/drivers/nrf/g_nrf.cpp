@@ -176,9 +176,6 @@ extern "C" uint64_t g_get_micros(void)
 extern "C" void g_restart_check() 
 {
     uint32_t reset_reason = NRF_POWER->RESETREAS;
-    if (!reset_reason) {
-        return;
-    }
 
     SYSTEM_BEDUG("Reset Reason Register: 0x%08lX", reset_reason);
 
@@ -190,8 +187,6 @@ extern "C" void g_restart_check()
     if (reset_reason & 0x00000010) SYSTEM_BEDUG("Reason: System OFF Wakeup");
     if (reset_reason & 0x00000020) SYSTEM_BEDUG("Reason: LPCOMP (Low Power Comparator Wakeup)");
     if (reset_reason & 0x00010000) SYSTEM_BEDUG("Reason: NFC Wakeup");
-
-    NRF_POWER->RESETREAS = 0xFFFFFFFF;
 }
 
 extern "C" uint32_t g_get_freq()
