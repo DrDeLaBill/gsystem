@@ -23,7 +23,7 @@
     #define VECTOR_TABLE_SIZE  0x200
     #define VECTOR_TABLE_ALIGN __attribute__((aligned(0x200)))
 #else
-    #error
+    #error "Do it better"
 #endif
 
 
@@ -38,15 +38,12 @@
     #define USE_EEPROM_DMA
 #endif
 
-#if defined(USE_HAL_DRIVER)
 
 extern "C" void NMI_Handler(void);
 extern "C" void HardFault_Handler(void);
 extern "C" void MemManage_Handler(void);
 extern "C" void BusFault_Handler(void);
 extern "C" void UsageFault_Handler(void);
-
-#endif
 
 
 extern "C" void __attribute__((naked)) gsys_NMI_Handler(void)
@@ -74,48 +71,6 @@ extern "C" void __attribute__((naked)) gsys_UsageFault_Handler(void)
 {
 	system_error_handler(USAGE_FAULT);
 }
-
-
-#if defined(STM32F1)
-
-extern "C" void TIM1_UP_IRQHandler(void);
-extern "C" void TIM2_IRQHandler(void);
-extern "C" void TIM3_IRQHandler(void);
-extern "C" void TIM4_IRQHandler(void);
-
-
-extern "C" void gsys_TIM1_UP_IRQHandler(void) {
-    if (TIM1->SR & TIM_SR_UIF) {
-        TIM1->SR &= ~TIM_SR_UIF;
-        TIM1_UP_IRQHandler();
-    }
-}
-
-extern "C" void gsys_TIM2_IRQHandler(void) {
-    if (TIM2->SR & TIM_SR_UIF) {
-        TIM2->SR &= ~TIM_SR_UIF;
-        TIM2_IRQHandler();
-    }
-}
-
-extern "C" void gsys_TIM3_IRQHandler(void) {
-    if (TIM3->SR & TIM_SR_UIF) {
-        TIM3->SR &= ~TIM_SR_UIF;
-        TIM3_IRQHandler();
-    }
-}
-
-extern "C" void gsys_TIM4_IRQHandler(void) {
-    if (TIM4->SR & TIM_SR_UIF) {
-        TIM4->SR &= ~TIM_SR_UIF;
-        TIM4_IRQHandler();
-    }
-}
-
-#elif !defined(STM32)
-#else
-	#error "Do it better"
-#endif
 
 
 #if defined(ARDUINO) || defined(NRF52)
@@ -283,6 +238,25 @@ static void _change_addr(void (*original_ptr) (void), void (*target_ptr) (void))
 }
 
 #endif
+
+
+#if defined(STM32F1)
+
+extern "C" void TIM1_UP_IRQHandler(void);
+extern "C" void TIM2_IRQHandler(void);
+extern "C" void TIM3_IRQHandler(void);
+extern "C" void TIM4_IRQHandler(void);
+
+extern "C" void gsys_TIM1_UP_IRQHandler(void);
+extern "C" void gsys_TIM2_IRQHandler(void);
+extern "C" void gsys_TIM3_IRQHandler(void);
+extern "C" void gsys_TIM4_IRQHandler(void);
+
+#elif !defined(USE_HAL_DRIVER)
+#else
+	#error "Do it better"
+#endif
+
 
 extern "C" void sys_isr_register()
 {

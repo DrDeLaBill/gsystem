@@ -102,10 +102,13 @@ extern const char SYSTEM_TAG[];
     #define GSYSTEM_DOUBLE_BKCP_ENABLE
 #endif
 
+#ifndef GSYSTEM_DEFAULT_USER_TIM_PRIO
+    #define GSYSTEM_DEFAULT_USER_TIM_PRIO (6)
+#endif
+
 #ifndef GSYSTEM_POCESSES_COUNT
    #define GSYSTEM_POCESSES_COUNT (32)
 #endif
-
 
 // Min gsystem proccesses counter
 #ifndef GSYSTEM_NO_MEMORY_W

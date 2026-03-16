@@ -93,7 +93,7 @@ uint64_t g_get_micros(void);
 
 uint32_t g_get_millis(void);
 
-bool g_hw_timer_start(hard_tim_t* timer, void (*callback) (void), uint32_t presc, uint32_t cnt);
+bool g_hw_timer_start(hard_tim_t* timer, void (*callback) (void), uint32_t presc, uint32_t count, uint8_t prio);
 
 void g_hw_timer_stop(hard_tim_t* timer);
 

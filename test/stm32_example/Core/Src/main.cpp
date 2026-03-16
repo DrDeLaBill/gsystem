@@ -199,14 +199,14 @@ void system_error_loop()
 
         HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, GPIO_PIN_SET);
 
-        system_timer_start(&led_timer, TIM2, delay_ms);
+        system_timer_start(&led_timer, delay_ms);
 
         initialized = true;
     }
 
 
     if (!system_timer_wait(&led_timer)) {
-        system_timer_start(&led_timer, TIM2, delay_ms);
+        system_timer_start(&led_timer, delay_ms);
         HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);
     }
 }

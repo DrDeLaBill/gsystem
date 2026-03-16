@@ -455,7 +455,7 @@ bool system_hw_timer_start(hard_tim_t* timer, void (*callback) (void), uint32_t 
         BEDUG_ASSERT(false, "Timer and callback must not be NULL");
         return false;
     }
-    return g_hw_timer_start(timer, callback, presc, cnt);
+    return g_hw_timer_start(timer, callback, presc, cnt, GSYSTEM_DEFAULT_USER_TIM_PRIO);
 }
 
 void system_hw_timer_stop(hard_tim_t* timer)

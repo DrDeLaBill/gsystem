@@ -92,14 +92,19 @@ bool g_sys_tick_start(hard_tim_t* timer)
         return false;
     }
     sys_timer = timer;
-    return g_hw_timer_start(timer, _sys_timer_callback, 4, 1000);
+    return g_hw_timer_start(timer, _sys_timer_callback, 4, 1000, 5);
 }
 
-bool g_hw_timer_start(hard_tim_t* timer, void (*callback) (void), uint32_t presc, uint32_t cnt)
+bool g_hw_timer_start(hard_tim_t* timer, void (*callback) (void), uint32_t presc, uint32_t cnt, uint8_t prio)
 {
     int idx = _get_timer_index(timer);
     if (idx < 0) {
         BEDUG_ASSERT(false, "Unknown NRF TIMER");
+        return false;
+    }
+
+    if (presc > 9) {
+        BEDUG_ASSERT(false, "Invalid NRF prescaler");
         return false;
     }
 
@@ -122,7 +127,7 @@ bool g_hw_timer_start(hard_tim_t* timer, void (*callback) (void), uint32_t presc
 
     // Включаем прерывание
     IRQn_Type irq = tim_irqs[idx];
-    NVIC_SetPriority(irq, 6);
+    NVIC_SetPriority(irq, prio);
     NVIC_ClearPendingIRQ(irq);
     NVIC_EnableIRQ(irq);
 
@@ -166,8 +171,24 @@ extern "C" uint64_t g_get_micros(void)
 {
 #if defined(GSYSTEM_TIMER)
     const int CAP_CH = 1;
+    uint32_t ms;
+    uint32_t cc;
+    bool overflow_pending;
+
+    uint32_t primask = __get_PRIMASK();
+    __disable_irq();
+
+    ms = sys_time_ms;
     sys_timer->TASKS_CAPTURE[CAP_CH] = 1;
-    return (uint64_t)sys_time_ms * (uint64_t)MILLIS_US + (uint64_t)sys_timer->CC[CAP_CH];
+    cc = sys_timer->CC[CAP_CH];    
+    overflow_pending = (sys_timer->EVENTS_COMPARE[0] != 0);
+
+    __set_PRIMASK(primask);
+
+    if (overflow_pending && (cc < (sys_timer->CC[0] / 2))) {
+        ms++;
+    }
+    return ((uint64_t)ms * (uint64_t)MILLIS_US) + (uint64_t)cc;
 #else
     return getMicroseconds();
 #endif
@@ -218,9 +239,12 @@ extern "C" void g_ram_fill()
 {
     uint32_t *heap_end = (uint32_t*)sbrk(0);
     uint32_t *stack_limit = (uint32_t*)&__StackLimit;
-    for (; heap_end < stack_limit; ++heap_end) {
+    uint32_t primask = __get_PRIMASK();
+    __disable_irq();
+    for (; heap_end < stack_limit - 128; ++heap_end) {
         *heap_end = SYSTEM_CANARY_WORD;
     }
+    __set_PRIMASK(primask);
 }
 
 extern "C" uint32_t g_ram_measure_free()

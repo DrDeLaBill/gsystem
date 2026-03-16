@@ -23,11 +23,11 @@ static void FPUInfo(void);
 static void IDCODEInfo(void);
 #endif
 
+static int _get_timer_index(const hard_tim_t* timer);
+
+
 extern uint32_t _sdata;
 extern uint32_t _estack;
-
-
-static const uint32_t TIMER_FREQ_MUL   = 2;
 
 
 typedef struct _tim_inst_t {
@@ -53,7 +53,66 @@ tim_inst_t tims[] = {
 static hard_tim_t* sys_timer = NULL;
 
 
-static inline void _enable_timer_clock(hard_tim_t* timer) {
+#if defined(STM32F1)
+
+
+extern void TIM1_UP_IRQHandler(void);
+extern void TIM2_IRQHandler(void);
+extern void TIM3_IRQHandler(void);
+extern void TIM4_IRQHandler(void);
+
+
+static void _use_callback(const hard_tim_t* timer)
+{
+    int idx = _get_timer_index(timer);
+    if (idx < 0) {
+    	return;
+    }
+    if (tims[idx].callback) {
+    	tims[idx].callback();
+    }
+}
+
+
+void gsys_TIM1_UP_IRQHandler(void) {
+    if (TIM1->SR & TIM_SR_UIF) {
+        TIM1->SR &= ~TIM_SR_UIF;
+        _use_callback(TIM1);
+        TIM1_UP_IRQHandler();
+    }
+}
+
+void gsys_TIM2_IRQHandler(void) {
+    if (TIM2->SR & TIM_SR_UIF) {
+        TIM2->SR &= ~TIM_SR_UIF;
+        _use_callback(TIM2);
+        TIM2_IRQHandler();
+    }
+}
+
+void gsys_TIM3_IRQHandler(void) {
+    if (TIM3->SR & TIM_SR_UIF) {
+        TIM3->SR &= ~TIM_SR_UIF;
+        _use_callback(TIM3);
+        TIM3_IRQHandler();
+    }
+}
+
+void gsys_TIM4_IRQHandler(void) {
+    if (TIM4->SR & TIM_SR_UIF) {
+        TIM4->SR &= ~TIM_SR_UIF;
+        _use_callback(TIM4);
+        TIM4_IRQHandler();
+    }
+}
+
+#elif !defined(STM32)
+#else
+	#error "Do it better"
+#endif
+
+
+static bool _enable_timer_clock(hard_tim_t* timer) {
 #if defined(STM32F1)
     if (timer == TIM1) {
         RCC->APB2ENR |= RCC_APB2ENR_TIM1EN;
@@ -63,13 +122,16 @@ static inline void _enable_timer_clock(hard_tim_t* timer) {
         RCC->APB1ENR |= RCC_APB1ENR_TIM3EN;
     } else if (timer == TIM4) {
         RCC->APB1ENR |= RCC_APB1ENR_TIM4EN;
+    } else {
+    	return false;
     }
+    return true;
 #else
 	#error "Do it better"
 #endif
 }
 
-static inline void _disable_timer_clock(hard_tim_t* timer) {
+static bool _disable_timer_clock(hard_tim_t* timer) {
 #if defined(STM32F1)
     if (timer == TIM1) {
         RCC->APB2ENR &= ~RCC_APB2ENR_TIM1EN;
@@ -79,13 +141,16 @@ static inline void _disable_timer_clock(hard_tim_t* timer) {
         RCC->APB1ENR &= ~RCC_APB1ENR_TIM3EN;
     } else if (timer == TIM4) {
         RCC->APB1ENR &= ~RCC_APB1ENR_TIM4EN;
+    } else {
+    	return false;
     }
+    return true;
 #else
 	#error "Do it better"
 #endif
 }
 
-static int _get_timer_index(const hard_tim_t* timer)
+int _get_timer_index(const hard_tim_t* timer)
 {
 	for (int i = 0; i < (int)__arr_len(tims); i++) {
 		if (timer == tims[i].tim) {
@@ -106,14 +171,14 @@ static uint32_t _get_bus_freq(hard_tim_t* timer)
     const uint32_t ppre1 = (RCC->CFGR >> 8) & 0x7u;
     const uint32_t ppre2 = (RCC->CFGR >> 11) & 0x7u;
 
-    bool apb1_div_by_1 = (ppre1 == 0);
+    bool apb1_div_by_1 = (ppre1 < 4);
     bool apb2_div_by_1 = (ppre2 == 0);
 
     if (timer == TIM1) {
-        return (int)(apb2_div_by_1 ? pclk : (pclk * 2U));
+        return apb2_div_by_1 ? pclk : (pclk * 2);
     }
 
-	return (int)(apb1_div_by_1 ? pclk : (pclk * 2U));
+	return apb1_div_by_1 ? pclk : (pclk * 2);
 #else
 	#error "Do it better"
 #endif
@@ -149,25 +214,43 @@ bool g_sys_tick_start(hard_tim_t* timer)
     	return false;
     }
 
+    uint32_t ticks_per_ms = freq / 1000;
     uint32_t count = 1000;
     while (freq % count) {
     	count--;
     }
     uint32_t presc = freq / count;
-    while (presc - 1 > 0xFFFF) {
-    	presc--;
-    	count++;
+    if (presc - 1 > 0xFFFF) {
+    	presc = 0;
+    	count = 0;
+    	for (uint32_t p = 1; p <= 65536; p++) {
+			if (ticks_per_ms % p == 0) {
+				uint32_t c = ticks_per_ms / p;
+				if (c <= 65536) {
+					presc = p;
+					count = c;
+					break;
+				}
+			}
+		}
     }
+
+    if (presc == 0 || count == 0) {
+		BEDUG_ASSERT(false, "g_sys_tick_start unable to factorize frequency");
+		return false;
+    }
+
     if (count - 1 > 0xFFFF) {
         BEDUG_ASSERT(false, "g_sys_tick_start not started successfully");
 		return false;
     }
 
     sys_timer = timer;
-    return g_hw_timer_start(timer, _sys_timer_callback, presc - 1, count - 1);
+
+    return g_hw_timer_start(timer, _sys_timer_callback, presc - 1, count - 1, 5);
 }
 
-bool g_hw_timer_start(hard_tim_t* timer, void (*callback) (void), uint32_t presc, uint32_t cnt)
+bool g_hw_timer_start(hard_tim_t* timer, void (*callback) (void), uint32_t presc, uint32_t count, uint8_t prio)
 {
     int idx = _get_timer_index(timer);
     if (idx < 0) {
@@ -175,11 +258,39 @@ bool g_hw_timer_start(hard_tim_t* timer, void (*callback) (void), uint32_t presc
         return false;
     }
 
+    if (!_enable_timer_clock(timer)) {
+        BEDUG_ASSERT(false, "Enable timer error");
+    	return false;
+    }
+
+	tims[idx].callback = callback;
+
+    timer->PSC  = presc;
+    timer->ARR  = count;
+    timer->CR1  = 0;
+
+    timer->EGR  = TIM_EGR_UG;
+
+    timer->CNT  = 0;
+    timer->SR   = 0;
+
+    timer->DIER |= TIM_DIER_UIE;
+    HAL_NVIC_SetPriority((IRQn_Type)tims[idx].irq, prio, 0);
+    HAL_NVIC_EnableIRQ((IRQn_Type)tims[idx].irq);
+
+    timer->CR1 &= ~(TIM_CR1_DIR);
+    timer->CR1 |= TIM_CR1_CEN;
+
+    return true;
 }
 
 void g_hw_timer_stop(hard_tim_t* timer)
 {
+    timer->SR &= ~(TIM_SR_UIF | TIM_SR_CC1IF);
+    timer->CNT = 0;
+    timer->CR1 &= ~(TIM_CR1_CEN);
 
+    BEDUG_ASSERT(_disable_timer_clock(timer), "Disable timer error");
 }
 
 uint32_t g_get_millis(void)
@@ -194,139 +305,28 @@ uint32_t g_get_millis(void)
 uint64_t g_get_micros(void)
 {
 #if defined(GSYSTEM_TIMER)
-	uint64_t cnt = sys_timer->CNT;
-	if (sys_timer->ARR == 1000 - 1) {
+	uint32_t primask = __get_PRIMASK();
+	__disable_irq();
+
+	uint32_t ms = sys_time_ms;
+	uint32_t cnt = sys_timer->CNT;
+	bool overflow_pending = (sys_timer->SR & TIM_SR_UIF) != 0;
+
+	__set_PRIMASK(primask);
+
+	if (overflow_pending && (cnt < (sys_timer->ARR / 2))) {
+		ms++;
+	}
+
+	if (sys_timer->ARR == MILLIS_US - 1) {
 		return (uint64_t)sys_time_ms * (uint64_t)MILLIS_US + cnt;
 	}
-	return (uint64_t)sys_time_ms * (uint64_t)MILLIS_US + (cnt * 1000ULL / (uint64_t)(sys_timer->ARR + 1));
+
+	uint64_t us_from_cnt = ((uint64_t)cnt * (uint64_t)MILLIS_US) / (uint64_t)(sys_timer->ARR + 1);
+	return ((uint64_t)ms * (uint64_t)MILLIS_US) + us_from_cnt;
 #else
     return getMicroseconds();
 #endif
-}
-
-// TODO: change to HW ttimers
-void g_sys_timer_start(system_timer_t* timer, hard_tim_t* fw_tim, uint32_t delay_ms)
-{
-    // TODO: timers after system_timer_start don't work
-    memset(timer, 0, sizeof(system_timer_t));
-    switch ((uint32_t)fw_tim) {
-    case TIM1_BASE:
-        timer->enabled = READ_BIT(RCC->APB2ENR, RCC_APB2ENR_TIM1EN);
-        break;
-    case TIM2_BASE:
-        timer->enabled = READ_BIT(RCC->APB1ENR, RCC_APB1ENR_TIM2EN);
-        break;
-    case TIM3_BASE:
-        timer->enabled = READ_BIT(RCC->APB1ENR, RCC_APB1ENR_TIM3EN);
-        break;
-    case TIM4_BASE:
-        timer->enabled = READ_BIT(RCC->APB1ENR, RCC_APB1ENR_TIM4EN);
-        break;
-    default:
-        BEDUG_ASSERT(false, "GSYSTEM TIM WAS NOT SELECTED");
-        return;
-    }
-    if (timer->enabled) {
-        memcpy((void*)&timer->bkup_tim, (void*)fw_tim, sizeof(TIM_TypeDef));
-    }
-    timer->tim = fw_tim;
-    timer->end = delay_ms / SECOND_MS;
-    memset((void*)fw_tim, 0, sizeof(TIM_TypeDef));
-
-    uint32_t count = 0;
-    switch ((uint32_t)fw_tim) {
-    case TIM1_BASE:
-        __TIM1_CLK_ENABLE();
-        count = HAL_RCC_GetPCLK2Freq();
-        break;
-    case TIM2_BASE:
-        __TIM2_CLK_ENABLE();
-        count = HAL_RCC_GetPCLK1Freq();
-        break;
-    case TIM3_BASE:
-        __TIM3_CLK_ENABLE();
-        count = HAL_RCC_GetPCLK1Freq();
-        break;
-    case TIM4_BASE:
-        __TIM4_CLK_ENABLE();
-        count = HAL_RCC_GetPCLK1Freq();
-        break;
-    default:
-#if GSYSTEM_BEDUG
-        BEDUG_ASSERT(false, "GSYSTEM TIM WAS NOT SELECTED");
-#endif
-        return;
-    }
-    if (count) {
-        count *= TIMER_FREQ_MUL;
-        count /= SECOND_MS;
-    }
-    uint32_t presc = SECOND_MS;
-    if (delay_ms < SECOND_MS) {
-        timer->end = 1;
-        presc      = delay_ms;
-    }
-    while (count > 0xFFFF) {
-        presc *= 2;
-        count /= 2;
-    }
-    // TODO: add interrupt with new VTOR
-    if (presc > 0xFFFF) {
-        presc = 0xFFFF;
-    }
-    if (presc == 1) {
-        count /= TIMER_FREQ_MUL;
-    }
-
-    timer->tim->PSC  = presc - 1;
-    timer->tim->ARR  = count - 1;
-    timer->tim->CR1  = 0;
-
-    timer->tim->EGR  = TIM_EGR_UG;
-    timer->tim->CR1 |= TIM_CR1_UDIS;
-
-    timer->tim->CNT  = 0;
-    timer->tim->SR   = 0;
-    timer->tim->CR1 &= ~(TIM_CR1_DIR);
-    timer->tim->CR1 |= TIM_CR1_OPM;
-    timer->tim->CR1 |= TIM_CR1_CEN;
-
-    timer->verif = TIMER_VERIF_WORD;
-}
-
-void g_sys_timer_stop(system_timer_t* timer)
-{
-    timer->tim->SR &= ~(TIM_SR_UIF | TIM_SR_CC1IF);
-    timer->tim->CNT = 0;
-
-    if (timer->enabled) {
-        memcpy(timer->tim, &timer->bkup_tim, sizeof(TIM_TypeDef));
-    } else {
-        timer->tim->CR1 &= ~(TIM_CR1_CEN);
-        switch ((uint32_t)timer->tim) {
-        case TIM1_BASE:
-            __TIM1_CLK_DISABLE();
-            break;
-        case TIM2_BASE:
-            __TIM2_CLK_DISABLE();
-            break;
-        case TIM3_BASE:
-            __TIM3_CLK_DISABLE();
-            break;
-        case TIM4_BASE:
-            __TIM4_CLK_DISABLE();
-            break;
-        default:
-#if GSYSTEM_BEDUG
-            BEDUG_ASSERT(false, "GSYSTEM TIM WAS NOT SELECTED");
-#endif
-            return;
-        }
-        memset((void*)timer->tim, 0, sizeof(TIM_TypeDef));
-    }
-
-    timer->verif = 0;
-    timer->tim = NULL;
 }
 
 void g_restart_check() 
@@ -388,9 +388,11 @@ void g_ram_fill()
     uint32_t *end_heap = (uint32_t*)sbrk(0);
     start = end_heap;
     start++;
-    while (start < top) {
+    __disable_irq();
+    while (start < top - 128) {
         *(start++) = SYSTEM_CANARY_WORD;
     }
+    __enable_irq();
 }
 
 uint32_t g_ram_measure_free(void)

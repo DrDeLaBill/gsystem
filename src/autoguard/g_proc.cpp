@@ -546,7 +546,11 @@ public:
 
     unsigned job_count()
     {
+        if (circle_buf_gc_initialized(jobs)) {
         return circle_buf_gc_count(jobs);
+        }
+        BEDUG_ASSERT(false, "GSystem jobs buffer is not initialized");
+        return 0;
     }
 };
 
@@ -671,7 +675,7 @@ void _device_rev_print(const char* str)
 #endif
 
 #if !defined(GSYSTEM_NO_PRINTF) && !defined(GSYSTEM_NO_BEDUG)
-    char* ptr = str;
+    const char* ptr = str;
     for (size_t DataIdx = 0; DataIdx < strlen(str); DataIdx++) {
         ITM_SendChar(*ptr++);
     }
