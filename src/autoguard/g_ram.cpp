@@ -23,7 +23,7 @@
 #ifndef GSYSTEM_NO_RAM_W
 
 
-static void make_progress_bar(char *buf, size_t buflen, uint32_t free_bytes, uint32_t total_bytes, const int WIDTH = 30);
+static void make_progress_bar(char *buf, size_t buflen, uint32_t free_bytes, uint32_t total_bytes);
 static void uart_print_ram_report(
 	uintptr_t heap_addr,
 	uintptr_t stack_addr,
@@ -71,26 +71,26 @@ extern "C" void sys_fill_ram()
     g_ram_fill();
 }
 
-void make_progress_bar(char *buf, size_t buflen, uint32_t free_bytes, uint32_t total_bytes, const int WIDTH)
+void make_progress_bar(char *buf, size_t buflen, uint32_t free_bytes, uint32_t total_bytes)
 {
 	(void)buf;
 	(void)buflen;
 	(void)free_bytes;
 	(void)total_bytes;
-	(void)WIDTH;
 #if GSYSTEM_BEDUG
     if (buflen == 0) return;
     if (total_bytes == 0) {
         buf[0] = '\0';
         return;
     }
+    const int WIDTH = 30;
     uint32_t filled = __proportion(free_bytes, 0, total_bytes, 0, (uint32_t)WIDTH);
     if (filled > (uint32_t)WIDTH) {
 		filled = WIDTH;
 	} else if (filled == 0 && free_bytes > 0) {
 		filled = 1;
 	}
-    char s[WIDTH * 3 + 1] = "";
+    char s[WIDTH + 3 + 1] = "";
 	int used = (int)(WIDTH - filled);
     for (int i = 0; i < WIDTH; ++i) {
 		const char* ch = "\xE2\x96\x91"; // '░'

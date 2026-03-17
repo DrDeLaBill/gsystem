@@ -40,10 +40,91 @@ typedef struct _tim_inst_t {
 
 tim_inst_t tims[] = {
 #if defined(STM32F1)
-	{TIM1, HAL_RCC_GetPCLK2Freq, TIM1_UP_IRQn, NULL},
-	{TIM2, HAL_RCC_GetPCLK1Freq, TIM2_IRQn,    NULL},
-	{TIM3, HAL_RCC_GetPCLK1Freq, TIM3_IRQn,    NULL},
-	{TIM4, HAL_RCC_GetPCLK1Freq, TIM4_IRQn,    NULL},
+	#ifdef TIM1
+		{TIM1, HAL_RCC_GetPCLK2Freq, TIM1_UP_IRQn, NULL},
+	#endif
+	#ifdef TIM2
+		{TIM2, HAL_RCC_GetPCLK1Freq, TIM2_IRQn,    NULL},
+	#endif
+	#ifdef TIM3
+		{TIM3, HAL_RCC_GetPCLK1Freq, TIM3_IRQn,    NULL},
+	#endif
+	#ifdef TIM4
+		{TIM4, HAL_RCC_GetPCLK1Freq, TIM4_IRQn,    NULL},
+	#endif
+	#ifdef TIM5
+		{TIM5, HAL_RCC_GetPCLK1Freq, TIM5_IRQn,    NULL},
+	#endif
+	#ifdef TIM6
+		{TIM6, HAL_RCC_GetPCLK1Freq, TIM6_IRQn,    NULL},
+	#endif
+	#ifdef TIM7
+		{TIM7, HAL_RCC_GetPCLK1Freq, TIM7_IRQn,    NULL},
+	#endif
+	#ifdef TIM8
+		{TIM8, HAL_RCC_GetPCLK2Freq, TIM8_UP_IRQn, NULL},
+	#endif
+	#ifdef TIM9
+		{TIM9, HAL_RCC_GetPCLK2Freq, TIM1_BRK_TIM9_IRQn, NULL},
+	#endif
+	#ifdef TIM10
+		{TIM10, HAL_RCC_GetPCLK2Freq, TIM1_UP_TIM10_IRQn, NULL},
+	#endif
+	#ifdef TIM11
+		{TIM11, HAL_RCC_GetPCLK2Freq, TIM1_TRG_COM_TIM11_IRQn, NULL},
+	#endif
+	#ifdef TIM12
+		{TIM12, HAL_RCC_GetPCLK1Freq, TIM8_BRK_TIM12_IRQn, NULL},
+	#endif
+	#ifdef TIM13
+		{TIM13, HAL_RCC_GetPCLK1Freq, TIM8_UP_TIM13_IRQn, NULL},
+	#endif
+	#ifdef TIM14
+		{TIM14, HAL_RCC_GetPCLK1Freq, TIM8_TRG_COM_TIM14_IRQn, NULL},
+	#endif
+#elif defined(STM32F4)
+	#ifdef TIM1
+		{TIM1, HAL_RCC_GetPCLK2Freq, TIM1_UP_TIM10_IRQn, NULL},
+	#endif
+	#ifdef TIM2
+		{TIM2, HAL_RCC_GetPCLK1Freq, TIM2_IRQn,          NULL},
+	#endif
+	#ifdef TIM3
+		{TIM3, HAL_RCC_GetPCLK1Freq, TIM3_IRQn,          NULL},
+	#endif
+	#ifdef TIM4
+		{TIM4, HAL_RCC_GetPCLK1Freq, TIM4_IRQn,          NULL},
+	#endif
+	#ifdef TIM5
+		{TIM5, HAL_RCC_GetPCLK1Freq, TIM5_IRQn,          NULL},
+	#endif
+	#ifdef TIM6
+		{TIM6, HAL_RCC_GetPCLK1Freq, TIM6_DAC_IRQn,      NULL},
+	#endif
+	#ifdef TIM7
+		{TIM7, HAL_RCC_GetPCLK1Freq, TIM7_IRQn,          NULL},
+	#endif
+	#ifdef TIM8
+		{TIM8, HAL_RCC_GetPCLK2Freq, TIM8_UP_TIM13_IRQn, NULL},
+	#endif
+	#ifdef TIM9
+		{TIM9, HAL_RCC_GetPCLK2Freq, TIM1_BRK_TIM9_IRQn, NULL},
+	#endif
+	#ifdef TIM10
+		{TIM10, HAL_RCC_GetPCLK2Freq, TIM1_UP_TIM10_IRQn, NULL},
+	#endif
+	#ifdef TIM11
+		{TIM11, HAL_RCC_GetPCLK2Freq, TIM1_TRG_COM_TIM11_IRQn, NULL},
+	#endif
+	#ifdef TIM12
+		{TIM12, HAL_RCC_GetPCLK1Freq, TIM8_BRK_TIM12_IRQn, NULL},
+	#endif
+	#ifdef TIM13
+		{TIM13, HAL_RCC_GetPCLK1Freq, TIM8_UP_TIM13_IRQn, NULL},
+	#endif
+	#ifdef TIM14
+		{TIM14, HAL_RCC_GetPCLK1Freq, TIM8_TRG_COM_TIM14_IRQn, NULL},
+	#endif
 #else
 	#error "Do it better"
 #endif
@@ -51,15 +132,6 @@ tim_inst_t tims[] = {
 
 
 static hard_tim_t* sys_timer = NULL;
-
-
-#if defined(STM32F1)
-
-
-extern void TIM1_UP_IRQHandler(void);
-extern void TIM2_IRQHandler(void);
-extern void TIM3_IRQHandler(void);
-extern void TIM4_IRQHandler(void);
 
 
 static void _use_callback(const hard_tim_t* timer)
@@ -74,77 +146,317 @@ static void _use_callback(const hard_tim_t* timer)
 }
 
 
-void gsys_TIM1_UP_IRQHandler(void) {
-    if (TIM1->SR & TIM_SR_UIF) {
-        TIM1->SR &= ~TIM_SR_UIF;
-        _use_callback(TIM1);
-        TIM1_UP_IRQHandler();
-    }
-}
-
+#ifdef TIM2
+extern void TIM2_IRQHandler(void);
 void gsys_TIM2_IRQHandler(void) {
     if (TIM2->SR & TIM_SR_UIF) {
-        TIM2->SR &= ~TIM_SR_UIF;
-        _use_callback(TIM2);
-        TIM2_IRQHandler();
+    	TIM2->SR &= ~TIM_SR_UIF;
+    	_use_callback(TIM2);
+    	TIM2_IRQHandler();
     }
 }
+#endif
 
+#ifdef TIM3
+extern void TIM3_IRQHandler(void);
 void gsys_TIM3_IRQHandler(void) {
     if (TIM3->SR & TIM_SR_UIF) {
-        TIM3->SR &= ~TIM_SR_UIF;
-        _use_callback(TIM3);
-        TIM3_IRQHandler();
+    	TIM3->SR &= ~TIM_SR_UIF;
+    	_use_callback(TIM3);
+    	TIM3_IRQHandler();
     }
 }
+#endif
 
+#ifdef TIM4
+extern void TIM4_IRQHandler(void);
 void gsys_TIM4_IRQHandler(void) {
     if (TIM4->SR & TIM_SR_UIF) {
-        TIM4->SR &= ~TIM_SR_UIF;
-        _use_callback(TIM4);
-        TIM4_IRQHandler();
+    	TIM4->SR &= ~TIM_SR_UIF;
+    	_use_callback(TIM4);
+    	TIM4_IRQHandler();
     }
 }
+#endif
 
-#elif !defined(STM32)
-#else
-	#error "Do it better"
+#ifdef TIM5
+extern void TIM5_IRQHandler(void);
+void gsys_TIM5_IRQHandler(void) {
+    if (TIM5->SR & TIM_SR_UIF) {
+    	TIM5->SR &= ~TIM_SR_UIF;
+    	_use_callback(TIM5);
+    	TIM5_IRQHandler();
+    }
+}
+#endif
+
+#ifdef TIM6
+	#if defined(STM32F4)
+	extern void TIM6_DAC_IRQHandler(void);
+	void gsys_TIM6_DAC_IRQHandler(void) {
+		if (TIM6->SR & TIM_SR_UIF) {
+			TIM6->SR &= ~TIM_SR_UIF;
+			_use_callback(TIM6);
+			TIM6_DAC_IRQHandler();
+		}
+	}
+	#else
+	extern void TIM6_IRQHandler(void);
+	void gsys_TIM6_IRQHandler(void) {
+		if (TIM6->SR & TIM_SR_UIF) {
+			TIM6->SR &= ~TIM_SR_UIF;
+			_use_callback(TIM6);
+			TIM6_IRQHandler();
+		}
+	}
+	#endif
+#endif
+
+#ifdef TIM7
+extern void TIM7_IRQHandler(void);
+void gsys_TIM7_IRQHandler(void) {
+    if (TIM7->SR & TIM_SR_UIF) {
+    	TIM7->SR &= ~TIM_SR_UIF;
+    	_use_callback(TIM7);
+    	TIM7_IRQHandler();
+    }
+}
 #endif
 
 
+#if defined(TIM1) || defined(TIM10)
+	#if defined(STM32F4) || defined(TIM10)
+	extern void TIM1_UP_TIM10_IRQHandler(void);
+	void gsys_TIM1_UP_TIM10_IRQHandler(void) {
+		#ifdef TIM1
+		if (TIM1->SR & TIM_SR_UIF) {
+			TIM1->SR &= ~TIM_SR_UIF;
+			_use_callback(TIM1);
+			TIM1_UP_TIM10_IRQHandler();
+		}
+		#endif
+		#ifdef TIM10
+		if (TIM10->SR & TIM_SR_UIF) {
+			TIM10->SR &= ~TIM_SR_UIF;
+			_use_callback(TIM10);
+			TIM1_UP_TIM10_IRQHandler();
+		}
+		#endif
+	}
+	#else
+	extern void TIM1_UP_IRQHandler(void);
+	void gsys_TIM1_UP_IRQHandler(void) {
+	    if (TIM1->SR & TIM_SR_UIF) {
+	        TIM1->SR &= ~TIM_SR_UIF;
+	        _use_callback(TIM1);
+	        TIM1_UP_IRQHandler();
+	    }
+	}
+	#endif
+#endif
+
+#if defined(TIM9)
+extern void TIM1_BRK_TIM9_IRQHandler(void);
+void gsys_TIM1_BRK_TIM9_IRQHandler(void) {
+    if (TIM9->SR & TIM_SR_UIF) {
+		TIM9->SR &= ~TIM_SR_UIF;
+		_use_callback(TIM9);
+		TIM1_BRK_TIM9_IRQHandler();
+	}
+}
+#endif
+
+#if defined(TIM11)
+extern void TIM1_TRG_COM_TIM11_IRQHandler(void);
+void gsys_TIM1_TRG_COM_TIM11_IRQHandler(void) {
+    if (TIM11->SR & TIM_SR_UIF) {
+		TIM11->SR &= ~TIM_SR_UIF;
+		_use_callback(TIM11);
+		TIM1_TRG_COM_TIM11_IRQHandler();
+	}
+}
+#endif
+
+#if defined(TIM8) || defined(TIM13)
+	#if defined(STM32F4) || defined(TIM13)
+	extern void TIM8_UP_TIM13_IRQHandler(void);
+	void gsys_TIM8_UP_TIM13_IRQHandler(void) {
+		#ifdef TIM8
+		if (TIM8->SR & TIM_SR_UIF) {
+			TIM8->SR &= ~TIM_SR_UIF;
+			_use_callback(TIM8);
+			TIM8_UP_TIM13_IRQHandler();
+		}
+		#endif
+		#ifdef TIM13
+		if (TIM13->SR & TIM_SR_UIF) {
+			TIM13->SR &= ~TIM_SR_UIF;
+			_use_callback(TIM13);
+			TIM8_UP_TIM13_IRQHandler();
+		}
+		#endif
+	}
+	#else
+	extern void TIM8_UP_IRQHandler(void);
+	void gsys_TIM8_UP_IRQHandler(void) {
+		if (TIM8->SR & TIM_SR_UIF) {
+			TIM8->SR &= ~TIM_SR_UIF;
+			_use_callback(TIM8);
+			TIM8_UP_IRQHandler();
+		}
+	}
+	#endif
+#endif
+
+#if defined(TIM12)
+extern void TIM8_BRK_TIM12_IRQHandler(void);
+void gsys_TIM8_BRK_TIM12_IRQHandler(void) {
+    if (TIM12->SR & TIM_SR_UIF) {
+		TIM12->SR &= ~TIM_SR_UIF;
+		_use_callback(TIM12);
+		TIM8_BRK_TIM12_IRQHandler();
+	}
+}
+#endif
+
+#if defined(TIM14)
+extern void TIM8_TRG_COM_TIM14_IRQHandler(void);
+void gsys_TIM8_TRG_COM_TIM14_IRQHandler(void) {
+    if (TIM14->SR & TIM_SR_UIF) {
+		TIM14->SR &= ~TIM_SR_UIF;
+		_use_callback(TIM14);
+		TIM8_TRG_COM_TIM14_IRQHandler();
+	}
+}
+#endif
+
 static bool _enable_timer_clock(hard_tim_t* timer) {
-#if defined(STM32F1)
-    if (timer == TIM1) {
-        RCC->APB2ENR |= RCC_APB2ENR_TIM1EN;
-    } else if (timer == TIM2) {
-        RCC->APB1ENR |= RCC_APB1ENR_TIM2EN;
-    } else if (timer == TIM3) {
-        RCC->APB1ENR |= RCC_APB1ENR_TIM3EN;
-    } else if (timer == TIM4) {
-        RCC->APB1ENR |= RCC_APB1ENR_TIM4EN;
-    } else {
-    	return false;
-    }
-    return true;
+#if defined(STM32F1) || defined(STM32F4)
+
+	#ifdef TIM1
+	if (timer == TIM1) { RCC->APB2ENR |= RCC_APB2ENR_TIM1EN; return true; }
+	#endif
+
+	#ifdef TIM8
+	if (timer == TIM8) { RCC->APB2ENR |= RCC_APB2ENR_TIM8EN; return true; }
+	#endif
+
+	#ifdef TIM9
+	if (timer == TIM9) { RCC->APB2ENR |= RCC_APB2ENR_TIM9EN; return true; }
+	#endif
+
+	#ifdef TIM10
+	if (timer == TIM10) { RCC->APB2ENR |= RCC_APB2ENR_TIM10EN; return true; }
+	#endif
+
+	#ifdef TIM11
+	if (timer == TIM11) { RCC->APB2ENR |= RCC_APB2ENR_TIM11EN; return true; }
+	#endif
+
+
+	#ifdef TIM2
+	if (timer == TIM2) { RCC->APB1ENR |= RCC_APB1ENR_TIM2EN; return true; }
+	#endif
+
+	#ifdef TIM3
+	if (timer == TIM3) { RCC->APB1ENR |= RCC_APB1ENR_TIM3EN; return true; }
+	#endif
+
+	#ifdef TIM4
+	if (timer == TIM4) { RCC->APB1ENR |= RCC_APB1ENR_TIM4EN; return true; }
+	#endif
+
+	#ifdef TIM5
+	if (timer == TIM5) { RCC->APB1ENR |= RCC_APB1ENR_TIM5EN; return true; }
+	#endif
+
+	#ifdef TIM6
+	if (timer == TIM6) { RCC->APB1ENR |= RCC_APB1ENR_TIM6EN; return true; }
+	#endif
+
+	#ifdef TIM7
+	if (timer == TIM7) { RCC->APB1ENR |= RCC_APB1ENR_TIM7EN; return true; }
+	#endif
+
+	#ifdef TIM12
+	if (timer == TIM12) { RCC->APB1ENR |= RCC_APB1ENR_TIM12EN; return true; }
+	#endif
+
+	#ifdef TIM13
+	if (timer == TIM13) { RCC->APB1ENR |= RCC_APB1ENR_TIM13EN; return true; }
+	#endif
+
+	#ifdef TIM14
+	if (timer == TIM14) { RCC->APB1ENR |= RCC_APB1ENR_TIM14EN; return true; }
+	#endif
+
+    return false;
 #else
 	#error "Do it better"
 #endif
 }
 
 static bool _disable_timer_clock(hard_tim_t* timer) {
-#if defined(STM32F1)
-    if (timer == TIM1) {
-        RCC->APB2ENR &= ~RCC_APB2ENR_TIM1EN;
-    } else if (timer == TIM2) {
-        RCC->APB1ENR &= ~RCC_APB1ENR_TIM2EN;
-    } else if (timer == TIM3) {
-        RCC->APB1ENR &= ~RCC_APB1ENR_TIM3EN;
-    } else if (timer == TIM4) {
-        RCC->APB1ENR &= ~RCC_APB1ENR_TIM4EN;
-    } else {
-    	return false;
-    }
-    return true;
+#if defined(STM32F1) || defined(STM32F4)
+
+	#ifdef TIM1
+	if (timer == TIM1) { RCC->APB2ENR &= ~RCC_APB2ENR_TIM1EN; return true; }
+	#endif
+
+	#ifdef TIM8
+	if (timer == TIM8) { RCC->APB2ENR &= ~RCC_APB2ENR_TIM8EN; return true; }
+	#endif
+
+	#ifdef TIM9
+	if (timer == TIM9) { RCC->APB2ENR &= ~RCC_APB2ENR_TIM9EN; return true; }
+	#endif
+
+	#ifdef TIM10
+	if (timer == TIM10) { RCC->APB2ENR &= ~RCC_APB2ENR_TIM10EN; return true; }
+	#endif
+
+	#ifdef TIM11
+	if (timer == TIM11) { RCC->APB2ENR &= ~RCC_APB2ENR_TIM11EN; return true; }
+	#endif
+
+
+	#ifdef TIM2
+	if (timer == TIM2) { RCC->APB1ENR &= ~RCC_APB1ENR_TIM2EN; return true; }
+	#endif
+
+	#ifdef TIM3
+	if (timer == TIM3) { RCC->APB1ENR &= ~RCC_APB1ENR_TIM3EN; return true; }
+	#endif
+
+	#ifdef TIM4
+	if (timer == TIM4) { RCC->APB1ENR &= ~RCC_APB1ENR_TIM4EN; return true; }
+	#endif
+
+	#ifdef TIM5
+	if (timer == TIM5) { RCC->APB1ENR &= ~RCC_APB1ENR_TIM5EN; return true; }
+	#endif
+
+	#ifdef TIM6
+	if (timer == TIM6) { RCC->APB1ENR &= ~RCC_APB1ENR_TIM6EN; return true; }
+	#endif
+
+	#ifdef TIM7
+	if (timer == TIM7) { RCC->APB1ENR &= ~RCC_APB1ENR_TIM7EN; return true; }
+	#endif
+
+	#ifdef TIM12
+	if (timer == TIM12) { RCC->APB1ENR &= ~RCC_APB1ENR_TIM12EN; return true; }
+	#endif
+
+	#ifdef TIM13
+	if (timer == TIM13) { RCC->APB1ENR &= ~RCC_APB1ENR_TIM13EN; return true; }
+	#endif
+
+	#ifdef TIM14
+	if (timer == TIM14) { RCC->APB1ENR &= ~RCC_APB1ENR_TIM14EN; return true; }
+	#endif
+
+    return false;
 #else
 	#error "Do it better"
 #endif
@@ -173,6 +485,18 @@ static uint32_t _get_bus_freq(hard_tim_t* timer)
 
     bool apb1_div_by_1 = (ppre1 < 4);
     bool apb2_div_by_1 = (ppre2 == 0);
+
+    if (timer == TIM1) {
+        return apb2_div_by_1 ? pclk : (pclk * 2);
+    }
+
+	return apb1_div_by_1 ? pclk : (pclk * 2);
+#elif defined(STM32F4)
+    const uint32_t ppre1 = (RCC->CFGR >> 10) & 0x7u;
+    const uint32_t ppre2 = (RCC->CFGR >> 13) & 0x7u;
+
+    bool apb1_div_by_1 = (ppre1 < 4);
+    bool apb2_div_by_1 = (ppre2 < 4);
 
     if (timer == TIM1) {
         return apb2_div_by_1 ? pclk : (pclk * 2);
@@ -438,7 +762,7 @@ char* g_serial_number()
 #if defined(STM32F1)
 	uint32_t uid_base = 0x1FFFF7E8;
 #elif defined(STM32F4)
-	uint32_t uid_base = 0x1FFF7A10; // TODO: check address
+	uint32_t uid_base = 0x1FFF7A10;
 #else
 	#error Please select your device
 #endif

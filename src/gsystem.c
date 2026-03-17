@@ -184,6 +184,8 @@ void system_init(void)
     system_timer_stop(&timer);
 
     set_status(SYSTEM_HARDWARE_STARTED);
+
+    sys_timer_rdy = false;
 }
 
 const char* system_device_version()
@@ -197,6 +199,10 @@ extern void adc_watchdog_check();
 extern void sys_jobs_init();
 void system_post_load(void)
 {
+#if defined(GSYSTEM_TIMER)
+    sys_timer_rdy = g_sys_tick_start(GSYSTEM_TIMER);
+#endif
+
     SYSTEM_BEDUG("GSystem is loading");
 
     set_status(SYSTEM_SOFTWARE_STARTED);
@@ -885,7 +891,7 @@ uint32_t system_millis()
     if (sys_timer_rdy) {
         return g_get_millis();
     }
-    return getMillis();
+    return (uint32_t)getMillis();
 }
 
 void _system_restart_check(void)

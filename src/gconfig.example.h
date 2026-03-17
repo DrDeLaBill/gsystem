@@ -7,6 +7,8 @@
  * selection, peripheral assignments, and debug settings. Projects should
  * create a `gconfig.h` based on this example and enable only the needed
  * options.
+ * 
+ * Copyright © 2025 Georgy E. All rights reserved. 
  */
 
 #ifndef _G_SYSTEM_CONFIG_EXAMPLE_H_
