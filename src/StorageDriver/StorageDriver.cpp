@@ -34,7 +34,7 @@ uint32_t StorageDriver::lastAddress = 0;
 
 StorageStatus StorageDriver::read(const uint32_t address, uint8_t *data, const uint32_t len) {
 #ifdef GSYSTEM_EEPROM_MODE
-	if (is_error(POWER_ERROR) || is_status(MEMORY_ERROR)) {
+	if (is_error(POWER_ERROR) || is_error(MEMORY_ERROR)) {
 
 #   if STORAGE_DRIVER_BEDUG
 		printTagLog(TAG, "Error power");
@@ -107,7 +107,7 @@ StorageStatus StorageDriver::read(const uint32_t address, uint8_t *data, const u
 	reset_status(MEMORY_READ_FAULT);
     return STORAGE_OK;
 #elif defined(GSYSTEM_FLASH_MODE)
-	if (is_error(POWER_ERROR) || is_status(MEMORY_ERROR)) {
+	if (is_error(POWER_ERROR) || is_error(MEMORY_ERROR)) {
 
 #   if STORAGE_DRIVER_BEDUG
 		printTagLog(TAG, "Error power: unable to read 0x%08X", (unsigned int)address);
@@ -189,7 +189,7 @@ StorageStatus StorageDriver::read(const uint32_t address, uint8_t *data, const u
 
 StorageStatus StorageDriver::write(const uint32_t address, const uint8_t *data, const uint32_t len) {
 #ifdef GSYSTEM_EEPROM_MODE
-	if (is_error(POWER_ERROR) || is_status(MEMORY_ERROR)) {
+	if (is_error(POWER_ERROR) || is_error(MEMORY_ERROR)) {
 
 #   if STORAGE_DRIVER_BEDUG
 		printTagLog(TAG, "Error power");
@@ -242,7 +242,7 @@ StorageStatus StorageDriver::write(const uint32_t address, const uint8_t *data, 
 	reset_status(MEMORY_WRITE_FAULT);
     return STORAGE_OK;
 #elif defined(GSYSTEM_FLASH_MODE)
-	if (is_error(POWER_ERROR) || is_status(MEMORY_ERROR)) {
+	if (is_error(POWER_ERROR) || is_error(MEMORY_ERROR)) {
 
 #   if STORAGE_DRIVER_BEDUG
 		printTagLog(TAG, "Error power: unable to write 0x%08X", (unsigned int)address);
@@ -310,7 +310,7 @@ StorageStatus StorageDriver::erase(const uint32_t* addresses, const uint32_t cou
 	return STORAGE_OK;
 #elif defined(GSYSTEM_FLASH_MODE)
 
-	if (is_error(POWER_ERROR) || is_status(MEMORY_ERROR)) {
+	if (is_error(POWER_ERROR) || is_error(MEMORY_ERROR)) {
 
 #   if STORAGE_DRIVER_BEDUG
 		printTagLog(TAG, "Error power: unable to erase from 0x%08X %lu pages", (unsigned int)addresses[0], count);
@@ -366,7 +366,7 @@ StorageStatus StorageDriver::erase(const uint32_t* addresses, const uint32_t cou
 StorageStatus StorageDriver::asyncRead(const uint32_t address, uint8_t* data, const uint32_t len)
 {
 #if defined(GSYSTEM_FLASH_MODE)
-	if (is_error(POWER_ERROR) || is_status(MEMORY_ERROR)) {
+	if (is_error(POWER_ERROR) || is_error(MEMORY_ERROR)) {
 
 #   if STORAGE_DRIVER_BEDUG
 		printTagLog(TAG, "Error power: unable to read 0x%08X", (unsigned int)address);
@@ -446,7 +446,7 @@ StorageStatus StorageDriver::asyncRead(const uint32_t address, uint8_t* data, co
 StorageStatus StorageDriver::asyncWrite(const uint32_t address, const uint8_t* data, const uint32_t len)
 {
 #if defined(GSYSTEM_FLASH_MODE)
-	if (is_error(POWER_ERROR) || is_status(MEMORY_ERROR)) {
+	if (is_error(POWER_ERROR) || is_error(MEMORY_ERROR)) {
 
 #   if STORAGE_DRIVER_BEDUG
 		printTagLog(TAG, "Error power: unable to write 0x%08X", (unsigned int)address);
@@ -511,7 +511,7 @@ StorageStatus StorageDriver::asyncErase(const uint32_t* addresses, const uint32_
 	return STORAGE_OK;
 #elif defined(GSYSTEM_FLASH_MODE)
 
-	if (is_error(POWER_ERROR) || is_status(MEMORY_ERROR)) {
+	if (is_error(POWER_ERROR) || is_error(MEMORY_ERROR)) {
 
 #   if STORAGE_DRIVER_BEDUG
 		printTagLog(TAG, "Error power: unable to erase from 0x%08X %lu pages", (unsigned int)addresses[0], count);
