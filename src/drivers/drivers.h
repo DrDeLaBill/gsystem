@@ -87,6 +87,10 @@ void g_delay_ms(const uint32_t ms);
 
 uint32_t g_system_freq(void);
 
+uint32_t g_get_millis_hw_tim_presc();
+
+uint32_t g_get_millis_hw_tim_count();
+
 bool g_sys_tick_start(hard_tim_t* timer);
 
 uint64_t g_get_micros(void);

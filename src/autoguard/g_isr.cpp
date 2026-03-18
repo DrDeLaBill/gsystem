@@ -229,16 +229,23 @@ void UsageFault_Handler(void)
 static uint32_t* flash_vector_table = (uint32_t*)0x08000000;
 static uint32_t VECTOR_TABLE_ALIGN gsys_isr_vector[VECTOR_TABLE_SIZE / sizeof(uint32_t)] = {};
 
-
-static void _change_addr(void (*original_ptr) (void), void (*target_ptr) (void))
+static void _set_sys_vector(int exception_num, void (*target_ptr) (void))
 {
-	for (unsigned i = 0; i < __arr_len(gsys_isr_vector); i++) {
-		if (flash_vector_table[i] == (uint32_t)original_ptr) {
-			gsys_isr_vector[i] = (uint32_t)target_ptr;
-			return;
-		}
-	}
-	system_error_handler(HARD_FAULT);
+    if (exception_num >= 0 && exception_num < 16) {
+        gsys_isr_vector[exception_num] = (uint32_t)target_ptr;
+    } else {
+        system_error_handler(HARD_FAULT);
+    }
+}
+
+static void _set_irq_vector(IRQn_Type irq, void (*target_ptr) (void))
+{
+    int idx = irq + 16;
+    if (idx >= 16 && idx < (int)__arr_len(gsys_isr_vector)) {
+        gsys_isr_vector[idx] = (uint32_t)target_ptr;
+    } else {
+        system_error_handler(HARD_FAULT);
+    }
 }
 
 #endif
@@ -315,70 +322,70 @@ extern "C" void sys_isr_register() {
 	
 	memcpy(gsys_isr_vector, flash_vector_table, VECTOR_TABLE_SIZE);
 
-    _change_addr(NMI_Handler,        gsys_NMI_Handler);
-	_change_addr(HardFault_Handler,  gsys_HardFault_Handler);
-	_change_addr(MemManage_Handler,  gsys_MemManage_Handler);
-	_change_addr(BusFault_Handler,   gsys_BusFault_Handler);
-	_change_addr(UsageFault_Handler, gsys_UsageFault_Handler);
+	_set_sys_vector(2, gsys_NMI_Handler);
+	_set_sys_vector(3, gsys_HardFault_Handler);
+	_set_sys_vector(4, gsys_MemManage_Handler);
+	_set_sys_vector(5, gsys_BusFault_Handler);
+	_set_sys_vector(6, gsys_UsageFault_Handler);
 
 
 	#ifdef TIM2
-	_change_addr(TIM2_IRQHandler, gsys_TIM2_IRQHandler);
+	_set_irq_vector(TIM2_IRQn, gsys_TIM2_IRQHandler);
 	#endif
 	#ifdef TIM3
-	_change_addr(TIM3_IRQHandler, gsys_TIM3_IRQHandler);
+	_set_irq_vector(TIM3_IRQn, gsys_TIM3_IRQHandler);
 	#endif
 	#ifdef TIM4
-	_change_addr(TIM4_IRQHandler, gsys_TIM4_IRQHandler);
+	_set_irq_vector(TIM4_IRQn, gsys_TIM4_IRQHandler);
 	#endif
 	#ifdef TIM5
-	_change_addr(TIM5_IRQHandler, gsys_TIM5_IRQHandler);
+	_set_irq_vector(TIM5_IRQn, gsys_TIM5_IRQHandler);
 	#endif
 	#ifdef TIM6
 		#if defined(STM32F4)
-		_change_addr(TIM6_DAC_IRQHandler, gsys_TIM6_DAC_IRQHandler);
+		_set_irq_vector(TIM6_DAC_IRQn, gsys_TIM6_DAC_IRQHandler);
 		#else
-		_change_addr(TIM6_IRQHandler, gsys_TIM6_IRQHandler);
+		_set_irq_vector(TIM6_IRQn, gsys_TIM6_IRQHandler);
 		#endif
 	#endif
 	#ifdef TIM7
-	_change_addr(TIM7_IRQHandler, gsys_TIM7_IRQHandler);
+	_set_irq_vector(TIM7_IRQn, gsys_TIM7_IRQHandler);
 	#endif
 
 
 	#if defined(TIM1) || defined(TIM10)
 		#if defined(STM32F4) || defined(TIM10)
-		_change_addr(TIM1_UP_TIM10_IRQHandler, gsys_TIM1_UP_TIM10_IRQHandler);
+		_set_irq_vector(TIM1_UP_TIM10_IRQn, gsys_TIM1_UP_TIM10_IRQHandler);
 		#else
-		_change_addr(TIM1_UP_IRQHandler, gsys_TIM1_UP_IRQHandler);
+		_set_irq_vector(TIM1_UP_IRQn, gsys_TIM1_UP_IRQHandler);
 		#endif
 	#endif
 	#if defined(TIM9)
-	_change_addr(TIM1_BRK_TIM9_IRQHandler, gsys_TIM1_BRK_TIM9_IRQHandler);
+	_set_irq_vector(TIM1_BRK_TIM9_IRQn, gsys_TIM1_BRK_TIM9_IRQHandler);
 	#endif
 	#if defined(TIM11)
-	_change_addr(TIM1_TRG_COM_TIM11_IRQHandler, gsys_TIM1_TRG_COM_TIM11_IRQHandler);
+	_set_irq_vector(TIM1_TRG_COM_TIM11_IRQn, gsys_TIM1_TRG_COM_TIM11_IRQHandler);
 	#endif
 
 	
 	#if defined(TIM8) || defined(TIM13)
 		#if defined(STM32F4) || defined(TIM13)
-		_change_addr(TIM8_UP_TIM13_IRQHandler, gsys_TIM8_UP_TIM13_IRQHandler);
+		_set_irq_vector(TIM8_UP_TIM13_IRQn, gsys_TIM8_UP_TIM13_IRQHandler);
 		#else
-		_change_addr(TIM8_UP_IRQHandler, gsys_TIM8_UP_IRQHandler);
+		_set_irq_vector(TIM8_UP_IRQn, gsys_TIM8_UP_IRQHandler);
 		#endif
 	#endif
 	#if defined(TIM12)
-	_change_addr(TIM8_BRK_TIM12_IRQHandler, gsys_TIM8_BRK_TIM12_IRQHandler);
+	_set_irq_vector(TIM8_BRK_TIM12_IRQn, gsys_TIM8_BRK_TIM12_IRQHandler);
 	#endif
 	#if defined(TIM14)
-	_change_addr(TIM8_TRG_COM_TIM14_IRQHandler, gsys_TIM8_TRG_COM_TIM14_IRQHandler);
+	_set_irq_vector(TIM8_TRG_COM_TIM14_IRQn, gsys_TIM8_TRG_COM_TIM14_IRQHandler);
 	#endif
 
 
     #ifdef USE_FLASH_DMA
-	_change_addr(DMA_RX_FUNC,        __concat(gsys_, DMA_RX_FUNC));
-	_change_addr(DMA_TX_FUNC,        __concat(gsys_, DMA_TX_FUNC));
+	_set_irq_vector(DMA_RX_FUNC,        __concat(gsys_, DMA_RX_FUNC));
+	_set_irq_vector(DMA_TX_FUNC,        __concat(gsys_, DMA_TX_FUNC));
     #endif
 
 

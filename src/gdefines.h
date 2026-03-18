@@ -110,6 +110,16 @@ extern const char SYSTEM_TAG[];
    #define GSYSTEM_POCESSES_COUNT (32)
 #endif
 
+#ifndef GSYSTEM_COLOR_DEFAULT
+	#define GSYSTEM_COLOR_DEFAULT "\x1b[0m"
+#endif
+#ifndef GSYSTEM_COLOR_WARN
+    #define GSYSTEM_COLOR_WARN    "\x1b[33m"
+#endif
+#ifndef GSYSTEM_COLOR_ERROR
+    #define GSYSTEM_COLOR_ERROR   "\x1b[31m"
+#endif
+
 // Min gsystem proccesses counter
 #ifndef GSYSTEM_NO_MEMORY_W
     #define __GC_CNT_MEMORY (1)

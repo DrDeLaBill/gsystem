@@ -26,7 +26,7 @@
 #include "gversion.h"
 
 #if defined(GSYSTEM_DS130X_CLOCK)
-#    include "ds130x.h"
+    #include "ds130x.h"
 #endif
 
 
@@ -60,8 +60,14 @@ static bool system_hsi_initialized = false;
 uint16_t SYSTEM_ADC_VOLTAGE[GSYSTEM_ADC_VOLTAGE_COUNT] = {0};
 #endif
 
+static bool sys_timer_rdy = false;
 uint32_t sys_time_ms = 0;
-bool sys_timer_rdy = false;
+
+static bool system_timer_callback_flag = false;
+void _system_timer_callback(void)
+{
+	system_timer_callback_flag = true;
+}
 
 
 #if !defined(GSYSTEM_NO_RTC_W)
@@ -79,113 +85,131 @@ void system_init(void)
 
     sys_fill_ram();
 
-#if defined(GSYSTEM_TIMER)
-    sys_timer_rdy = g_sys_tick_start(GSYSTEM_TIMER);
-#endif
-
 	if (!gversion_from_string(BUILD_VERSION, strlen(BUILD_VERSION), &build_ver)) {
 		memset((void*)&build_ver, 0, sizeof(build_ver));
 	}
 
-    system_timer_t timer = {0};
+	const uint32_t DEFAULT_COUNT = 1000 - 1;
 #ifndef GSYSTEM_NO_SYS_TICK_W
     RCC->CR |= RCC_CR_HSEON;
 
-    system_timer_start(&timer, SECOND_MS);
-    while (system_timer_wait(&timer)) {
+    system_timer_callback_flag = false;
+    system_hw_timer_start(
+		GSYS_DEFAULT_TIM,
+		_system_timer_callback,
+		g_get_millis_hw_tim_presc() - 1,
+		DEFAULT_COUNT
+    );
+    while (!system_timer_callback_flag) {
         if (RCC->CR & RCC_CR_HSERDY) {
             break;
         }
     }
+    system_hw_timer_stop(GSYS_DEFAULT_TIM);
+
     if (!(RCC->CR & RCC_CR_HSERDY)) {
     	set_error(SYS_TICK_ERROR);
         set_status(SYS_TICK_FAULT);
     }
-    system_timer_stop(&timer);
 
-    #ifndef GSYSTEM_NO_PLL_CHECK_W
+    #if !defined(GSYSTEM_NO_PLL_CHECK_W)
 
     RCC_PLLInitTypeDef PLL = {0};
     PLL.PLLState = RCC_PLL_ON;
     PLL.PLLSource = RCC_PLLSOURCE_HSE;
-    #    if defined(STM32F1)
-    PLL.PLLMUL = RCC_PLL_MUL9;
-    #    elif defined(STM32F4)
-    PLL.PLLM = 4;
-    PLL.PLLN = 84;
-    PLL.PLLP = RCC_PLLP_DIV2;
-    PLL.PLLQ = 4;
-    #    endif
+		#if defined(STM32F1)
+		PLL.PLLMUL = RCC_PLL_MUL9;
+		#elif defined(STM32F4)
+		PLL.PLLM = 4;
+		PLL.PLLN = 84;
+		PLL.PLLP = RCC_PLLP_DIV2;
+		PLL.PLLQ = 4;
+		#endif
 
     __HAL_RCC_PLL_DISABLE();
-    system_timer_start(&timer, SECOND_MS);
-    while (system_timer_wait(&timer)) {
+    system_timer_callback_flag = false;
+    system_hw_timer_start(
+		GSYS_DEFAULT_TIM,
+		_system_timer_callback,
+		g_get_millis_hw_tim_presc() - 1,
+		DEFAULT_COUNT
+    );
+    while (!system_timer_callback_flag) {
         if (__HAL_RCC_GET_FLAG(RCC_FLAG_PLLRDY) == RESET) {
             break;
         }
     }
+    system_hw_timer_stop(GSYS_DEFAULT_TIM);
     if (__HAL_RCC_GET_FLAG(RCC_FLAG_PLLRDY) != RESET) {
     	set_error(SYS_TICK_ERROR);
         set_status(SYS_TICK_FAULT);
     }
-    system_timer_stop(&timer);
 
-    #    if defined(STM32F1)
-    __HAL_RCC_PLL_CONFIG(PLL.PLLSource,
-                         PLL.PLLMUL);
-    #    elif defined(STM32F4)
-    WRITE_REG(RCC->PLLCFGR, (PLL.PLLSource                     | \
-                PLL.PLLM                                       | \
-             (  PLL.PLLN << RCC_PLLCFGR_PLLN_Pos)              | \
-             (((PLL.PLLP >> 1U) - 1U) << RCC_PLLCFGR_PLLP_Pos) | \
-             (  PLL.PLLQ << RCC_PLLCFGR_PLLQ_Pos)));
-    #    endif
+		#if defined(STM32F1)
+		__HAL_RCC_PLL_CONFIG(PLL.PLLSource,
+							 PLL.PLLMUL);
+		#elif defined(STM32F4)
+		WRITE_REG(RCC->PLLCFGR, (PLL.PLLSource                     | \
+					PLL.PLLM                                       | \
+				 (  PLL.PLLN << RCC_PLLCFGR_PLLN_Pos)              | \
+				 (((PLL.PLLP >> 1U) - 1U) << RCC_PLLCFGR_PLLP_Pos) | \
+				 (  PLL.PLLQ << RCC_PLLCFGR_PLLQ_Pos)));
+		#endif
     __HAL_RCC_PLL_ENABLE();
-
-    system_timer_start(&timer, SECOND_MS);
-    while (system_timer_wait(&timer)) {
+    system_timer_callback_flag = false;
+    system_hw_timer_start(
+		GSYS_DEFAULT_TIM,
+		_system_timer_callback,
+		g_get_millis_hw_tim_presc() - 1,
+		DEFAULT_COUNT
+    );
+    while (!system_timer_callback_flag) {
         if (__HAL_RCC_GET_FLAG(RCC_FLAG_PLLRDY) != RESET) {
             break;
         }
     }
+    system_hw_timer_stop(GSYS_DEFAULT_TIM);
     if (__HAL_RCC_GET_FLAG(RCC_FLAG_PLLRDY) == RESET) {
     	set_error(SYS_TICK_ERROR);
         set_status(SYS_TICK_FAULT);
     }
-    system_timer_stop(&timer);
 
-    #    if defined(STM32F1)
-    uint32_t pll_config = RCC->CFGR;
-    #    elif defined(STM32F4)
-    uint32_t pll_config = RCC->PLLCFGR;
-    #    endif
-    if (((PLL.PLLState) == RCC_PLL_OFF)                                                                ||
-    #    if defined(STM32F1)
-       (READ_BIT(pll_config, RCC_CFGR_PLLSRC)  != PLL.PLLSource)                                       ||
-       (READ_BIT(pll_config, RCC_CFGR_PLLMULL) != PLL.PLLMUL)
-    #    elif defined(STM32F4)
-       (READ_BIT(pll_config, RCC_PLLCFGR_PLLSRC) != PLL.PLLSource)                                     ||
-       (READ_BIT(pll_config, RCC_PLLCFGR_PLLM)   != (PLL.PLLM) << RCC_PLLCFGR_PLLM_Pos)                ||
-       (READ_BIT(pll_config, RCC_PLLCFGR_PLLN)   != (PLL.PLLN) << RCC_PLLCFGR_PLLN_Pos)                ||
-       (READ_BIT(pll_config, RCC_PLLCFGR_PLLP)   != (((PLL.PLLP >> 1U) - 1U)) << RCC_PLLCFGR_PLLP_Pos) ||
-       (READ_BIT(pll_config, RCC_PLLCFGR_PLLQ)   != (PLL.PLLQ << RCC_PLLCFGR_PLLQ_Pos))
-    #    endif
-    ) {
-    	set_error(SYS_TICK_ERROR);
-        set_status(SYS_TICK_FAULT);
-    }
+		#if defined(STM32F1)
+		uint32_t pll_config = RCC->CFGR;
+		#elif defined(STM32F4)
+		uint32_t pll_config = RCC->PLLCFGR;
+		#endif
+		if (((PLL.PLLState) == RCC_PLL_OFF)                                                                ||
+		#if defined(STM32F1)
+		   (READ_BIT(pll_config, RCC_CFGR_PLLSRC)  != PLL.PLLSource)                                       ||
+		   (READ_BIT(pll_config, RCC_CFGR_PLLMULL) != PLL.PLLMUL)
+		#elif defined(STM32F4)
+		   (READ_BIT(pll_config, RCC_PLLCFGR_PLLSRC) != PLL.PLLSource)                                     ||
+		   (READ_BIT(pll_config, RCC_PLLCFGR_PLLM)   != (PLL.PLLM) << RCC_PLLCFGR_PLLM_Pos)                ||
+		   (READ_BIT(pll_config, RCC_PLLCFGR_PLLN)   != (PLL.PLLN) << RCC_PLLCFGR_PLLN_Pos)                ||
+		   (READ_BIT(pll_config, RCC_PLLCFGR_PLLP)   != (((PLL.PLLP >> 1U) - 1U)) << RCC_PLLCFGR_PLLP_Pos) ||
+		   (READ_BIT(pll_config, RCC_PLLCFGR_PLLQ)   != (PLL.PLLQ << RCC_PLLCFGR_PLLQ_Pos))
+		#endif
+		) {
+			set_error(SYS_TICK_ERROR);
+			set_status(SYS_TICK_FAULT);
+		}
 
     #endif
 
 #endif
 
-    system_timer_start(&timer, 20);
-    while (system_timer_wait(&timer));
-    system_timer_stop(&timer);
+	system_timer_callback_flag = false;
+	system_hw_timer_start(
+		GSYS_DEFAULT_TIM,
+		_system_timer_callback,
+		g_get_millis_hw_tim_presc() - 1,
+		DEFAULT_COUNT
+	);
+	while (!system_timer_callback_flag);
+    system_hw_timer_stop(GSYS_DEFAULT_TIM);
 
     set_status(SYSTEM_HARDWARE_STARTED);
-
-    sys_timer_rdy = false;
 }
 
 const char* system_device_version()
@@ -434,7 +458,7 @@ void system_timer_start(system_timer_t* timer, uint32_t delay_ms)
     }
     timer->started  = 1;
     timer->delay_ms = delay_ms;
-    timer->start_ms = g_get_millis();
+    timer->start_ms = system_millis();
 }
 
 bool system_timer_wait(const system_timer_t* timer)
@@ -443,7 +467,7 @@ bool system_timer_wait(const system_timer_t* timer)
         BEDUG_ASSERT(false, "Timer must not be NULL");
         return false;
     }
-    return timer->started && timer->start_ms + timer->delay_ms < g_get_millis();
+    return timer->started && timer->start_ms + timer->delay_ms < system_millis();
 }
 
 void system_timer_stop(system_timer_t* timer)
@@ -862,6 +886,22 @@ void system_delay_us(uint64_t us)
 {
     uint64_t start = getMicroseconds();
     while (start + us > getMicroseconds());
+}
+
+void system_set_print_color(const char* color)
+{
+#if defined(GSYSTEM_NO_ANSI_CODES)
+	(void)color;
+#else
+    gprint("%s", color);
+#endif
+}
+
+void system_print_clear()
+{
+#if !defined(GSYSTEM_NO_ANSI_CODES)
+	gprint("\033[2J\033[H");
+#endif
 }
 
 void SYSTEM_BEDUG(const char* format, ...)

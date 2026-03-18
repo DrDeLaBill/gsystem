@@ -134,7 +134,7 @@ tim_inst_t tims[] = {
 static hard_tim_t* sys_timer = NULL;
 
 
-static void _use_callback(const hard_tim_t* timer)
+static void _use_callback(const hard_tim_t* timer, void (*default_callback) (void))
 {
     int idx = _get_timer_index(timer);
     if (idx < 0) {
@@ -142,6 +142,8 @@ static void _use_callback(const hard_tim_t* timer)
     }
     if (tims[idx].callback) {
     	tims[idx].callback();
+    } else {
+    	default_callback();
     }
 }
 
@@ -151,8 +153,7 @@ extern void TIM2_IRQHandler(void);
 void gsys_TIM2_IRQHandler(void) {
     if (TIM2->SR & TIM_SR_UIF) {
     	TIM2->SR &= ~TIM_SR_UIF;
-    	_use_callback(TIM2);
-    	TIM2_IRQHandler();
+    	_use_callback(TIM2, TIM2_IRQHandler);
     }
 }
 #endif
@@ -162,8 +163,7 @@ extern void TIM3_IRQHandler(void);
 void gsys_TIM3_IRQHandler(void) {
     if (TIM3->SR & TIM_SR_UIF) {
     	TIM3->SR &= ~TIM_SR_UIF;
-    	_use_callback(TIM3);
-    	TIM3_IRQHandler();
+    	_use_callback(TIM3, TIM3_IRQHandler);
     }
 }
 #endif
@@ -173,8 +173,7 @@ extern void TIM4_IRQHandler(void);
 void gsys_TIM4_IRQHandler(void) {
     if (TIM4->SR & TIM_SR_UIF) {
     	TIM4->SR &= ~TIM_SR_UIF;
-    	_use_callback(TIM4);
-    	TIM4_IRQHandler();
+    	_use_callback(TIM4, TIM4_IRQHandler);
     }
 }
 #endif
@@ -184,8 +183,7 @@ extern void TIM5_IRQHandler(void);
 void gsys_TIM5_IRQHandler(void) {
     if (TIM5->SR & TIM_SR_UIF) {
     	TIM5->SR &= ~TIM_SR_UIF;
-    	_use_callback(TIM5);
-    	TIM5_IRQHandler();
+    	_use_callback(TIM5, TIM5_IRQHandler);
     }
 }
 #endif
@@ -196,8 +194,7 @@ void gsys_TIM5_IRQHandler(void) {
 	void gsys_TIM6_DAC_IRQHandler(void) {
 		if (TIM6->SR & TIM_SR_UIF) {
 			TIM6->SR &= ~TIM_SR_UIF;
-			_use_callback(TIM6);
-			TIM6_DAC_IRQHandler();
+			_use_callback(TIM6, TIM6_DAC_IRQHandler);
 		}
 	}
 	#else
@@ -205,8 +202,7 @@ void gsys_TIM5_IRQHandler(void) {
 	void gsys_TIM6_IRQHandler(void) {
 		if (TIM6->SR & TIM_SR_UIF) {
 			TIM6->SR &= ~TIM_SR_UIF;
-			_use_callback(TIM6);
-			TIM6_IRQHandler();
+			_use_callback(TIM6, TIM6_IRQHandler);
 		}
 	}
 	#endif
@@ -217,8 +213,7 @@ extern void TIM7_IRQHandler(void);
 void gsys_TIM7_IRQHandler(void) {
     if (TIM7->SR & TIM_SR_UIF) {
     	TIM7->SR &= ~TIM_SR_UIF;
-    	_use_callback(TIM7);
-    	TIM7_IRQHandler();
+    	_use_callback(TIM7, TIM7_IRQHandler);
     }
 }
 #endif
@@ -231,15 +226,13 @@ void gsys_TIM7_IRQHandler(void) {
 		#ifdef TIM1
 		if (TIM1->SR & TIM_SR_UIF) {
 			TIM1->SR &= ~TIM_SR_UIF;
-			_use_callback(TIM1);
-			TIM1_UP_TIM10_IRQHandler();
+			_use_callback(TIM1, TIM1_UP_TIM10_IRQHandler);
 		}
 		#endif
 		#ifdef TIM10
 		if (TIM10->SR & TIM_SR_UIF) {
 			TIM10->SR &= ~TIM_SR_UIF;
-			_use_callback(TIM10);
-			TIM1_UP_TIM10_IRQHandler();
+			_use_callback(TIM10, TIM1_UP_TIM10_IRQHandler);
 		}
 		#endif
 	}
@@ -248,8 +241,7 @@ void gsys_TIM7_IRQHandler(void) {
 	void gsys_TIM1_UP_IRQHandler(void) {
 	    if (TIM1->SR & TIM_SR_UIF) {
 	        TIM1->SR &= ~TIM_SR_UIF;
-	        _use_callback(TIM1);
-	        TIM1_UP_IRQHandler();
+	        _use_callback(TIM1, TIM1_UP_IRQHandler);
 	    }
 	}
 	#endif
@@ -260,8 +252,7 @@ extern void TIM1_BRK_TIM9_IRQHandler(void);
 void gsys_TIM1_BRK_TIM9_IRQHandler(void) {
     if (TIM9->SR & TIM_SR_UIF) {
 		TIM9->SR &= ~TIM_SR_UIF;
-		_use_callback(TIM9);
-		TIM1_BRK_TIM9_IRQHandler();
+		_use_callback(TIM9, TIM1_BRK_TIM9_IRQHandler);
 	}
 }
 #endif
@@ -271,8 +262,7 @@ extern void TIM1_TRG_COM_TIM11_IRQHandler(void);
 void gsys_TIM1_TRG_COM_TIM11_IRQHandler(void) {
     if (TIM11->SR & TIM_SR_UIF) {
 		TIM11->SR &= ~TIM_SR_UIF;
-		_use_callback(TIM11);
-		TIM1_TRG_COM_TIM11_IRQHandler();
+		_use_callback(TIM11, TIM1_TRG_COM_TIM11_IRQHandler);
 	}
 }
 #endif
@@ -284,15 +274,13 @@ void gsys_TIM1_TRG_COM_TIM11_IRQHandler(void) {
 		#ifdef TIM8
 		if (TIM8->SR & TIM_SR_UIF) {
 			TIM8->SR &= ~TIM_SR_UIF;
-			_use_callback(TIM8);
-			TIM8_UP_TIM13_IRQHandler();
+			_use_callback(TIM8, TIM8_UP_TIM13_IRQHandler);
 		}
 		#endif
 		#ifdef TIM13
 		if (TIM13->SR & TIM_SR_UIF) {
 			TIM13->SR &= ~TIM_SR_UIF;
-			_use_callback(TIM13);
-			TIM8_UP_TIM13_IRQHandler();
+			_use_callback(TIM13, TIM8_UP_TIM13_IRQHandler);
 		}
 		#endif
 	}
@@ -301,8 +289,7 @@ void gsys_TIM1_TRG_COM_TIM11_IRQHandler(void) {
 	void gsys_TIM8_UP_IRQHandler(void) {
 		if (TIM8->SR & TIM_SR_UIF) {
 			TIM8->SR &= ~TIM_SR_UIF;
-			_use_callback(TIM8);
-			TIM8_UP_IRQHandler();
+			_use_callback(TIM8, TIM8_UP_IRQHandler);
 		}
 	}
 	#endif
@@ -313,8 +300,7 @@ extern void TIM8_BRK_TIM12_IRQHandler(void);
 void gsys_TIM8_BRK_TIM12_IRQHandler(void) {
     if (TIM12->SR & TIM_SR_UIF) {
 		TIM12->SR &= ~TIM_SR_UIF;
-		_use_callback(TIM12);
-		TIM8_BRK_TIM12_IRQHandler();
+		_use_callback(TIM12, TIM8_BRK_TIM12_IRQHandler);
 	}
 }
 #endif
@@ -324,8 +310,7 @@ extern void TIM8_TRG_COM_TIM14_IRQHandler(void);
 void gsys_TIM8_TRG_COM_TIM14_IRQHandler(void) {
     if (TIM14->SR & TIM_SR_UIF) {
 		TIM14->SR &= ~TIM_SR_UIF;
-		_use_callback(TIM14);
-		TIM8_TRG_COM_TIM14_IRQHandler();
+		_use_callback(TIM14, TIM8_TRG_COM_TIM14_IRQHandler);
 	}
 }
 #endif
@@ -519,6 +504,62 @@ void g_reboot()
     NVIC_SystemReset();
 }
 
+bool _get_millis_hw_tim_presc_count(hard_tim_t* timer, uint32_t* presc, uint32_t* count)
+{
+    uint32_t freq = _get_bus_freq(timer);
+    if (!freq) {
+        BEDUG_ASSERT(false, "System timer frequency errors");
+    	return false;
+    }
+    uint32_t ticks_per_ms = freq / 1000;
+    *count = 1000;
+    while (freq % *count) {
+    	(*count)--;
+    }
+    *presc = freq / *count;
+    if (*presc - 1 > 0xFFFF) {
+    	*presc = 0;
+    	*count = 0;
+    	for (uint32_t p = 1; p <= 65536; p++) {
+			if (ticks_per_ms % p == 0) {
+				uint32_t c = ticks_per_ms / p;
+				if (c <= 65536) {
+					*presc = p;
+					*count = c;
+					break;
+				}
+			}
+		}
+    }
+	return true;
+}
+
+uint32_t g_get_millis_hw_tim_presc()
+{
+	uint32_t count = 0, presc = 0;
+#if defined(GSYSTEM_TIMER)
+	if (!_get_millis_hw_tim_presc_count(GSYSTEM_TIMER, &presc, &count)) {
+#else
+	if (!_get_millis_hw_tim_presc_count(GSYS_DEFAULT_TIM, &presc, &count)) {
+#endif
+		return 0;
+	}
+	return presc;
+}
+
+uint32_t g_get_millis_hw_tim_count()
+{
+	uint32_t count = 0, presc = 0;
+#if defined(GSYSTEM_TIMER)
+	if (!_get_millis_hw_tim_presc_count(GSYSTEM_TIMER, &presc, &count)) {
+#else
+	if (!_get_millis_hw_tim_presc_count(GSYS_DEFAULT_TIM, &presc, &count)) {
+#endif
+		return 0;
+	}
+	return count;
+}
+
 bool g_sys_tick_start(hard_tim_t* timer)
 {
     if (sys_timer) {
@@ -532,32 +573,10 @@ bool g_sys_tick_start(hard_tim_t* timer)
     	return false;
     }
 
-    uint32_t freq = _get_bus_freq(timer);
-    if (!freq) {
-        BEDUG_ASSERT(false, "System timer frequency errors");
-    	return false;
-    }
-
-    uint32_t ticks_per_ms = freq / 1000;
-    uint32_t count = 1000;
-    while (freq % count) {
-    	count--;
-    }
-    uint32_t presc = freq / count;
-    if (presc - 1 > 0xFFFF) {
-    	presc = 0;
-    	count = 0;
-    	for (uint32_t p = 1; p <= 65536; p++) {
-			if (ticks_per_ms % p == 0) {
-				uint32_t c = ticks_per_ms / p;
-				if (c <= 65536) {
-					presc = p;
-					count = c;
-					break;
-				}
-			}
-		}
-    }
+	uint32_t count = 0, presc = 0;
+	if (!_get_millis_hw_tim_presc_count(timer, &presc, &count)) {
+		return false;
+	}
 
     if (presc == 0 || count == 0) {
 		BEDUG_ASSERT(false, "g_sys_tick_start unable to factorize frequency");
@@ -598,10 +617,11 @@ bool g_hw_timer_start(hard_tim_t* timer, void (*callback) (void), uint32_t presc
     timer->CNT  = 0;
     timer->SR   = 0;
 
-    timer->DIER |= TIM_DIER_UIE;
+    HAL_NVIC_ClearPendingIRQ((IRQn_Type)tims[idx].irq);
     HAL_NVIC_SetPriority((IRQn_Type)tims[idx].irq, prio, 0);
     HAL_NVIC_EnableIRQ((IRQn_Type)tims[idx].irq);
 
+    timer->DIER |= TIM_DIER_UIE;
     timer->CR1 &= ~(TIM_CR1_DIR);
     timer->CR1 |= TIM_CR1_CEN;
 
@@ -610,7 +630,18 @@ bool g_hw_timer_start(hard_tim_t* timer, void (*callback) (void), uint32_t presc
 
 void g_hw_timer_stop(hard_tim_t* timer)
 {
+    int idx = _get_timer_index(timer);
+    if (idx < 0) {
+        BEDUG_ASSERT(false, "Unknown STM32 TIMER");
+        return;
+    }
+
+	HAL_NVIC_DisableIRQ((IRQn_Type)tims[idx].irq);
+
+	timer->DIER &= ~TIM_DIER_UIE;
+
     timer->SR &= ~(TIM_SR_UIF | TIM_SR_CC1IF);
+
     timer->CNT = 0;
     timer->CR1 &= ~(TIM_CR1_CEN);
 
@@ -622,7 +653,7 @@ uint32_t g_get_millis(void)
 #if defined(GSYSTEM_TIMER)
     return sys_time_ms;
 #else
-    return getMillis();
+    return (uint32_t)getMillis();
 #endif
 }
 

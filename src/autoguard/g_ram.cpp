@@ -90,7 +90,7 @@ void make_progress_bar(char *buf, size_t buflen, uint32_t free_bytes, uint32_t t
 	} else if (filled == 0 && free_bytes > 0) {
 		filled = 1;
 	}
-    char s[WIDTH + 3 + 1] = "";
+    char s[WIDTH * 3 + 1] = "";
 	int used = (int)(WIDTH - filled);
     for (int i = 0; i < WIDTH; ++i) {
 		const char* ch = "\xE2\x96\x91"; // '░'

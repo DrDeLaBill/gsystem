@@ -426,6 +426,9 @@ uint32_t get_system_freq(void);
  */
 void system_delay_us(uint64_t us);
 
+void system_set_print_color(const char* color);
+
+void system_print_clear();
 
 void SYSTEM_BEDUG(const char* format, ...);
 

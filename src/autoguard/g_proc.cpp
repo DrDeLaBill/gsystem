@@ -165,9 +165,6 @@ class Scheduler {
 private:
     const uint32_t LOAD_WRN_X100 = 500;
     const uint32_t LOAD_ERR_X100 = 1000;
-    const char* COLOR_DEFAULT    = "\x1b[0m";
-    const char* COLOR_WARN       = "\x1b[33m";
-    const char* COLOR_ERROR      = "\x1b[31m";
 
 	circle_buf_gc_t* const jobs;
 
@@ -190,7 +187,7 @@ private:
     void print_div_line()
     {
 #if defined(GSYSTEM_PROC_PROC_ENABLE)
-        printPretty("+----+------------+----------+---------+---------+---------+------+----------+----------+\n");
+        gprint("+----+------------+----------+---------+---------+---------+------+----------+----------+\n");
 #endif
     }
 
@@ -296,13 +293,13 @@ public:
     void print_status()
     {
 #if defined(GSYSTEM_PROC_PROC_ENABLE)
-        printf("\033[2J\033[H");
+    	system_print_clear();
         SYSTEM_BEDUG("System scheduler info");
 
     #if !defined(GSYSTEM_NO_ADC_W)
         uint32_t voltage = get_system_power_v_x100();
     #endif
-        printPretty(
+        gprint(
             "Build version: v%s | kTPC: %lu.%02lu"
     #if !defined(GSYSTEM_NO_ADC_W)
             "  |  CPU PWR: %lu.%02lu V"
@@ -320,7 +317,7 @@ public:
 
         static const char header[] = "| ID | Period(ms) | Freq(Hz) | Load(%%) | AVG(us) | Max(us) | Prio | Scale(%%) | Realtime |\n";
         print_div_line();
-        printPretty(header);
+        gprint(header);
         print_div_line();
 
         uint32_t total_load_x100 = 0;
@@ -333,31 +330,32 @@ public:
                 scale_x100 += jobs_scale_x100;
             }
 
-            const char* color = COLOR_DEFAULT;
+            const char* color = GSYSTEM_COLOR_DEFAULT;
             if (load_percent_x100 > LOAD_ERR_X100) {
-                color = COLOR_ERROR;
+                color = GSYSTEM_COLOR_ERROR;
             } else if (load_percent_x100 > LOAD_WRN_X100) {
-                color = COLOR_WARN;
+                color = GSYSTEM_COLOR_WARN;
             }
             
-	        gprint("%s", color);
-            printPretty("|");
+            system_set_print_color(color);
+            gprint("|");
             gprint(" %02u |", index);
             gprint(" %10lu |", (job->current_delay_ms > job->orig_delay_ms && !job->realtime) ? job->current_delay_ms : job->orig_delay_ms);
             gprint(" %8lu |", job->last_exec_counter);
             gprint(" %4lu.%02lu |", load_percent_x100 / FIX, __abs(load_percent_x100 % FIX));
             gprint(" %7lu |", job->last_average_us);
-            if (color == COLOR_DEFAULT && load_max_exec_us_x100 > LOAD_WRN_X100) {
-	            gprint("%s", COLOR_WARN);
+            if (!memcmp((void*)color, (void*)GSYSTEM_COLOR_DEFAULT, strlen(GSYSTEM_COLOR_DEFAULT)) && load_max_exec_us_x100 > LOAD_WRN_X100) {
+            	system_set_print_color(GSYSTEM_COLOR_WARN);
             }
             gprint(" %7lu", job->last_max_exec_us);
-            if (color == COLOR_DEFAULT && load_max_exec_us_x100 > LOAD_WRN_X100) {
-	            gprint("%s", COLOR_DEFAULT);
+            if (!memcmp((void*)color, (void*)GSYSTEM_COLOR_DEFAULT, strlen(GSYSTEM_COLOR_DEFAULT)) && load_max_exec_us_x100 > LOAD_WRN_X100) {
+            	system_set_print_color(GSYSTEM_COLOR_DEFAULT);
             }
             gprint(" | %4lu |", job->priority);
             gprint(" %5lu.%02lu |", scale_x100 / FIX, __abs(scale_x100 % FIX));
             gprint(" %8s |", job->realtime ? "YES" : "NO");
-	        gprint("%s\n", COLOR_DEFAULT);
+        	system_set_print_color(GSYSTEM_COLOR_DEFAULT);
+            gprint("\n");
 
             job->last_max_exec_us = job->max_exec_us;
             job->max_exec_us = 0;
@@ -386,21 +384,21 @@ public:
             print_div_line();
         }
 
-        const char* color = COLOR_DEFAULT;
+        const char* color = GSYSTEM_COLOR_DEFAULT;
         if (total_load_x100 > TARGET_CPU_LOAD_X100 + LOAD_WRN_X100) {
-            color = COLOR_ERROR;
+            color = GSYSTEM_COLOR_ERROR;
         } else if (total_load_x100 > TARGET_CPU_LOAD_X100 - LOAD_ERR_X100) {
-            color = COLOR_WARN;
+            color = GSYSTEM_COLOR_WARN;
         }
         uint32_t debug_scale_x100 = jobs_scale_x100 + LOAD_SCALE;
-        gprint("%s", color);
-        printPretty(
+    	system_set_print_color(color);
+        gprint(
             "Total sum load: %ld.%02ld%% | Target load: %ld.%02ld%% | Jobs scale: %ld.%02ld%%\n",
             (uint32_t)(total_load_x100 / 100), (uint32_t)(__abs(total_load_x100 % 100)),
             (uint32_t)(TARGET_CPU_LOAD_X100 / 100), (uint32_t)(__abs(TARGET_CPU_LOAD_X100 % 100)),
             (uint32_t)(debug_scale_x100 / 100), (uint32_t)(__abs(debug_scale_x100 % 100))
         );  
-        gprint("%s", COLOR_DEFAULT);
+        system_set_print_color(GSYSTEM_COLOR_DEFAULT);
 #endif
     }
 

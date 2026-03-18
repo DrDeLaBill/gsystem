@@ -81,12 +81,14 @@ extern "C" {
  * 
  * - `GSYSTEM_NO_STATUS_PRINT` : disable soul.h status-to-string conversion and show functions.
  * - `GSYSTEM_NO_PRINTF`       : disable all printf-style debug output.
+ * - `GSYSTEM_NO_ANSI_CODES`   : disable ANSI color codes and terminal commands in debug output.
  * - `GSYSTEM_NO_CPU_INFO`     : disable CPU information gathering and printout.
  * - `GSYSTEM_NO_PROC_INFO`    : disable process/scheduler information gathering and printout.
  * - `GSYSTEM_NO_BEDUG`        : disable all debug gsystem output.
  */
 // #define GSYSTEM_NO_STATUS_PRINT
 // #define GSYSTEM_NO_PRINTF
+// #define GSYSTEM_NO_ANSI_CODES
 // #define GSYSTEM_NO_CPU_INFO
 // #define GSYSTEM_NO_PROC_INFO
 // #define GSYSTEM_NO_BEDUG

@@ -85,6 +85,16 @@ extern "C" void g_reboot()
     NVIC_SystemReset();
 }
 
+uint32_t g_get_millis_hw_tim_presc()
+{
+    return 4;
+}
+
+uint32_t g_get_millis_hw_tim_count()
+{
+    return 1000;
+}
+
 bool g_sys_tick_start(hard_tim_t* timer)
 {
     if (sys_timer) {
@@ -92,7 +102,7 @@ bool g_sys_tick_start(hard_tim_t* timer)
         return false;
     }
     sys_timer = timer;
-    return g_hw_timer_start(timer, _sys_timer_callback, 4, 1000, 5);
+    return g_hw_timer_start(timer, _sys_timer_callback, g_get_millis_hw_tim_presc(), g_get_millis_hw_tim_count(), 5);
 }
 
 bool g_hw_timer_start(hard_tim_t* timer, void (*callback) (void), uint32_t presc, uint32_t cnt, uint8_t prio)

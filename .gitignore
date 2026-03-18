@@ -33,7 +33,6 @@
 
 # STM32CubeIDE
 *.prefs
-*.project
 
 # Custom
 Debug*
