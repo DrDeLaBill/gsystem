@@ -92,7 +92,18 @@ void make_progress_bar(char *buf, size_t buflen, uint32_t free_bytes, uint32_t t
 	}
     char s[WIDTH * 3 + 1] = "";
 	int used = (int)(WIDTH - filled);
-    for (int i = 0; i < WIDTH; ++i) {
+    
+	for (int i = 0; i < WIDTH; ++i) {
+	#if defined(GSYSTEM_NO_ANSI_CODES)
+		char ch = '_';
+        if (i < used) {
+			ch = '#';
+		}
+        s[i] = ch;
+        if ((int)strlen(s) >= (int)buflen - 1) {
+			break;
+		}
+	#else
 		const char* ch = "\xE2\x96\x91"; // '░'
         if (i < used) {
 			ch = "\xE2\x96\x92"; // '▓'
@@ -101,6 +112,7 @@ void make_progress_bar(char *buf, size_t buflen, uint32_t free_bytes, uint32_t t
         if ((int)strlen(s) >= (int)buflen - 4) {
 			break;
 		}
+	#endif
     }
     strncpy(buf, s, buflen - 1);
     buf[buflen - 1] = '\0';
@@ -123,13 +135,13 @@ void uart_print_ram_report(
     uint32_t used = (total_bytes > free_bytes) ? (total_bytes - free_bytes) : 0;
     uint32_t pct_x10 = (total_bytes == 0) ? 0 : (uint32_t)((uint64_t)free_bytes * 1000ULL / (uint64_t)total_bytes);
 
-    const char *color = "\x1b[32m"; // green
+    const char *color = GSYSTEM_COLOR_SUCCESS; // green
     if (pct_x10 <= threshold_warn_percent * 10 / 2) {
-        color = "\x1b[31m"; // red
+        color = GSYSTEM_COLOR_ERROR; // red
     } else if (pct_x10 <= threshold_warn_percent * 10) {
-        color = "\x1b[33m"; // yellow
+        color = GSYSTEM_COLOR_WARN; // yellow
     }
-	gprint("%s", color);
+	system_set_print_color(color);
     SYSTEM_BEDUG(
 		"[RAM] 0x%08" PRIXPTR "..0x%08" PRIXPTR,
 		(uintptr_t)heap_addr, 
@@ -152,14 +164,19 @@ void uart_print_ram_report(
 
 	char barbuf[128] = "";
 	make_progress_bar(barbuf, sizeof(barbuf), free_bytes, total_bytes);
-	const char *cfree = (pct_x10 <= threshold_warn_percent * 10 / 2) ? "\x1b[31m" : ((pct_x10 <= threshold_warn_percent * 10) ? "\x1b[33m" : "\x1b[32m");
-	SYSTEM_BEDUG(
-		"%s[RAM] %s %sFree: %uB\x1b[0m", 
-		"\x1b[36m",
-		barbuf,
-		cfree,
+	system_set_print_color("\x1b[36m");
+    __g_print_tag(SYSTEM_TAG);
+	gprint(
+		"[RAM] %s ",
+		barbuf
+	);
+	const char *cfree = (pct_x10 <= threshold_warn_percent * 10 / 2) ? GSYSTEM_COLOR_ERROR : ((pct_x10 <= threshold_warn_percent * 10) ? GSYSTEM_COLOR_WARN : GSYSTEM_COLOR_SUCCESS);
+	system_set_print_color(cfree);
+	gprint(
+		"Free: %uB\n",
 		(unsigned)free_bytes
 	);
+	system_set_print_color(GSYSTEM_COLOR_DEFAULT);
 #endif
 }
 

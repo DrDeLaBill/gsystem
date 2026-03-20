@@ -113,11 +113,14 @@ extern const char SYSTEM_TAG[];
 #ifndef GSYSTEM_COLOR_DEFAULT
 	#define GSYSTEM_COLOR_DEFAULT "\x1b[0m"
 #endif
-#ifndef GSYSTEM_COLOR_WARN
-    #define GSYSTEM_COLOR_WARN    "\x1b[33m"
-#endif
 #ifndef GSYSTEM_COLOR_ERROR
     #define GSYSTEM_COLOR_ERROR   "\x1b[31m"
+#endif
+#ifndef GSYSTEM_COLOR_SUCCESS
+    #define GSYSTEM_COLOR_SUCCESS "\x1b[32m"
+#endif
+#ifndef GSYSTEM_COLOR_WARN
+    #define GSYSTEM_COLOR_WARN    "\x1b[33m"
 #endif
 
 // Min gsystem proccesses counter

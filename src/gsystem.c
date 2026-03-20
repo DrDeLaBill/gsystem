@@ -893,14 +893,18 @@ void system_set_print_color(const char* color)
 #if defined(GSYSTEM_NO_ANSI_CODES)
 	(void)color;
 #else
-    gprint("%s", color);
+    if (gsystem_messages_enabled()) {
+    	gprint("%s", color);
+    }
 #endif
 }
 
 void system_print_clear()
 {
 #if !defined(GSYSTEM_NO_ANSI_CODES)
-	gprint("\033[2J\033[H");
+    if (gsystem_messages_enabled()) {
+    	gprint("\033[2J\033[H");
+    }
 #endif
 }
 
