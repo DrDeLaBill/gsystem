@@ -21,7 +21,7 @@ extern "C" {
     #define hard_tim_t       NRF_TIMER_Type
     #define hard_port_t      uint16_t
  
-    #define GSYS_DEFAULT_TIM (NRF_TIMER0)
+    #define GSYS_DEFAULT_TIM (NRF_TIMER1)
 
 
 #endif

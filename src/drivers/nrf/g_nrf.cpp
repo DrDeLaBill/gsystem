@@ -29,7 +29,10 @@
 extern "C" void TIMER##idx##_IRQHandler() { \
     if (reg->EVENTS_COMPARE[0]) { \
         reg->EVENTS_COMPARE[0] = 0; \
-        if (TIM_CALLBACKS[idx]) TIM_CALLBACKS[idx](); \
+        (void)reg->EVENTS_COMPARE[0]; \
+        if (TIM_CALLBACKS[idx]) { \
+            TIM_CALLBACKS[idx](); \
+        } \
     } \
 }
 
@@ -131,9 +134,9 @@ bool g_hw_timer_start(hard_tim_t* timer, void (*callback) (void), uint32_t presc
     timer->CC[0] = cnt;
 
     // Auto compare reset
-    timer->SHORTS = TIMER_SHORTS_COMPARE0_CLEAR_Enabled << TIMER_SHORTS_COMPARE0_CLEAR_Pos;
+    timer->SHORTS = TIMER_SHORTS_COMPARE0_CLEAR_Msk;
     // IRQ
-    timer->INTENSET = TIMER_INTENSET_COMPARE0_Enabled << TIMER_INTENSET_COMPARE0_Pos;
+    timer->INTENSET = TIMER_INTENSET_COMPARE0_Msk;
 
     // Включаем прерывание
     IRQn_Type irq = tim_irqs[idx];

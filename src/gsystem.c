@@ -89,7 +89,6 @@ void system_init(void)
 		memset((void*)&build_ver, 0, sizeof(build_ver));
 	}
 
-	const uint32_t DEFAULT_COUNT = 1000 - 1;
 #ifndef GSYSTEM_NO_SYS_TICK_W
     RCC->CR |= RCC_CR_HSEON;
 
@@ -197,8 +196,7 @@ void system_init(void)
 
     #endif
 
-#endif
-
+	const uint32_t DEFAULT_COUNT = 1000 - 1;
 	system_timer_callback_flag = false;
 	system_hw_timer_start(
 		GSYS_DEFAULT_TIM,
@@ -208,6 +206,8 @@ void system_init(void)
 	);
 	while (!system_timer_callback_flag);
     system_hw_timer_stop(GSYS_DEFAULT_TIM);
+
+#endif
 
     set_status(SYSTEM_HARDWARE_STARTED);
 }
