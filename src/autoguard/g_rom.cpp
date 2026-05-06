@@ -11,7 +11,7 @@
 #   include "glog.h"
 #   include "gsystem.h"
 
-#   include "Timer.h"
+#   include "gtimer.h"
 
 #   if defined(GSYSTEM_FLASH_MODE)
 #       include "w25qxx.h"
@@ -84,8 +84,8 @@ extern "C" void memory_watchdog_check()
 	static const uint32_t TIMEOUT_MS = 15000;
 	static const unsigned ERRORS_MAX = 5;
 
-	static utl::Timer errorTimer(TIMEOUT_MS);
-	static utl::Timer timer(SECOND_MS);
+	static utl::GTimer errorTimer(TIMEOUT_MS);
+	static utl::GTimer timer(SECOND_MS);
 	static uint8_t errors = 0;
 	static bool timerStarted = false;
 

@@ -14,7 +14,7 @@
 #include "fsm_gc.h"
 #include "gsystem.h"
 
-#include "Timer.h"
+#include "gtimer.h"
 #include "SettingsDB.h"
 #include "CodeStopwatch.h"
 
@@ -40,7 +40,7 @@ static const char TAG[] = "STGw";
 
 
 static unsigned old_hash = 0;
-static utl::Timer saveTimer(SAVE_DELAY_MS);
+static utl::GTimer saveTimer(SAVE_DELAY_MS);
 
 
 FSM_GC_CREATE(stng_fsm)

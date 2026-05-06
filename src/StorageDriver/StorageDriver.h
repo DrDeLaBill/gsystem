@@ -12,7 +12,7 @@
 
 #include <stdint.h>
 
-#include "Timer.h"
+#include "gtimer.h"
 #include "StorageAT.h"
 
 #ifdef GSYSTEM_EEPROM_MODE
@@ -37,7 +37,7 @@ private:
 	static constexpr char TAG[] = "DRVR";
 
 	static bool hasError;
-	static utl::Timer timer;
+	static utl::GTimer timer;
 
 #if STORAGE_DRIVER_USE_BUFFER
     static bool     hasBuffer;

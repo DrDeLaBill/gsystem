@@ -17,7 +17,7 @@
 #include "gconfig.h"
 #include "gdefines.h"
 
-#include "Timer.h"
+#include "gtimer.h"
 #include "gsystem.h"
 
 
@@ -326,7 +326,7 @@ extern "C" void g_uart_print(const char* data, const uint16_t len)
 
 extern "C" void g_delay_ms(const uint32_t ms)
 {
-    utl::Timer timer(ms);
+    utl::GTimer timer(ms);
     timer.start();
     while (timer.wait());
 }

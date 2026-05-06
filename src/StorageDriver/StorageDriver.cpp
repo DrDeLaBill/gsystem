@@ -21,7 +21,7 @@
 
 
 bool StorageDriver::hasError = false;
-utl::Timer StorageDriver::timer(ERROR_TIMEOUT_MS);
+utl::GTimer StorageDriver::timer(ERROR_TIMEOUT_MS);
 
 #if STORAGE_DRIVER_USE_BUFFER
 

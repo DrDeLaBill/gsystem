@@ -21,7 +21,7 @@
 #include "g_settings.h"
 #include "circle_buf_gc.h"
 
-#include "Timer.h"
+#include "gtimer.h"
 #include "TypeListService.h"
 
 
@@ -172,9 +172,9 @@ private:
     uint32_t   last_recompute_ms;
     uint32_t   last_scale_x100;
 
-    utl::Timer err_timer;
+    utl::GTimer err_timer;
 
-    utl::Timer TPC_timer;
+    utl::GTimer TPC_timer;
     uint32_t   TPC_counter;
     uint32_t   last_TPC_counter;
 
@@ -488,7 +488,7 @@ public:
 
     void error_check()
     {
-        static utl::Timer check_delay(SECOND_MS);
+        static utl::GTimer check_delay(SECOND_MS);
         static bool initialized = false;
 
         if (check_delay.wait()) {
